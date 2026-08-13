@@ -143,7 +143,10 @@ export function AgentsView() {
         open={selectedAgent !== undefined}
         onOpenChange={() => setSelected(null)}
       >
-        <DialogContent className="sm:max-w-lg glass-strong border-purple-500/20 max-h-[85vh] overflow-y-auto">
+        <DialogContent
+          className="sm:max-w-lg glass-strong border-purple-500/20 max-h-[85vh] overflow-y-auto"
+          aria-describedby="agent-profile-desc"
+        >
           {selectedAgent && (
             <>
               <DialogHeader>
@@ -167,6 +170,9 @@ export function AgentsView() {
                     </Badge>
                   </div>
                 </div>
+                <p id="agent-profile-desc" className="sr-only">
+                  Profile of {selectedAgent.name}, {selectedAgent.role}
+                </p>
               </DialogHeader>
 
               <div className="space-y-4 mt-4">

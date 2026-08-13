@@ -94,7 +94,10 @@ export function AuthModal() {
 
   return (
     <Dialog open={authModal !== null} onOpenChange={() => close()}>
-      <DialogContent className="sm:max-w-md glass-strong border-purple-500/20">
+      <DialogContent
+        className="sm:max-w-md glass-strong border-purple-500/20"
+        aria-describedby="auth-modal-desc"
+      >
         <DialogHeader>
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 glow-sm">
             <Sparkles className="h-6 w-6 text-white" />
@@ -102,6 +105,11 @@ export function AuthModal() {
           <DialogTitle className="text-center text-xl font-bold">
             {authModal === "login" ? "Welcome back" : "Start building with Mianx.ai"}
           </DialogTitle>
+          <p id="auth-modal-desc" className="sr-only">
+            {authModal === "login"
+              ? "Sign in to your Mianx.ai account"
+              : "Create a new Mianx.ai account"}
+          </p>
         </DialogHeader>
 
         <Tabs defaultValue={authModal || "login"} className="w-full">
