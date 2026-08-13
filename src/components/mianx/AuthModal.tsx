@@ -65,7 +65,15 @@ export function AuthModal() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Signup failed");
+        // Show full error message — it includes DB connection help if needed
+        const errorMsg = data.error || "Signup failed";
+        toast.error(errorMsg, {
+          duration: 8000,
+          description: data.code === "DB_CONNECTION_FAILED"
+            ? "Visit /api/health to debug"
+            : undefined,
+        });
+        console.error("[signup] failed:", data);
         return;
       }
 
