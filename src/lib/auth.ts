@@ -18,6 +18,33 @@ function getAppUrl(): string {
   return "http://localhost:3000";
 }
 
+// Augment NextAuth types to include `role` on User and Session
+declare module "next-auth" {
+  interface User {
+    id: string;
+    email: string;
+    name?: string | null;
+    role?: string;
+  }
+  interface Session {
+    user: {
+      id: string;
+      email: string;
+      name?: string | null;
+      role: string;
+    };
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role?: string;
+    email?: string;
+    name?: string | null;
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -60,17 +87,50 @@ export const authOptions: NextAuthOptions = {
     signIn: "/",
   },
   callbacks: {
+    // JWT callback — runs on every session check.
+    // IMPORTANT: We re-fetch the user's role from DB on each call so that
+    // if the role changes (e.g., CLIENT → ADMIN via SQL), the session
+    // immediately reflects the new role without requiring logout/login.
     async jwt({ token, user }) {
+      // Initial sign-in: store user info in token
       if (user) {
         token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
         token.role = (user as { role: string }).role;
+        return token;
       }
+
+      // Subsequent calls (token already exists): refresh role from DB
+      // This ensures role changes in DB are reflected without re-login
+      if (token.id) {
+        try {
+          const dbUser = await db.user.findUnique({
+            where: { id: token.id },
+            select: { role: true, name: true, email: true },
+          });
+
+          if (dbUser) {
+            // Always use the latest role from database
+            token.role = dbUser.role;
+            token.name = dbUser.name;
+            token.email = dbUser.email;
+          }
+        } catch (error) {
+          console.error("[auth] jwt refresh error:", error);
+          // If DB fails, keep existing token (don't break auth)
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as string;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string | null;
+        // Use the refreshed role from the jwt callback
+        session.user.role = (token.role as string) || "CLIENT";
       }
       return session;
     },
