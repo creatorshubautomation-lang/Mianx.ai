@@ -1,13 +1,12 @@
-// Mianx.ai — Prisma schema (SQLite for local dev)
-// For Vercel/Postgres deployment, copy prisma/schema.postgres.prisma
-// over this file before building.
+// Mianx.ai — Prisma schema (PostgreSQL for production + Vercel)
+// For local SQLite dev, see prisma/schema.sqlite.prisma
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

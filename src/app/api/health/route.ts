@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 export async function GET() {
   const checks: {
     name: string;
-    status: "ok" | "fail";
+    status: "ok" | "fail" | "warn" | "pending";
     details?: string;
   }[] = [];
 
@@ -25,8 +25,10 @@ export async function GET() {
 
   checks.push({
     name: "NEXTAUTH_SECRET env var",
-    status: process.env.NEXTAUTH_SECRET ? "ok" : "fail",
-    details: process.env.NEXTAUTH_SECRET ? "set" : "not set",
+    status: process.env.NEXTAUTH_SECRET ? "ok" : "warn",
+    details: process.env.NEXTAUTH_SECRET
+      ? "set"
+      : "not set (using fallback — works but should be set in production)",
   });
 
   // 2. Test database connection
