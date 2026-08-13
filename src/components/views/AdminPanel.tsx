@@ -63,15 +63,29 @@ export function AdminPanel() {
   const { setView, setSelectedProject } = useApp();
   const [data, setData] = useState<AdminData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.stats) setData(data);
+      .then(async (r) => {
+        const json = await r.json();
+        if (!r.ok) {
+          setError(
+            json.error ||
+              json.details ||
+              `Failed to load admin data (status ${r.status})`,
+          );
+          console.error("[admin] API error:", r.status, json);
+          setLoading(false);
+          return;
+        }
+        if (json.stats) setData(json);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((e) => {
+        setError(e.message || "Network error");
+        setLoading(false);
+      });
   }, []);
 
   if (loading) {
@@ -82,11 +96,22 @@ export function AdminPanel() {
     );
   }
 
-  if (!data) {
+  if (error || !data) {
     return (
-      <div className="text-center py-20">
+      <div className="text-center py-20 max-w-md mx-auto">
         <Shield className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-        <p className="text-muted-foreground">Admin access required.</p>
+        <p className="text-muted-foreground mb-2">Admin access required.</p>
+        {error && (
+          <div className="mt-3 p-3 rounded-md glass text-xs text-left">
+            <p className="font-semibold text-red-400 mb-1">Error details:</p>
+            <p className="text-muted-foreground break-words">{error}</p>
+            <p className="mt-3 text-muted-foreground">
+              Try: Logout → clear cookies → login again. If still failing,
+              visit <code className="text-purple-300">/api/session</code> to
+              see your current role.
+            </p>
+          </div>
+        )}
       </div>
     );
   }
