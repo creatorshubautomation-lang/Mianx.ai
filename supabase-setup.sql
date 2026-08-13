@@ -167,6 +167,56 @@ ALTER TABLE "Activity" ADD CONSTRAINT "Activity_projectId_fkey" FOREIGN KEY ("pr
 ALTER TABLE "Activity" ADD CONSTRAINT "Activity_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- ============================================================
+-- AI PROVIDER TABLES (for multi-provider tracking)
+-- ============================================================
+
+CREATE TABLE "AiProviderUsage" (
+    "id" TEXT NOT NULL,
+    "provider" TEXT NOT NULL,
+    "endpoint" TEXT NOT NULL,
+    "agentName" TEXT,
+    "projectId" TEXT,
+    "userId" TEXT,
+    "inputTokens" INTEGER NOT NULL DEFAULT 0,
+    "outputTokens" INTEGER NOT NULL DEFAULT 0,
+    "totalTokens" INTEGER NOT NULL DEFAULT 0,
+    "costUsd" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "status" TEXT NOT NULL DEFAULT 'success',
+    "errorMessage" TEXT,
+    "responseTimeMs" INTEGER,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "AiProviderUsage_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE "AiProviderConfig" (
+    "id" TEXT NOT NULL,
+    "provider" TEXT NOT NULL,
+    "displayName" TEXT NOT NULL,
+    "enabled" BOOLEAN NOT NULL DEFAULT true,
+    "priority" INTEGER NOT NULL DEFAULT 0,
+    "envKeyName" TEXT NOT NULL,
+    "freeLimitUsd" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "usedUsd" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "models" TEXT NOT NULL DEFAULT '[]',
+    "lastResetAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "AiProviderConfig_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "AiProviderConfig_provider_key" ON "AiProviderConfig"("provider");
+CREATE INDEX "AiProviderUsage_provider_createdAt_idx" ON "AiProviderUsage"("provider", "createdAt");
+CREATE INDEX "AiProviderUsage_projectId_idx" ON "AiProviderUsage"("projectId");
+
+-- Seed default provider configs
+INSERT INTO "AiProviderConfig" ("id", "provider", "displayName", "enabled", "priority", "envKeyName", "freeLimitUsd", "usedUsd", "models", "lastResetAt", "createdAt", "updatedAt") VALUES
+('cfg_zai', 'zai', 'Z.ai (GLM)', true, 1, 'ZAI_API_KEY', 18, 0, '["glm-4-flash"]', NOW(), NOW(), NOW()),
+('cfg_gemini', 'gemini', 'Google Gemini', true, 2, 'GEMINI_API_KEY', 50, 0, '["gemini-1.5-flash"]', NOW(), NOW(), NOW()),
+('cfg_groq', 'groq', 'Groq (Fast)', true, 3, 'GROQ_API_KEY', 20, 0, '["llama-3.1-8b-instant"]', NOW(), NOW(), NOW()),
+('cfg_openai', 'openai', 'OpenAI (GPT)', true, 4, 'OPENAI_API_KEY', 5, 0, '["gpt-4o-mini"]', NOW(), NOW(), NOW()),
+('cfg_anthropic', 'anthropic', 'Anthropic (Claude)', true, 5, 'ANTHROPIC_API_KEY', 5, 0, '["claude-3-haiku-20240307"]', NOW(), NOW(), NOW());
+
+-- ============================================================
 -- SEED: Insert all 24 AI agents
 -- ============================================================
 
