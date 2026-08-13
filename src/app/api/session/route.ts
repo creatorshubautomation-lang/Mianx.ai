@@ -11,23 +11,61 @@ export async function GET() {
     return NextResponse.json({ user: null });
   }
 
-  const user = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      company: true,
-      phone: true,
-      avatarUrl: true,
-      preferredLang: true,
-      plan: true,
-      createdAt: true,
-    },
-  });
+  try {
+    const user = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        company: true,
+        phone: true,
+        avatarUrl: true,
+        preferredLang: true,
+        plan: true,
+        createdAt: true,
+      },
+    });
 
-  return NextResponse.json({ user });
+    if (!user) {
+      // Session exists but user not in DB — return minimal info from session
+      return NextResponse.json({
+        user: {
+          id: session.user.id,
+          email: session.user.email,
+          name: session.user.name,
+          role: session.user.role || "CLIENT",
+          company: null,
+          phone: null,
+          avatarUrl: null,
+          preferredLang: "en",
+          plan: "FREE",
+          createdAt: new Date().toISOString(),
+        },
+      });
+    }
+
+    return NextResponse.json({ user });
+  } catch (e) {
+    console.error("[session/get] error:", e);
+    // Return session info even if DB fails (so UI doesn't break)
+    return NextResponse.json({
+      user: {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        role: session.user.role || "CLIENT",
+        company: null,
+        phone: null,
+        avatarUrl: null,
+        preferredLang: "en",
+        plan: "FREE",
+        createdAt: new Date().toISOString(),
+      },
+      warning: "Database query failed, showing session info only",
+    });
+  }
 }
 
 // PATCH /api/session — update profile
@@ -65,7 +103,10 @@ export async function PATCH(req: Request) {
   } catch (e) {
     console.error("[session/update] error:", e);
     return NextResponse.json(
-      { error: "Failed to update profile" },
+      {
+        error: "Failed to update profile",
+        details: e instanceof Error ? e.message : String(e),
+      },
       { status: 500 },
     );
   }

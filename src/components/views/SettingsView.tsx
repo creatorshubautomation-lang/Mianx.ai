@@ -53,8 +53,8 @@ export function SettingsView() {
 
   useEffect(() => {
     fetch("/api/session")
-      .then((r) => r.json())
-      .then((data) => {
+      .then(async (r) => {
+        const data = await r.json();
         if (data.user) {
           setUser(data.user);
           setForm({
@@ -63,10 +63,18 @@ export function SettingsView() {
             phone: data.user.phone || "",
             preferredLang: data.user.preferredLang || "en",
           });
+          if (data.warning) {
+            console.warn("[settings] DB warning:", data.warning);
+          }
+        } else {
+          console.error("[settings] no user in response:", data);
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((e) => {
+        console.error("[settings] fetch error:", e);
+        setLoading(false);
+      });
   }, []);
 
   const handleSave = async () => {
