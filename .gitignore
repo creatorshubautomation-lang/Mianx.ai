@@ -68,6 +68,8 @@ server.log
 /mini-services/
 # Env
 .env
+.env.*
+!.env.example
 # Caddy config
 Caddyfile
 # Bun lock (keep for reproducibility)
