@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AgentAvatar } from "../mianx/AgentAvatar";
+import { AiProviderDashboard } from "../mianx/AiProviderDashboard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users,
   FolderKanban,
@@ -16,6 +18,7 @@ import {
   TrendingUp,
   Activity,
   Shield,
+  Cpu,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -199,22 +202,36 @@ export function AdminPanel() {
         </div>
       </Card>
 
-      {/* Two columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent clients */}
-        <Card className="glass border-purple-500/10 p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="h-4 w-4 text-purple-400" />
-            <h3 className="font-semibold">Recent Clients</h3>
-          </div>
-          {data.recentClients.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              No clients yet.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {data.recentClients.map((c) => (
-                <div
+      {/* Tabs: Overview | AI Providers */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 glass">
+          <TabsTrigger value="overview" className="text-sm">
+            <Activity className="h-4 w-4 mr-2" />
+            Platform Overview
+          </TabsTrigger>
+          <TabsTrigger value="ai" className="text-sm">
+            <Cpu className="h-4 w-4 mr-2" />
+            AI Providers
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-6">
+          {/* Two columns */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Recent clients */}
+            <Card className="glass border-purple-500/10 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="h-4 w-4 text-purple-400" />
+                <h3 className="font-semibold">Recent Clients</h3>
+              </div>
+              {data.recentClients.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  No clients yet.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {data.recentClients.map((c) => (
+                    <div
                   key={c.id}
                   className="flex items-center gap-3 glass rounded-lg p-3"
                 >
@@ -353,6 +370,13 @@ export function AdminPanel() {
           })}
         </div>
       </Card>
+        </TabsContent>
+
+        {/* AI Providers Tab */}
+        <TabsContent value="ai" className="mt-6">
+          <AiProviderDashboard />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

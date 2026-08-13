@@ -202,3 +202,46 @@ model Activity {
 
   @@index([projectId])
 }
+
+// ─────────────────────────────────────────────
+//  AI PROVIDER USAGE (track API calls + costs)
+// ─────────────────────────────────────────────
+
+model AiProviderUsage {
+  id            String   @id @default(cuid())
+  provider      String   // zai | gemini | groq | openai | anthropic | cloudflare
+  endpoint      String   // chat | analyze | deliverable
+  agentName     String?
+  projectId     String?
+  userId        String?
+  inputTokens   Int      @default(0)
+  outputTokens  Int      @default(0)
+  totalTokens   Int      @default(0)
+  costUsd       Float    @default(0)
+  status        String   @default("success") // success | failed | rate_limited | quota_exceeded
+  errorMessage  String?
+  responseTimeMs Int?
+  createdAt     DateTime @default(now())
+
+  @@index([provider, createdAt])
+  @@index([projectId])
+}
+
+// ─────────────────────────────────────────────
+//  AI PROVIDER CONFIG (dynamic provider settings)
+// ─────────────────────────────────────────────
+
+model AiProviderConfig {
+  id              String   @id @default(cuid())
+  provider        String   @unique
+  displayName     String
+  enabled         Boolean  @default(true)
+  priority        Int      @default(0)
+  envKeyName      String
+  freeLimitUsd    Float    @default(0)
+  usedUsd         Float    @default(0)
+  models          String   @default("[]")
+  lastResetAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
