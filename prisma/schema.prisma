@@ -1,5 +1,6 @@
-// Mianx.ai — Agentic Software House Platform
-// Prisma schema for full SaaS: clients, projects, agents, chat, deliverables, subscriptions
+// Mianx.ai — Prisma schema (SQLite for local dev)
+// For Vercel/Postgres deployment, copy prisma/schema.postgres.prisma
+// over this file before building.
 
 generator client {
   provider = "prisma-client-js"
@@ -23,7 +24,7 @@ model User {
   company       String?
   phone         String?
   avatarUrl     String?
-  preferredLang String    @default("en") // en | ur | roman
+  preferredLang String    @default("en")
   plan          PlanTier  @default(FREE)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -47,20 +48,16 @@ enum PlanTier {
   ENTERPRISE
 }
 
-// ─────────────────────────────────────────────
-//  AGENT TEAMS (catalog of agent types)
-// ─────────────────────────────────────────────
-
 model Agent {
   id          String        @id @default(cuid())
   team        AgentTeam
   name        String
   role        String
   description String
-  capabilities String       // JSON string of capabilities array
-  icon        String        // lucide icon name
-  color       String        // gradient color theme
-  systemPrompt String       // system prompt for LLM
+  capabilities String
+  icon        String
+  color       String
+  systemPrompt String
   createdAt   DateTime      @default(now())
 
   assignments ProjectAgent[]
@@ -78,22 +75,18 @@ enum AgentTeam {
   SUPPORT
 }
 
-// ─────────────────────────────────────────────
-//  PROJECTS (client work)
-// ─────────────────────────────────────────────
-
 model Project {
   id          String         @id @default(cuid())
   clientId    String
   title       String
   description String
-  projectType String         // web | mobile | branding | content | marketing | full_stack
-  requirements String        // JSON string of requirements
+  projectType String
+  requirements String
   status      ProjectStatus  @default(BRIEFING)
-  priority    String         @default("normal") // low | normal | high | urgent
+  priority    String         @default("normal")
   budget      Float?
   deadline    DateTime?
-  progress    Int            @default(0) // 0-100
+  progress    Int            @default(0)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -122,7 +115,7 @@ model ProjectAgent {
   id        String   @id @default(cuid())
   projectId String
   agentId   String
-  status    String   @default("assigned") // assigned | working | waiting | done | paused
+  status    String   @default("assigned")
   progress  Int      @default(0)
   joinedAt  DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -133,17 +126,13 @@ model ProjectAgent {
   @@unique([projectId, agentId])
 }
 
-// ─────────────────────────────────────────────
-//  TASKS (per project, assigned to agents)
-// ─────────────────────────────────────────────
-
 model Task {
   id          String   @id @default(cuid())
   projectId   String
   assignedAgentId String?
   title       String
   description String?
-  status      String   @default("todo") // todo | in_progress | review | done | blocked
+  status      String   @default("todo")
   order       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -151,18 +140,14 @@ model Task {
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
-// ─────────────────────────────────────────────
-//  CHAT (between client and agents)
-// ─────────────────────────────────────────────
-
 model Message {
   id        String   @id @default(cuid())
   projectId String?
-  userId    String?  // null if from agent
-  agentId   String?  // null if from user
-  role      String   // user | agent | system
+  userId    String?
+  agentId   String?
+  role      String
   content   String
-  meta      String?  // JSON metadata
+  meta      String?
   createdAt DateTime @default(now())
 
   project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -172,18 +157,14 @@ model Message {
   @@index([projectId])
 }
 
-// ─────────────────────────────────────────────
-//  DELIVERABLES (files / outputs)
-// ─────────────────────────────────────────────
-
 model Deliverable {
   id         String   @id @default(cuid())
   projectId  String
   uploadedBy String
   title      String
   description String?
-  fileType   String   // code | document | design | report | archive
-  content    String   // text content (for code/doc deliverables)
+  fileType   String
+  content    String
   fileName   String?
   fileSize   Int?
   createdAt  DateTime @default(now())
@@ -194,15 +175,11 @@ model Deliverable {
   @@index([projectId])
 }
 
-// ─────────────────────────────────────────────
-//  SUBSCRIPTIONS / PRICING
-// ─────────────────────────────────────────────
-
 model Subscription {
   id        String   @id @default(cuid())
   userId    String
   plan      PlanTier
-  status    String   @default("active") // active | cancelled | expired | past_due
+  status    String   @default("active")
   startDate DateTime @default(now())
   endDate   DateTime?
   amount    Float
@@ -212,10 +189,6 @@ model Subscription {
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
-// ─────────────────────────────────────────────
-//  ACTIVITY LOG (audit trail)
-// ─────────────────────────────────────────────
 
 model Activity {
   id        String   @id @default(cuid())
