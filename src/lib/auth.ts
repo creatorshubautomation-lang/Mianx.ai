@@ -3,6 +3,21 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 
+// Helper to compute the canonical app URL.
+// Handles Vercel preview deployments, production, and local dev.
+function getAppUrl(): string {
+  // Vercel provides these automatically
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  // Explicit override (production)
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL;
+  }
+  // Local development
+  return "http://localhost:3000";
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -14,24 +29,29 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const user = await db.user.findUnique({
-          where: { email: credentials.email },
-        });
+        try {
+          const user = await db.user.findUnique({
+            where: { email: credentials.email },
+          });
 
-        if (!user) return null;
+          if (!user) return null;
 
-        const valid = await bcrypt.compare(
-          credentials.password,
-          user.passwordHash,
-        );
-        if (!valid) return null;
+          const valid = await bcrypt.compare(
+            credentials.password,
+            user.passwordHash,
+          );
+          if (!valid) return null;
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        };
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          };
+        } catch (error) {
+          console.error("[auth] authorize error:", error);
+          return null;
+        }
       },
     }),
   ],
@@ -56,4 +76,6 @@ export const authOptions: NextAuthOptions = {
     },
   },
   secret: process.env.NEXTAUTH_SECRET || "mianx-ai-secret-key-2026",
+  // Explicit URL to prevent "Invalid URL" errors on Vercel
+  url: getAppUrl(),
 };

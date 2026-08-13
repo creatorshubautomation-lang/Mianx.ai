@@ -1,18 +1,15 @@
 import type { NextConfig } from "next";
 
+// Next.js config tuned for Vercel deployment.
+// - Removed `output: "standalone"` (Vercel handles bundling itself; standalone
+//   is for Docker / bare-metal Node servers).
+// - Kept `typescript.ignoreBuildErrors` because we use strict TS but want
+//   builds to succeed even if there are minor type issues in shadcn/ui.
 const nextConfig: NextConfig = {
-  output: "standalone",
   typescript: {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
-  // Allow preview domains to access the dev server without cross-origin warnings
-  allowedDevOrigins: [
-    "*.space-z.ai",
-    "*.z.ai",
-    "localhost",
-    "127.0.0.1",
-  ],
 };
 
 export default nextConfig;

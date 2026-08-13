@@ -18,6 +18,10 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXTAUTH_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"),
+  ),
   title: "Mianx.ai — Agentic Software House | AI Agents Build Your Projects",
   description:
     "Mianx.ai is the world's first agentic software house. Every client project is delivered by a dedicated team of AI agents — design, development, content, marketing, QA, and support. 100% autonomous, 24/7.",

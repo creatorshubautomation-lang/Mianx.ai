@@ -1,0 +1,232 @@
+// Mianx.ai — Agentic Software House Platform
+// Prisma schema for full SaaS: clients, projects, agents, chat, deliverables, subscriptions
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+//  USERS & AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  passwordHash  String
+  role          UserRole  @default(CLIENT)
+  company       String?
+  phone         String?
+  avatarUrl     String?
+  preferredLang String    @default("en") // en | ur | roman
+  plan          PlanTier  @default(FREE)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  projects      Project[]
+  messages      Message[]
+  deliverables  Deliverable[]
+  subscriptions Subscription[]
+  activities    Activity[]
+}
+
+enum UserRole {
+  CLIENT
+  ADMIN
+}
+
+enum PlanTier {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+// ─────────────────────────────────────────────
+//  AGENT TEAMS (catalog of agent types)
+// ─────────────────────────────────────────────
+
+model Agent {
+  id          String        @id @default(cuid())
+  team        AgentTeam
+  name        String
+  role        String
+  description String
+  capabilities String       // JSON string of capabilities array
+  icon        String        // lucide icon name
+  color       String        // gradient color theme
+  systemPrompt String       // system prompt for LLM
+  createdAt   DateTime      @default(now())
+
+  assignments ProjectAgent[]
+  messages    Message[]
+
+  @@unique([team, name])
+}
+
+enum AgentTeam {
+  DESIGN
+  DEVELOPMENT
+  CONTENT
+  MARKETING
+  QA
+  SUPPORT
+}
+
+// ─────────────────────────────────────────────
+//  PROJECTS (client work)
+// ─────────────────────────────────────────────
+
+model Project {
+  id          String         @id @default(cuid())
+  clientId    String
+  title       String
+  description String
+  projectType String         // web | mobile | branding | content | marketing | full_stack
+  requirements String        // JSON string of requirements
+  status      ProjectStatus  @default(BRIEFING)
+  priority    String         @default("normal") // low | normal | high | urgent
+  budget      Float?
+  deadline    DateTime?
+  progress    Int            @default(0) // 0-100
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  client      User           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agents      ProjectAgent[]
+  tasks       Task[]
+  messages    Message[]
+  deliverables Deliverable[]
+  activities  Activity[]
+
+  @@index([clientId])
+}
+
+enum ProjectStatus {
+  BRIEFING
+  PLANNING
+  IN_PROGRESS
+  REVIEW
+  DELIVERED
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+model ProjectAgent {
+  id        String   @id @default(cuid())
+  projectId String
+  agentId   String
+  status    String   @default("assigned") // assigned | working | waiting | done | paused
+  progress  Int      @default(0)
+  joinedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  agent     Agent    @relation(fields: [agentId], references: [id])
+
+  @@unique([projectId, agentId])
+}
+
+// ─────────────────────────────────────────────
+//  TASKS (per project, assigned to agents)
+// ─────────────────────────────────────────────
+
+model Task {
+  id          String   @id @default(cuid())
+  projectId   String
+  assignedAgentId String?
+  title       String
+  description String?
+  status      String   @default("todo") // todo | in_progress | review | done | blocked
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+//  CHAT (between client and agents)
+// ─────────────────────────────────────────────
+
+model Message {
+  id        String   @id @default(cuid())
+  projectId String?
+  userId    String?  // null if from agent
+  agentId   String?  // null if from user
+  role      String   // user | agent | system
+  content   String
+  meta      String?  // JSON metadata
+  createdAt DateTime @default(now())
+
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  agent     Agent?   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+}
+
+// ─────────────────────────────────────────────
+//  DELIVERABLES (files / outputs)
+// ─────────────────────────────────────────────
+
+model Deliverable {
+  id         String   @id @default(cuid())
+  projectId  String
+  uploadedBy String
+  title      String
+  description String?
+  fileType   String   // code | document | design | report | archive
+  content    String   // text content (for code/doc deliverables)
+  fileName   String?
+  fileSize   Int?
+  createdAt  DateTime @default(now())
+
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader   User     @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+// ─────────────────────────────────────────────
+//  SUBSCRIPTIONS / PRICING
+// ─────────────────────────────────────────────
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  plan      PlanTier
+  status    String   @default("active") // active | cancelled | expired | past_due
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  amount    Float
+  currency  String   @default("USD")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────
+//  ACTIVITY LOG (audit trail)
+// ─────────────────────────────────────────────
+
+model Activity {
+  id        String   @id @default(cuid())
+  projectId String?
+  userId    String?
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+}
