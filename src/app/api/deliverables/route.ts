@@ -11,39 +11,50 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const url = new URL(req.url);
-  const projectId = url.searchParams.get("projectId");
+  try {
+    const url = new URL(req.url);
+    const projectId = url.searchParams.get("projectId");
 
-  if (!projectId) {
+    if (!projectId) {
+      return NextResponse.json(
+        { error: "projectId is required" },
+        { status: 400 },
+      );
+    }
+
+    const project = await db.project.findUnique({
+      where: { id: projectId },
+      select: { clientId: true },
+    });
+
+    if (!project) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    if (
+      project.clientId !== session.user.id &&
+      session.user.role !== "ADMIN"
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const deliverables = await db.deliverable.findMany({
+      where: { projectId },
+      include: { uploader: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json({ deliverables });
+  } catch (e) {
+    console.error("[deliverables/get] error:", e);
     return NextResponse.json(
-      { error: "projectId is required" },
-      { status: 400 },
+      {
+        error: "Failed to fetch deliverables",
+        details: e instanceof Error ? e.message : String(e),
+      },
+      { status: 500 },
     );
   }
-
-  const project = await db.project.findUnique({
-    where: { id: projectId },
-    select: { clientId: true },
-  });
-
-  if (!project) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  if (
-    project.clientId !== session.user.id &&
-    session.user.role !== "ADMIN"
-  ) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const deliverables = await db.deliverable.findMany({
-    where: { projectId },
-    include: { uploader: true },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return NextResponse.json({ deliverables });
 }
 
 // POST /api/deliverables — request a new deliverable (AI-generated)

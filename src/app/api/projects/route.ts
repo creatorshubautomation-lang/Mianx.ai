@@ -10,62 +10,73 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const url = new URL(req.url);
-  const id = url.searchParams.get("id");
+  try {
+    const url = new URL(req.url);
+    const id = url.searchParams.get("id");
 
-  if (id) {
-    const project = await db.project.findUnique({
-      where: { id },
+    if (id) {
+      const project = await db.project.findUnique({
+        where: { id },
+        include: {
+          agents: { include: { agent: true } },
+          tasks: { orderBy: { order: "asc" } },
+          messages: {
+            include: { user: true, agent: true },
+            orderBy: { createdAt: "asc" },
+          },
+          deliverables: {
+            include: { uploader: true },
+            orderBy: { createdAt: "desc" },
+          },
+          activities: { orderBy: { createdAt: "desc" }, take: 20 },
+          client: true,
+        },
+      });
+
+      if (!project) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+
+      // Admin can see any project; clients only their own
+      if (
+        project.clientId !== session.user.id &&
+        session.user.role !== "ADMIN"
+      ) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      return NextResponse.json({ project });
+    }
+
+    // List view
+    const where =
+      session.user.role === "ADMIN"
+        ? {}
+        : { clientId: session.user.id };
+
+    const projects = await db.project.findMany({
+      where,
       include: {
         agents: { include: { agent: true } },
-        tasks: { orderBy: { order: "asc" } },
-        messages: {
-          include: { user: true, agent: true },
-          orderBy: { createdAt: "asc" },
-        },
-        deliverables: {
-          include: { uploader: true },
-          orderBy: { createdAt: "desc" },
-        },
-        activities: { orderBy: { createdAt: "desc" }, take: 20 },
         client: true,
+        _count: {
+          select: { tasks: true, messages: true, deliverables: true },
+        },
       },
+      orderBy: { updatedAt: "desc" },
     });
 
-    if (!project) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    // Admin can see any project; clients only their own
-    if (
-      project.clientId !== session.user.id &&
-      session.user.role !== "ADMIN"
-    ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.json({ project });
-  }
-
-  // List view
-  const where =
-    session.user.role === "ADMIN"
-      ? {}
-      : { clientId: session.user.id };
-
-  const projects = await db.project.findMany({
-    where,
-    include: {
-      agents: { include: { agent: true } },
-      client: true,
-      _count: {
-        select: { tasks: true, messages: true, deliverables: true },
+    return NextResponse.json({ projects });
+  } catch (e) {
+    console.error("[projects/get] error:", e);
+    return NextResponse.json(
+      {
+        error: "Failed to fetch projects",
+        details: e instanceof Error ? e.message : String(e),
       },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  return NextResponse.json({ projects });
+      { status: 500 },
+    );
+  }
 }
 
 // POST /api/projects — create a new project
