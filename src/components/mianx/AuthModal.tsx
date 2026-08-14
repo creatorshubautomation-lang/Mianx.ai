@@ -15,10 +15,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { signIn } from "next-auth/react";
 import { Loader2, Sparkles, Mail, Lock, User, Building2 } from "lucide-react";
+import { ForgotPasswordModal } from "./ForgotPasswordModal";
 
 export function AuthModal() {
   const { authModal, setAuthModal, setView } = useApp();
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // form state
   const [email, setEmail] = useState("");
@@ -101,6 +103,7 @@ export function AuthModal() {
   };
 
   return (
+    <>
     <Dialog open={authModal !== null} onOpenChange={() => close()}>
       <DialogContent
         className="sm:max-w-md glass-strong border-purple-500/20"
@@ -145,7 +148,16 @@ export function AuthModal() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="login-password">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="login-password">Password</Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="text-xs text-purple-300 hover:text-purple-200"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -256,5 +268,16 @@ export function AuthModal() {
         </p>
       </DialogContent>
     </Dialog>
+
+    {/* Forgot Password Modal */}
+    <ForgotPasswordModal
+      open={showForgotPassword}
+      onClose={() => setShowForgotPassword(false)}
+      onBackToLogin={() => {
+        setShowForgotPassword(false);
+        setAuthModal("login");
+      }}
+    />
+    </>
   );
 }

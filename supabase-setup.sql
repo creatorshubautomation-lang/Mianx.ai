@@ -217,6 +217,23 @@ INSERT INTO "AiProviderConfig" ("id", "provider", "displayName", "enabled", "pri
 ('cfg_anthropic', 'anthropic', 'Anthropic (Claude)', true, 5, 'ANTHROPIC_API_KEY', 5, 0, '["claude-3-haiku-20240307"]', NOW(), NOW(), NOW());
 
 -- ============================================================
+-- PASSWORD RESET TABLE (for forgot password flow)
+-- ============================================================
+
+CREATE TABLE "PasswordReset" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "usedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "PasswordReset_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "PasswordReset_token_key" ON "PasswordReset"("token");
+CREATE INDEX "PasswordReset_userId_idx" ON "PasswordReset"("userId");
+
+-- ============================================================
 -- SEED: Insert all 24 AI agents
 -- ============================================================
 

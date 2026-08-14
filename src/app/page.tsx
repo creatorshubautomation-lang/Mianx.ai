@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { SessionProvider, useSession } from "next-auth/react";
 import { useApp } from "@/lib/store";
 import { Navbar } from "@/components/mianx/Navbar";
 import { Footer } from "@/components/mianx/Footer";
 import { AuthModal } from "@/components/mianx/AuthModal";
 import { DashboardShell } from "@/components/mianx/DashboardShell";
+import { ResetPasswordForm } from "@/components/mianx/ForgotPasswordModal";
 import { Loader2 } from "lucide-react";
 
 // Public views
@@ -43,8 +45,46 @@ const PUBLIC_VIEWS = new Set([
 //  Inner component that consumes session
 // ─────────────────────────────────────────────
 function AppContent() {
-  const { view } = useApp();
+  const { view, setAuthModal } = useApp();
   const { data: session, status } = useSession();
+  const [resetToken, setResetToken] = useState<string | null>(null);
+
+  // Check for reset_token in URL on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("reset_token");
+
+    if (token) {
+      // Use a flag to avoid setState warning
+      const timer = setTimeout(() => setResetToken(token), 0);
+      return () => clearTimeout(timer);
+    }
+
+    // Clean URL if checkout params present
+    const checkout = params.get("checkout");
+    if (checkout) {
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
+
+  // Show reset password form if token is in URL
+  if (resetToken) {
+    return (
+      <ResetPasswordForm
+        token={resetToken}
+        onSuccess={() => {
+          setResetToken(null);
+          setAuthModal("login");
+        }}
+        onInvalidToken={() => {
+          setResetToken(null);
+          setAuthModal("login");
+        }}
+      />
+    );
+  }
 
   // Show loading while session is being fetched
   if (status === "loading") {
