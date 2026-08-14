@@ -1,21 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { useApp, useT } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Sparkles, Zap, Crown, Building2 } from "lucide-react";
+import { Check, Sparkles, Zap, Crown, Building2, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 export function PricingView() {
   const t = useT();
   const { setAuthModal, setView } = useApp();
+  const { data: session } = useSession();
   const [yearly, setYearly] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   const plans = [
     {
+      id: "free",
       name: t("pricing.free"),
       desc: t("pricing.free.desc"),
       price: { monthly: 0, yearly: 0 },
@@ -32,6 +36,7 @@ export function PricingView() {
       popular: false,
     },
     {
+      id: "starter",
       name: t("pricing.starter"),
       desc: t("pricing.starter.desc"),
       price: { monthly: 49, yearly: 39 },
@@ -49,6 +54,7 @@ export function PricingView() {
       popular: false,
     },
     {
+      id: "pro",
       name: t("pricing.pro"),
       desc: t("pricing.pro.desc"),
       price: { monthly: 199, yearly: 159 },
@@ -68,6 +74,7 @@ export function PricingView() {
       popular: true,
     },
     {
+      id: "enterprise",
       name: t("pricing.enterprise"),
       desc: t("pricing.enterprise.desc"),
       price: { monthly: 499, yearly: 399 },
@@ -88,9 +95,61 @@ export function PricingView() {
     },
   ];
 
-  const handleSelect = (planName: string) => {
-    toast.success(`${planName} plan selected! Redirecting to signup...`);
-    setTimeout(() => setAuthModal("signup"), 500);
+  const handleSelect = async (plan: typeof plans[0]) => {
+    // Free plan — just prompt signup
+    if (plan.id === "free") {
+      if (!session?.user) {
+        setAuthModal("signup");
+      } else {
+        setView("dashboard");
+        toast.success("You're on the Free plan!");
+      }
+      return;
+    }
+
+    // Enterprise — contact sales
+    if (plan.id === "enterprise") {
+      toast.info("Contact us at hello@mianx.ai for Enterprise pricing");
+      setView("contact");
+      return;
+    }
+
+    // Paid plans (Starter, Pro) — require login first
+    if (!session?.user) {
+      toast.info("Please sign up first, then choose a plan");
+      setAuthModal("signup");
+      return;
+    }
+
+    // Create Stripe checkout session
+    setLoadingPlan(plan.id);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId: plan.id,
+          billing: yearly ? "yearly" : "monthly",
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || "Failed to start checkout");
+        return;
+      }
+
+      // Redirect to Stripe Checkout
+      if (data.url) {
+        toast.success(`Redirecting to Stripe for ${plan.name} plan...`);
+        window.location.href = data.url;
+      }
+    } catch (e) {
+      toast.error("Network error — please try again");
+      console.error(e);
+    } finally {
+      setLoadingPlan(null);
+    }
   };
 
   return (
@@ -182,7 +241,8 @@ export function PricingView() {
                 </div>
 
                 <Button
-                  onClick={() => handleSelect(plan.name)}
+                  onClick={() => handleSelect(plan)}
+                  disabled={loadingPlan === plan.id}
                   className={`w-full mb-4 ${
                     plan.popular
                       ? "btn-gradient text-white"
@@ -190,7 +250,14 @@ export function PricingView() {
                   }`}
                   variant={plan.popular ? "default" : "outline"}
                 >
-                  {plan.cta}
+                  {loadingPlan === plan.id ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Redirecting...
+                    </>
+                  ) : (
+                    plan.cta
+                  )}
                 </Button>
 
                 <ul className="space-y-2 flex-1">
