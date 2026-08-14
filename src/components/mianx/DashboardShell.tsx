@@ -15,6 +15,7 @@ import {
   Sparkles,
   LogOut,
   Home,
+  LifeBuoy,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     { key: "projects" as const, icon: FolderKanban, label: t("dash.projects") },
     { key: "newProject" as const, icon: PlusCircle, label: t("dash.newProject") },
     { key: "deliverables" as const, icon: FileBox, label: t("dash.deliverables") },
+    { key: "support" as const, icon: LifeBuoy, label: "Support" },
     { key: "settings" as const, icon: Settings, label: t("dash.settings") },
   ];
 

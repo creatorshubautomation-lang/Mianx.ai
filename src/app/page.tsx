@@ -26,6 +26,7 @@ import { NewProjectWizard } from "@/components/views/NewProjectWizard";
 import { ProjectDetail } from "@/components/views/ProjectDetail";
 import { DeliverablesList } from "@/components/views/DeliverablesList";
 import { SettingsView } from "@/components/views/SettingsView";
+import { SupportView } from "@/components/views/SupportView";
 import { AdminPanel } from "@/components/views/AdminPanel";
 
 // ─────────────────────────────────────────────
@@ -157,6 +158,7 @@ function AppContent() {
       {view === "newProject" && <NewProjectWizard />}
       {view === "projectDetail" && <ProjectDetail />}
       {view === "deliverables" && <DeliverablesList />}
+      {view === "support" && <SupportView />}
       {view === "settings" && <SettingsView />}
       {view === "admin" && <AdminPanel />}
     </DashboardShell>

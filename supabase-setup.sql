@@ -234,6 +234,29 @@ CREATE UNIQUE INDEX "PasswordReset_token_key" ON "PasswordReset"("token");
 CREATE INDEX "PasswordReset_userId_idx" ON "PasswordReset"("userId");
 
 -- ============================================================
+-- SUPPORT TICKETS TABLE
+-- ============================================================
+
+CREATE TABLE "SupportTicket" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "subject" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "priority" TEXT NOT NULL DEFAULT 'normal',
+    "status" TEXT NOT NULL DEFAULT 'open',
+    "category" TEXT NOT NULL DEFAULT 'general',
+    "projectId" TEXT,
+    "response" TEXT,
+    "respondedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "SupportTicket_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX "SupportTicket_userId_idx" ON "SupportTicket"("userId");
+CREATE INDEX "SupportTicket_status_idx" ON "SupportTicket"("status");
+
+-- ============================================================
 -- SEED: Insert all 24 AI agents
 -- ============================================================
 

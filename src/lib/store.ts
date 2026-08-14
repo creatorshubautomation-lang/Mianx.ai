@@ -28,6 +28,7 @@ export type ViewKey =
   | "newProject"
   | "projectDetail"
   | "deliverables"
+  | "support"
   | "settings"
   // Admin
   | "admin";

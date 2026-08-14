@@ -261,3 +261,25 @@ model PasswordReset {
   @@index([userId])
   @@index([token])
 }
+
+// ─────────────────────────────────────────────
+//  SUPPORT TICKETS (client → admin support)
+// ─────────────────────────────────────────────
+
+model SupportTicket {
+  id          String   @id @default(cuid())
+  userId      String
+  subject     String
+  description String
+  priority    String   @default("normal") // low | normal | high | urgent
+  status      String   @default("open") // open | in_progress | resolved | closed
+  category    String   @default("general") // general | billing | technical | bug | feature
+  projectId   String?
+  response    String?
+  respondedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
