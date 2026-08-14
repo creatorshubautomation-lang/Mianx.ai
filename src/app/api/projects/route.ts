@@ -124,8 +124,41 @@ export async function POST(req: Request) {
     });
 
     // Ensure agents exist in DB and assign them
-    const agentRecords = await db.agent.findMany({
+    // STEP 1: Get AI-recommended agents
+    const recommendedAgentRecords = await db.agent.findMany({
       where: { name: { in: recommendedAgents } },
+    });
+
+    // STEP 2: Ensure FULL TEAM — at least 1 agent from each of 6 teams
+    // This ensures every project has Design, Dev, Content, Marketing, QA, Support
+    const allAgents = await db.agent.findMany();
+    const TEAMS = ["DESIGN", "DEVELOPMENT", "CONTENT", "MARKETING", "QA", "SUPPORT"];
+
+    const fullTeamAgents = new Map<string, typeof allAgents[0]>();
+
+    // First add recommended agents
+    for (const a of recommendedAgentRecords) {
+      fullTeamAgents.set(a.id, a);
+    }
+
+    // Then ensure at least 1 from each team
+    for (const team of TEAMS) {
+      const hasTeam = Array.from(fullTeamAgents.values()).some(
+        (a) => a.team === team,
+      );
+      if (!hasTeam) {
+        // Pick first agent from this team
+        const teamAgent = allAgents.find((a) => a.team === team);
+        if (teamAgent) {
+          fullTeamAgents.set(teamAgent.id, teamAgent);
+        }
+      }
+    }
+
+    // Convert to array and sort by team priority
+    const agentRecords = Array.from(fullTeamAgents.values()).sort((a, b) => {
+      const teamOrder = ["DESIGN", "DEVELOPMENT", "CONTENT", "MARKETING", "QA", "SUPPORT"];
+      return teamOrder.indexOf(a.team) - teamOrder.indexOf(b.team);
     });
 
     if (agentRecords.length > 0) {
@@ -141,7 +174,6 @@ export async function POST(req: Request) {
 
     // Create initial tasks
     if (suggestedTasks?.length > 0) {
-      const allAgents = await db.agent.findMany();
       const agentByName = new Map(allAgents.map((a) => [a.name, a]));
 
       await db.task.createMany({
