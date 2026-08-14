@@ -19,6 +19,7 @@ import { AboutView } from "@/components/views/AboutView";
 import { UseCasesView } from "@/components/views/UseCasesView";
 import { ContactView } from "@/components/views/ContactView";
 import { TemplatesView } from "@/components/views/TemplatesView";
+import { ApiDocsView } from "@/components/views/ApiDocsView";
 
 // Dashboard views
 import { DashboardOverview } from "@/components/views/DashboardOverview";
@@ -42,6 +43,7 @@ const PUBLIC_VIEWS = new Set([
   "useCases",
   "contact",
   "templates",
+  "apiDocs",
 ]);
 
 // ─────────────────────────────────────────────
@@ -117,6 +119,7 @@ function AppContent() {
           {view === "useCases" && <UseCasesView />}
           {view === "contact" && <ContactView />}
           {view === "templates" && <TemplatesView />}
+          {view === "apiDocs" && <ApiDocsView />}
         </main>
         <Footer />
         <AuthModal />
