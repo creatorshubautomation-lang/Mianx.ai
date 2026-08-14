@@ -221,6 +221,24 @@ export async function POST(req: Request) {
       console.error("[projects] progress update failed:", e);
     }
 
+    // Trigger webhook (project.created)
+    try {
+      const { triggerWebhooks } = await import("@/lib/webhooks");
+      await triggerWebhooks(
+        "project.created",
+        {
+          projectId: project.id,
+          title: project.title,
+          projectType: project.projectType,
+          agentCount: agentRecords.length,
+        },
+        session.user.id,
+        project.id,
+      );
+    } catch (e) {
+      console.error("[projects] webhook failed:", e);
+    }
+
     return NextResponse.json({ project: fullProject, ok: true });
   } catch (e) {
     console.error("[projects/create] error:", e);

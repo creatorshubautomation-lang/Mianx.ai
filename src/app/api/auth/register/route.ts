@@ -93,6 +93,23 @@ export async function POST(req: Request) {
       // Don't fail signup if email fails
     }
 
+    // Trigger webhook (user.signup)
+    try {
+      const { triggerWebhooks } = await import("@/lib/webhooks");
+      await triggerWebhooks(
+        "user.signup",
+        {
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+        user.id,
+      );
+    } catch (e) {
+      console.error("[register] webhook failed:", e);
+    }
+
     return NextResponse.json({ user, ok: true });
   } catch (e) {
     console.error("[register] unexpected error:", e);
