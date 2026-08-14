@@ -19,6 +19,7 @@ export type ViewKey =
   | "about"
   | "useCases"
   | "contact"
+  | "templates"
   // Auth
   | "login"
   | "signup"
