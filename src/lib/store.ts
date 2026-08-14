@@ -21,6 +21,8 @@ export type ViewKey =
   | "contact"
   | "templates"
   | "apiDocs"
+  | "academy"
+  | "marketplace"
   // Auth
   | "login"
   | "signup"

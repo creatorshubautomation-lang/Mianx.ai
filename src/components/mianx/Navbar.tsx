@@ -48,6 +48,8 @@ export function Navbar() {
     { key: "services", label: t("nav.services") },
     { key: "agents", label: t("nav.agents") },
     { key: "templates", label: "Templates" },
+    { key: "academy", label: "Academy" },
+    { key: "marketplace", label: "Marketplace" },
     { key: "pricing", label: t("nav.pricing") },
     { key: "useCases", label: t("nav.useCases") },
     { key: "about", label: t("nav.about") },
