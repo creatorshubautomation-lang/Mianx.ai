@@ -101,16 +101,47 @@ Description: ${project.description}`;
       projectContext,
     );
 
+    // Generate ZIP file with multiple project files
+    let zipBuffer: Buffer | null = null;
+    let zipFileName: string | null = null;
+    let fileCount = 1;
+
+    try {
+      const { generateProjectZip, parseAiContentToFiles } = await import(
+        "@/lib/zip-generator"
+      );
+
+      const files = parseAiContentToFiles(generated.content);
+      fileCount = files.length;
+
+      const zipResult = await generateProjectZip({
+        projectName: project.title,
+        projectType: project.projectType,
+        files,
+        deliverableTitle: generated.title,
+        agentName,
+        agentRole: agent?.role || "Agent",
+        description: taskDescription,
+      });
+
+      zipBuffer = zipResult.buffer;
+      zipFileName = zipResult.fileName;
+      fileCount = zipResult.fileCount;
+    } catch (zipErr) {
+      console.error("[deliverables] ZIP generation failed:", zipErr);
+      // Continue without ZIP — text file will still be saved
+    }
+
     const deliverable = await db.deliverable.create({
       data: {
         projectId,
         uploadedBy: session.user.id,
         title: generated.title,
-        description: taskDescription,
-        fileType: generated.fileType,
+        description: `${taskDescription}\n\n📦 ZIP contains ${fileCount} files`,
+        fileType: zipBuffer ? "archive" : generated.fileType,
         content: generated.content,
-        fileName: `${agentName.toLowerCase()}-${Date.now()}.${generated.fileType === "code" ? "txt" : "md"}`,
-        fileSize: generated.content.length,
+        fileName: zipFileName || `${agentName.toLowerCase()}-${Date.now()}.${generated.fileType === "code" ? "txt" : "md"}`,
+        fileSize: zipBuffer ? zipBuffer.length : generated.content.length,
       },
       include: { uploader: true },
     });
