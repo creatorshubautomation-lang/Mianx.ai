@@ -123,52 +123,27 @@ export async function POST(req: Request) {
 
     // ─────────────────────────────────────────────
     //  IDENTIFY RELEVANT AGENTS (1-3 based on content)
+    //  PRIORITY: @mentions first, then keywords, then default
     // ─────────────────────────────────────────────
     const lowerContent = content.toLowerCase();
 
-    // Keyword → team mapping
-    const teamKeywords: { teams: string[]; keywords: string[] }[] = [
-      {
-        teams: ["DESIGN"],
-        keywords: ["design", "ui", "ux", "color", "colour", "logo", "brand", "visual", "layout", "wireframe", "mockup", "figma", "interface"],
-      },
-      {
-        teams: ["DEVELOPMENT"],
-        keywords: ["code", "coding", "bug", "api", "database", "db", "deploy", "server", "frontend", "backend", "react", "nextjs", "next.js", "typescript", "javascript", "python", "node", "auth", "login"],
-      },
-      {
-        teams: ["CONTENT"],
-        keywords: ["write", "writing", "content", "copy", "copywriting", "blog", "article", "seo writing", "script", "tagline", "headline", "description"],
-      },
-      {
-        teams: ["MARKETING"],
-        keywords: ["market", "marketing", "ad", "ads", "advertising", "social", "social media", "campaign", "growth", "analytics", "seo", "sem", "facebook ads", "google ads", "instagram"],
-      },
-      {
-        teams: ["QA"],
-        keywords: ["test", "testing", "qa", "quality", "review", "security", "vulnerability", "performance", "audit", "bug fix", "lint", "debug"],
-      },
-      {
-        teams: ["SUPPORT"],
-        keywords: ["support", "help", "issue", "problem", "ticket", "question", "error", "not working", "broken", "can't", "cannot"],
-      },
-    ];
-
-    // Find which teams are mentioned in the message
-    const mentionedTeams = new Set<string>();
-    for (const { teams, keywords } of teamKeywords) {
-      if (keywords.some((k) => lowerContent.includes(k))) {
-        teams.forEach((t) => mentionedTeams.add(t));
-      }
+    // STEP 1: Check for @mentions (e.g., "@Atlas", "@Aria", "@Zen")
+    const mentionRegex = /@(\w+)/g;
+    const mentions: string[] = [];
+    let mentionMatch;
+    while ((mentionMatch = mentionRegex.exec(content)) !== null) {
+      mentions.push(mentionMatch[1].toLowerCase());
     }
 
-    // Pick relevant agents from assigned agents (max 3)
     let responders: TeamAgentInfo[] = [];
 
-    if (mentionedTeams.size > 0) {
-      // Get one agent from each mentioned team (max 3)
-      for (const team of mentionedTeams) {
-        const agent = assignedAgents.find((a) => a.team === team);
+    // If user mentioned specific agents, route to THEM only
+    if (mentions.length > 0) {
+      for (const mention of mentions) {
+        // Find agent by name (case-insensitive)
+        const agent = assignedAgents.find(
+          (a) => a.name.toLowerCase() === mention,
+        );
         if (agent && responders.length < 3) {
           responders.push({
             name: agent.name,
@@ -179,12 +154,65 @@ export async function POST(req: Request) {
       }
     }
 
-    // If no specific match, use lead agent (first assigned)
+    // STEP 2: If no @mentions found, use keyword-based team detection
     if (responders.length === 0) {
-      const lead = assignedAgents[0];
-      responders = [
-        { name: lead.name, role: lead.role, team: lead.team },
+      // Keyword → team mapping
+      const teamKeywords: { teams: string[]; keywords: string[] }[] = [
+        {
+          teams: ["DESIGN"],
+          keywords: ["design", "ui", "ux", "color", "colour", "logo", "brand", "visual", "layout", "wireframe", "mockup", "figma", "interface"],
+        },
+        {
+          teams: ["DEVELOPMENT"],
+          keywords: ["code", "coding", "bug", "api", "database", "db", "deploy", "server", "frontend", "backend", "react", "nextjs", "next.js", "typescript", "javascript", "python", "node", "auth", "login"],
+        },
+        {
+          teams: ["CONTENT"],
+          keywords: ["write", "writing", "content", "copy", "copywriting", "blog", "article", "seo writing", "script", "tagline", "headline", "description"],
+        },
+        {
+          teams: ["MARKETING"],
+          keywords: ["market", "marketing", "ad", "ads", "advertising", "social", "social media", "campaign", "growth", "analytics", "seo", "sem", "facebook ads", "google ads", "instagram"],
+        },
+        {
+          teams: ["QA"],
+          keywords: ["test", "testing", "qa", "quality", "review", "security", "vulnerability", "performance", "audit", "bug fix", "lint", "debug"],
+        },
+        {
+          teams: ["SUPPORT"],
+          keywords: ["support", "help", "issue", "problem", "ticket", "question", "error", "not working", "broken", "can't", "cannot"],
+        },
       ];
+
+      // Find which teams are mentioned in the message
+      const mentionedTeams = new Set<string>();
+      for (const { teams, keywords } of teamKeywords) {
+        if (keywords.some((k) => lowerContent.includes(k))) {
+          teams.forEach((t) => mentionedTeams.add(t));
+        }
+      }
+
+      // Pick relevant agents from assigned agents (max 3)
+      if (mentionedTeams.size > 0) {
+        for (const team of mentionedTeams) {
+          const agent = assignedAgents.find((a) => a.team === team);
+          if (agent && responders.length < 3) {
+            responders.push({
+              name: agent.name,
+              role: agent.role,
+              team: agent.team,
+            });
+          }
+        }
+      }
+
+      // If no specific match, use lead agent (first assigned)
+      if (responders.length === 0) {
+        const lead = assignedAgents[0];
+        responders = [
+          { name: lead.name, role: lead.role, team: lead.team },
+        ];
+      }
     }
 
     // Limit to 3 agents max for performance
