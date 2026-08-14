@@ -657,21 +657,26 @@ export function ProjectDetail() {
         {/* ACTIVITY */}
         <TabsContent value="activity">
           <Card className="glass border-purple-500/10 p-4">
+            {/* Live Agent Activity Feed (D2) */}
+            <LiveAgentActivity projectId={project.id} />
+
+            {/* Project Activity Log */}
+            <h3 className="text-sm font-semibold mb-3 mt-4">Project Activity</h3>
             {project.activities.length === 0 ? (
-              <div className="text-center py-12">
-                <Clock className="mx-auto h-10 w-10 text-muted-foreground/50 mb-3" />
+              <div className="text-center py-8">
+                <Clock className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
                 <p className="text-sm text-muted-foreground">
                   No recent activity.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {project.activities.map((a) => (
                   <div
                     key={a.id}
-                    className="flex items-start gap-3 glass rounded-lg p-3"
+                    className="flex items-start gap-3 glass rounded-lg p-2"
                   >
-                    <div className="flex-shrink-0 h-2 w-2 rounded-full bg-purple-500 mt-1.5 pulse-dot" />
+                    <div className="flex-shrink-0 h-2 w-2 rounded-full bg-purple-500 mt-1.5" />
                     <div className="flex-1">
                       <div className="text-sm font-medium">{a.action}</div>
                       {a.details && (
@@ -679,7 +684,7 @@ export function ProjectDetail() {
                           {a.details}
                         </div>
                       )}
-                      <div className="text-xs text-muted-foreground mt-1">
+                      <div className="text-xs text-muted-foreground mt-0.5">
                         {new Date(a.createdAt).toLocaleString()}
                       </div>
                     </div>
@@ -690,6 +695,83 @@ export function ProjectDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+//  Live Agent Activity Feed (D2)
+// ─────────────────────────────────────────────
+
+function LiveAgentActivity({ projectId }: { projectId: string }) {
+  const [activities, setActivities] = useState<
+    {
+      id: string;
+      agentName: string;
+      activity: string;
+      description: string;
+      progress: number;
+      isLive: boolean;
+      createdAt: string;
+    }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = () => {
+      fetch(`/api/agent-activity?projectId=${projectId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.activities) setActivities(data.activities);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    };
+
+    load();
+    // Poll every 10 seconds for live updates
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
+  }, [projectId]);
+
+  if (loading) return null;
+
+  if (activities.length === 0) return null;
+
+  return (
+    <div className="mb-4">
+      <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+        Live Agent Activity
+      </h3>
+      <div className="space-y-2 max-h-48 overflow-y-auto">
+        {activities.slice(0, 10).map((a) => (
+          <div
+            key={a.id}
+            className={`flex items-start gap-2 rounded-lg p-2 text-xs ${
+              a.isLive ? "glass border border-green-500/20" : "glass"
+            }`}
+          >
+            <div className="flex-shrink-0">
+              {a.isLive ? (
+                <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse block mt-1" />
+              ) : (
+                <span className="h-2 w-2 rounded-full bg-purple-400 block mt-1" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="font-medium">{a.agentName}</span>
+              <span className="text-muted-foreground"> — {a.description}</span>
+              <div className="text-muted-foreground mt-0.5">
+                {new Date(a.createdAt).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

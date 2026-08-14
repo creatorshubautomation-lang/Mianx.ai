@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ErrorBoundary } from "@/components/mianx/ErrorBoundary";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -69,7 +70,9 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
           <Toaster />
           <SonnerToaster position="top-right" richColors closeButton />
         </ThemeProvider>

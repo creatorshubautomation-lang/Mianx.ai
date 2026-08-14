@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { NotificationBell } from "./NotificationBell";
 import {
   Sparkles,
   Menu,
@@ -103,6 +104,8 @@ export function Navbar() {
         {/* Right side */}
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
+
+          {session?.user && <NotificationBell />}
 
           {session?.user ? (
             <DropdownMenu>
