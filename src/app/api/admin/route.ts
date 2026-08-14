@@ -4,68 +4,69 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 // GET /api/admin/stats — admin dashboard stats
-// This endpoint double-checks the user's role from DB (not just session)
-// to ensure that role changes (CLIENT → ADMIN) take effect immediately.
+// Resilient: each query wrapped in try/catch so one failure doesn't break all
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Re-verify role from DB (in case session is stale)
+  // Re-verify role from DB
   let userRole = session.user.role;
   try {
     const dbUser = await db.user.findUnique({
       where: { id: session.user.id },
       select: { role: true },
     });
-    if (dbUser) {
-      userRole = dbUser.role;
-    }
+    if (dbUser) userRole = dbUser.role;
   } catch (e) {
     console.error("[admin] DB role check error:", e);
   }
 
   if (userRole !== "ADMIN") {
-    console.log(
-      "[admin] access denied for user:",
-      session.user.id,
-      "role:",
-      userRole,
-    );
     return NextResponse.json(
-      {
-        error: "Forbidden — admin role required",
-        currentRole: userRole,
-        userId: session.user.id,
-      },
+      { error: "Forbidden — admin role required", currentRole: userRole },
       { status: 403 },
     );
   }
 
-  try {
-    const [
-      totalClients,
-      totalProjects,
-      activeProjects,
-      completedProjects,
-      totalAgents,
-      totalDeliverables,
-      totalMessages,
-      recentClients,
-      recentProjects,
-      projectsByStatus,
-      agentActivity,
-    ] = await Promise.all([
-      db.user.count({ where: { role: "CLIENT" } }),
-      db.project.count(),
+  // Helper: run a query safely, return null on error
+  async function safe<T>(promise: Promise<T>, label: string): Promise<T | null> {
+    try {
+      return await promise;
+    } catch (e) {
+      console.error(`[admin] query failed (${label}):`, e);
+      return null;
+    }
+  }
+
+  // Run all queries in parallel, each individually protected
+  const [
+    totalClients,
+    totalProjects,
+    activeProjects,
+    completedProjects,
+    totalAgents,
+    totalDeliverables,
+    totalMessages,
+    recentClients,
+    recentProjects,
+    projectsByStatus,
+    agentActivity,
+  ] = await Promise.all([
+    safe(db.user.count({ where: { role: "CLIENT" } }), "user.count CLIENT"),
+    safe(db.project.count(), "project.count"),
+    safe(
       db.project.count({
         where: { status: { in: ["IN_PROGRESS", "BRIEFING", "PLANNING"] } },
       }),
-      db.project.count({ where: { status: "COMPLETED" } }),
-      db.agent.count(),
-      db.deliverable.count(),
-      db.message.count({ where: { role: "agent" } }),
+      "project.count active",
+    ),
+    safe(db.project.count({ where: { status: "COMPLETED" } }), "project.count COMPLETED"),
+    safe(db.agent.count(), "agent.count"),
+    safe(db.deliverable.count(), "deliverable.count"),
+    safe(db.message.count({ where: { role: "agent" } }), "message.count"),
+    safe(
       db.user.findMany({
         where: { role: "CLIENT" },
         take: 5,
@@ -79,6 +80,9 @@ export async function GET() {
           _count: { select: { projects: true } },
         },
       }),
+      "user.findMany recent",
+    ),
+    safe(
       db.project.findMany({
         take: 5,
         orderBy: { createdAt: "desc" },
@@ -89,10 +93,16 @@ export async function GET() {
           },
         },
       }),
+      "project.findMany recent",
+    ),
+    safe(
       db.project.groupBy({
         by: ["status"],
         _count: true,
       }),
+      "project.groupBy",
+    ),
+    safe(
       db.agent.findMany({
         include: {
           _count: {
@@ -101,41 +111,36 @@ export async function GET() {
         },
         orderBy: [{ team: "asc" }, { name: "asc" }],
       }),
-    ]);
+      "agent.findMany",
+    ),
+  ]);
 
-    // Calculate estimated revenue
+  // Revenue (also safe)
+  let monthlyRevenue = 0;
+  try {
     const subscriptions = await db.subscription.findMany({
       where: { status: "active" },
     });
-    const monthlyRevenue = subscriptions.reduce(
-      (sum, s) => sum + s.amount,
-      0,
-    );
-
-    return NextResponse.json({
-      stats: {
-        totalClients,
-        totalProjects,
-        activeProjects,
-        completedProjects,
-        totalAgents,
-        totalDeliverables,
-        totalMessages,
-        monthlyRevenue,
-      },
-      recentClients,
-      recentProjects,
-      projectsByStatus,
-      agentActivity,
-    });
+    monthlyRevenue = subscriptions.reduce((sum, s) => sum + s.amount, 0);
   } catch (e) {
-    console.error("[admin] data fetch error:", e);
-    return NextResponse.json(
-      {
-        error: "Failed to fetch admin data",
-        details: e instanceof Error ? e.message : String(e),
-      },
-      { status: 500 },
-    );
+    console.error("[admin] subscription query failed:", e);
   }
+
+  // Return data with nulls for failed queries
+  return NextResponse.json({
+    stats: {
+      totalClients: totalClients ?? 0,
+      totalProjects: totalProjects ?? 0,
+      activeProjects: activeProjects ?? 0,
+      completedProjects: completedProjects ?? 0,
+      totalAgents: totalAgents ?? 0,
+      totalDeliverables: totalDeliverables ?? 0,
+      totalMessages: totalMessages ?? 0,
+      monthlyRevenue,
+    },
+    recentClients: recentClients ?? [],
+    recentProjects: recentProjects ?? [],
+    projectsByStatus: projectsByStatus ?? [],
+    agentActivity: agentActivity ?? [],
+  });
 }
