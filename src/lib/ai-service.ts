@@ -505,19 +505,46 @@ export async function generateDeliverable(
   projectContext: string,
   projectId?: string,
   userId?: string,
+  language?: string, // NEW: target programming language
 ): Promise<{ title: string; content: string; fileType: string }> {
   const agent = findAgent(agentName);
   if (!agent) throw new Error(`Agent "${agentName}" not found`);
 
+  // Build language-specific prompt extension
+  let languagePrompt = "";
+  if (language && language !== "typescript") {
+    try {
+      const { getLanguageById, getLanguagePromptExtension } = await import(
+        "@/lib/languages"
+      );
+      const langConfig = getLanguageById(language as never);
+      if (langConfig) {
+        languagePrompt = getLanguagePromptExtension(langConfig.id);
+      }
+    } catch {
+      // languages module not available — skip
+    }
+  }
+
   const prompt = `Project context: ${projectContext}
 
 Task: ${taskDescription}
+${languagePrompt}
+As ${agent.name} (${agent.role}), produce a complete, production-ready deliverable. Include all necessary code, specifications, or content. Be thorough and specific.
 
-As ${agent.name} (${agent.role}), produce a complete, production-ready deliverable. Include all necessary code, specifications, or content. Be thorough and specific.`;
+IMPORTANT: Use proper markdown code blocks with language identifier and file path:
+\`\`\`language:filepath
+// code here
+\`\`\`
+
+For example:
+\`\`\`${language || "typescript"}:src/components/Button.tsx
+export function Button() { ... }
+\`\`\``;
 
   const content = await callAIWithFallback({
     messages: [
-      { role: "system", content: agent.systemPrompt },
+      { role: "system", content: agent.systemPrompt + languagePrompt },
       { role: "user", content: prompt },
     ],
     agentName,
