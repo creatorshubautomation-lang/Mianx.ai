@@ -505,10 +505,15 @@ export async function generateDeliverable(
   projectContext: string,
   projectId?: string,
   userId?: string,
-  language?: string, // NEW: target programming language
+  language?: string,
 ): Promise<{ title: string; content: string; fileType: string }> {
   const agent = findAgent(agentName);
   if (!agent) throw new Error(`Agent "${agentName}" not found`);
+
+  // Use POWER MODE prompt
+  const { getPowerPrompt, POWER_MODE } = await import("@/lib/agent-power");
+  const powerPrompt = getPowerPrompt(agentName);
+  const systemPrompt = powerPrompt || agent.systemPrompt;
 
   // Build language-specific prompt extension
   let languagePrompt = "";
@@ -526,33 +531,50 @@ export async function generateDeliverable(
     }
   }
 
-  const prompt = `Project context: ${projectContext}
+  // Get memory context
+  let memoryContext = "";
+  if (projectId) {
+    try {
+      const { getMemoryContext } = await import("@/lib/agent-memory");
+      memoryContext = await getMemoryContext(projectId);
+    } catch {
+      // skip
+    }
+  }
+
+  const prompt = `${projectContext}
+${memoryContext}
 
 Task: ${taskDescription}
 ${languagePrompt}
-As ${agent.name} (${agent.role}), produce a complete, production-ready deliverable. Include all necessary code, specifications, or content. Be thorough and specific.
 
-IMPORTANT: Use proper markdown code blocks with language identifier and file path:
-\`\`\`language:filepath
-// code here
-\`\`\`
+As ${agent.name} (${agent.role}), produce a COMPLETE, PRODUCTION-READY deliverable.
 
-For example:
+POWER MODE REQUIREMENTS:
+1. Generate COMPLETE code — no placeholders, no TODOs
+2. Use proper markdown code blocks: \`\`\`language:filepath
+3. Include ALL imports and dependencies
+4. Generate MULTIPLE files when needed
+5. Include error handling, types, and tests
+6. Follow best practices for ${language || "TypeScript"}
+
+Example format:
 \`\`\`${language || "typescript"}:src/components/Button.tsx
-export function Button() { ... }
+import React from 'react';
+// ... complete code
 \`\`\``;
 
   const content = await callAIWithFallback({
     messages: [
-      { role: "system", content: agent.systemPrompt + languagePrompt },
+      { role: "system", content: systemPrompt + languagePrompt },
       { role: "user", content: prompt },
     ],
     agentName,
     projectId,
     userId,
     endpoint: "deliverable",
-    temperature: 0.5,
-    maxTokens: 3000,
+    temperature: POWER_MODE.temperature,
+    maxTokens: POWER_MODE.maxTokens,
   });
 
   const fileTypeMap: Record<string, string> = {
@@ -581,16 +603,35 @@ export async function autoAgentResponse(
   const agent = findAgent(agentName);
   if (!agent) throw new Error(`Agent "${agentName}" not found`);
 
+  // Use POWER MODE prompt if available (Cursor-level capability)
+  const { getPowerPrompt } = await import("@/lib/agent-power");
+  const powerPrompt = getPowerPrompt(agentName);
+  const systemPrompt = powerPrompt || agent.systemPrompt;
+
+  // Get agent memory context (D3)
+  let memoryContext = "";
+  if (projectId) {
+    try {
+      const { getMemoryContext } = await import("@/lib/agent-memory");
+      memoryContext = await getMemoryContext(projectId);
+    } catch {
+      // memory module not available — skip
+    }
+  }
+
   return callAIWithFallback({
     messages: [
       {
         role: "system",
-        content: `${agent.systemPrompt}
+        content: `${systemPrompt}
 
 You are currently working on a project for a Mianx.ai client. Project context:
 ${projectContext}
+${memoryContext}
 
-Respond to the client's message. Be helpful, specific, and within your expertise as ${agent.name} (${agent.role}). If the question is outside your scope, briefly say so and suggest which teammate should handle it.`,
+Respond to the client's message. Be helpful, specific, and within your expertise as ${agent.name} (${agent.role}).
+
+POWER MODE ACTIVE: Generate COMPLETE, PRODUCTION-READY code when coding is needed. Use proper file paths in code blocks. Include ALL imports. No placeholders. No TODOs. If the question is outside your scope, briefly say so and tag the right teammate (@AgentName).`,
       },
       { role: "user", content: userMessage },
     ],
