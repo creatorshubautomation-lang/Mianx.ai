@@ -1,6 +1,7 @@
 "use client";
 
 import { useApp, useT } from "@/lib/store";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AgentAvatar } from "../mianx/AgentAvatar";
@@ -23,6 +24,7 @@ import { motion } from "framer-motion";
 export function HomeView() {
   const t = useT();
   const { setView, setAuthModal } = useApp();
+  const { data: session } = useSession();
 
   const teams = Object.keys(TEAM_INFO) as AgentTeamType[];
 
@@ -172,10 +174,16 @@ export function HomeView() {
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Button
                 size="lg"
-                onClick={() => setAuthModal("signup")}
+                onClick={() => {
+                  if (session?.user) {
+                    setView("newProject");
+                  } else {
+                    setAuthModal("signup");
+                  }
+                }}
                 className="btn-gradient text-white px-8 py-6 text-base glow-sm"
               >
-                {t("hero.cta.primary")}
+                {session?.user ? "Start New Project" : t("hero.cta.primary")}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button
@@ -427,10 +435,16 @@ export function HomeView() {
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
                   size="lg"
-                  onClick={() => setAuthModal("signup")}
+                  onClick={() => {
+                    if (session?.user) {
+                      setView("newProject");
+                    } else {
+                      setAuthModal("signup");
+                    }
+                  }}
                   className="btn-gradient text-white px-8 py-6 text-base"
                 >
-                  {t("hero.cta.primary")}
+                  {session?.user ? "Start New Project" : t("hero.cta.primary")}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Button

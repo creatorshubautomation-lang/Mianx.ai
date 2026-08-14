@@ -1,11 +1,13 @@
 "use client";
 
 import { useApp, useT } from "@/lib/store";
+import { useSession } from "next-auth/react";
 import { Sparkles, Twitter, Github, Linkedin, Mail } from "lucide-react";
 
 export function Footer() {
   const t = useT();
   const { setView, setAuthModal } = useApp();
+  const { data: session } = useSession();
 
   const cols: { title: string; links: { label: string; action: () => void }[] }[] = [
     {
@@ -102,7 +104,13 @@ export function Footer() {
             © {new Date().getFullYear()} Mianx.ai. {t("footer.rights")}
           </p>
           <button
-            onClick={() => setAuthModal("signup")}
+            onClick={() => {
+              if (session?.user) {
+                setView("dashboard");
+              } else {
+                setAuthModal("signup");
+              }
+            }}
             className="text-xs text-purple-300 hover:text-purple-200 transition-colors"
           >
             {t("nav.signup")} →
