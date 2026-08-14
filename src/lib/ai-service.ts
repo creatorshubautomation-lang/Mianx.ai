@@ -575,3 +575,148 @@ Respond to the client's message. Be helpful, specific, and within your expertise
     maxTokens: 1200,
   });
 }
+
+// ─────────────────────────────────────────────
+//  Multi-Agent Team Response (NEW!)
+//  Multiple agents respond in parallel, each aware of the team
+// ─────────────────────────────────────────────
+
+export interface TeamAgentInfo {
+  name: string;
+  role: string;
+  team: string;
+}
+
+export interface TeamResponseResult {
+  agentName: string;
+  agentRole: string;
+  agentTeam: string;
+  content: string;
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Get responses from multiple agents in parallel.
+ * Each agent knows:
+ *   - Who else is on the team
+ *   - What their specialties are
+ *   - Their role in this response
+ *
+ * Agents respond simultaneously (parallel) for speed.
+ * Each focuses on their expertise area.
+ */
+export async function teamAgentResponse(
+  agents: TeamAgentInfo[],
+  userMessage: string,
+  projectContext: string,
+  projectId?: string,
+  userId?: string,
+): Promise<TeamResponseResult[]> {
+  // If only 1 agent, use simple response (faster)
+  if (agents.length === 1) {
+    try {
+      const content = await autoAgentResponse(
+        agents[0].name,
+        userMessage,
+        projectContext,
+        projectId,
+        userId,
+      );
+      return [
+        {
+          agentName: agents[0].name,
+          agentRole: agents[0].role,
+          agentTeam: agents[0].team,
+          content,
+          success: true,
+        },
+      ];
+    } catch (e) {
+      return [
+        {
+          agentName: agents[0].name,
+          agentRole: agents[0].role,
+          agentTeam: agents[0].team,
+          content: `I'm ${agents[0].name}, your ${agents[0].role}. I encountered an issue. Please try again.`,
+          success: false,
+          error: e instanceof Error ? e.message : String(e),
+        },
+      ];
+    }
+  }
+
+  // Multiple agents — build team context
+  const teamSummary = agents
+    .map((a) => `- ${a.name} (${a.role}, ${a.team} team)`)
+    .join("\n");
+
+  // Get responses from all agents IN PARALLEL
+  const responsePromises = agents.map(async (agentInfo) => {
+    const agent = findAgent(agentInfo.name);
+    if (!agent) {
+      return {
+        agentName: agentInfo.name,
+        agentRole: agentInfo.role,
+        agentTeam: agentInfo.team,
+        content: `Agent ${agentInfo.name} not found.`,
+        success: false,
+        error: "Agent not found in catalog",
+      } as TeamResponseResult;
+    }
+
+    try {
+      const content = await callAIWithFallback({
+        messages: [
+          {
+            role: "system",
+            content: `${agent.systemPrompt}
+
+You are part of a TEAM working on a Mianx.ai client project. Other team members responding to this same message:
+${teamSummary}
+
+Project context:
+${projectContext}
+
+IMPORTANT TEAM GUIDELINES:
+1. Focus ONLY on your area of expertise (${agent.role})
+2. Don't repeat what other team members would cover
+3. Be concise — 1-3 paragraphs max
+4. If you need to coordinate with another agent, mention them by name (e.g., "@Zen will handle the frontend")
+5. If the message is outside your scope, briefly say so and tag the right teammate
+
+Respond to the client's message from your expertise perspective:`,
+          },
+          { role: "user", content: userMessage },
+        ],
+        agentName: agent.name,
+        projectId,
+        userId,
+        endpoint: "chat",
+        temperature: 0.6,
+        maxTokens: 800, // Shorter since multiple agents respond
+      });
+
+      return {
+        agentName: agent.name,
+        agentRole: agent.role,
+        agentTeam: agent.team,
+        content,
+        success: true,
+      } as TeamResponseResult;
+    } catch (e) {
+      return {
+        agentName: agent.name,
+        agentRole: agent.role,
+        agentTeam: agent.team,
+        content: `I'm ${agent.name}, your ${agent.role}. I encountered an issue generating a response. The team will continue without me — please try again if needed.`,
+        success: false,
+        error: e instanceof Error ? e.message : String(e),
+      } as TeamResponseResult;
+    }
+  });
+
+  // Wait for all responses in parallel
+  const results = await Promise.all(responsePromises);
+  return results;
+}

@@ -168,7 +168,31 @@ export function ProjectDetail() {
         body: JSON.stringify({ projectId: project.id, content }),
       });
       const data = await res.json();
-      if (data.userMessage && data.agentMessage) {
+
+      // New: Multi-agent response (agentMessages array)
+      if (data.userMessage && Array.isArray(data.agentMessages) && data.agentMessages.length > 0) {
+        setProject((p) =>
+          p
+            ? {
+                ...p,
+                messages: [
+                  ...p.messages.filter((m) => m.id !== optimisticMsg.id),
+                  data.userMessage,
+                  ...data.agentMessages,
+                ],
+              }
+            : p,
+        );
+
+        // Show team notification
+        if (data.isTeamResponse && data.teamSize > 1) {
+          toast.success(`${data.teamSize} agents collaborated on your message`, {
+            duration: 4000,
+          });
+        }
+      }
+      // Backward compat: single agent response (old format)
+      else if (data.userMessage && data.agentMessage) {
         setProject((p) =>
           p
             ? {
@@ -431,8 +455,13 @@ export function ProjectDetail() {
                   </div>
                   <div className="glass rounded-lg p-3">
                     <span className="text-sm text-muted-foreground">
-                      Agent is typing...
+                      🤖 Team is collaborating...
                     </span>
+                    <div className="flex gap-1 mt-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" style={{ animationDelay: "0.2s" }} />
+                      <span className="h-1.5 w-1.5 rounded-full bg-pink-400 animate-pulse" style={{ animationDelay: "0.4s" }} />
+                    </div>
                   </div>
                 </div>
               )}
