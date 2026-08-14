@@ -8,7 +8,7 @@ import { Footer } from "@/components/mianx/Footer";
 import { AuthModal } from "@/components/mianx/AuthModal";
 import { DashboardShell } from "@/components/mianx/DashboardShell";
 import { ResetPasswordForm } from "@/components/mianx/ForgotPasswordModal";
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 
 // Public views
 import { HomeView } from "@/components/views/HomeView";
@@ -96,10 +96,22 @@ function AppContent() {
     return (
       <div className="fixed inset-0 mesh-bg flex items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center mb-4 glow">
-            <Loader2 className="h-6 w-6 text-white animate-spin" />
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 via-violet-500 to-cyan-500 glow animate-pulse">
+            <Sparkles className="h-8 w-8 text-white" />
           </div>
-          <p className="text-sm text-muted-foreground">Loading Mianx.ai...</p>
+          <h1 className="text-2xl font-bold mb-2">
+            Mianx<span className="gradient-text">.ai</span>
+          </h1>
+          <div className="flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-purple-400" />
+            <p className="text-sm text-muted-foreground">Loading your workspace...</p>
+          </div>
+          {/* Animated dots */}
+          <div className="flex justify-center gap-1 mt-4">
+            <span className="h-2 w-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+            <span className="h-2 w-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+            <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+          </div>
         </div>
       </div>
     );

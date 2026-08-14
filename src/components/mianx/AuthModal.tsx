@@ -41,18 +41,22 @@ export function AuthModal() {
       });
       if (res?.error) {
         toast.error("Invalid email or password");
+        setLoading(false);
       } else {
-        toast.success("Welcome back!");
-        close();
+        toast.success("Welcome back! Redirecting to dashboard...", {
+          duration: 2000,
+        });
+        // Keep loading state true so button stays disabled
+        // Don't close modal — let page reload handle it
         setView("dashboard");
         // refresh to load session
-        setTimeout(() => window.location.reload(), 500);
+        setTimeout(() => window.location.reload(), 1000);
       }
     } catch {
       toast.error("Something went wrong");
-    } finally {
       setLoading(false);
     }
+    // Don't set loading to false on success — keep spinner going
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -88,34 +92,42 @@ export function AuthModal() {
 
       if (signRes?.error) {
         toast.error("Account created. Please sign in.");
+        setLoading(false);
         setAuthModal("login");
       } else {
-        toast.success("Account created! Welcome to Mianx.ai");
-        close();
+        toast.success("Account created! Welcome to Mianx.ai 🎉", {
+          duration: 2000,
+        });
         setView("dashboard");
-        setTimeout(() => window.location.reload(), 500);
+        // Keep loading state true — spinner stays until page reloads
+        setTimeout(() => window.location.reload(), 1000);
       }
     } catch {
       toast.error("Something went wrong");
-    } finally {
       setLoading(false);
     }
+    // Don't set loading to false on success — keep spinner going
   };
 
   return (
     <>
     <Dialog open={authModal !== null} onOpenChange={() => close()}>
       <DialogContent
-        className="sm:max-w-md glass-strong border-purple-500/20"
+        className="sm:max-w-md glass-strong border-purple-500/30 glow"
         aria-describedby="auth-modal-desc"
       >
         <DialogHeader>
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 glow-sm">
-            <Sparkles className="h-6 w-6 text-white" />
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 via-violet-500 to-cyan-500 glow">
+            <Sparkles className="h-7 w-7 text-white" />
           </div>
-          <DialogTitle className="text-center text-xl font-bold">
+          <DialogTitle className="text-center text-2xl font-bold">
             {authModal === "login" ? "Welcome back" : "Start building with Mianx.ai"}
           </DialogTitle>
+          <p className="text-center text-sm text-muted-foreground mt-1">
+            {authModal === "login"
+              ? "Sign in to your AI software house"
+              : "Create your free account in seconds"}
+          </p>
           <p id="auth-modal-desc" className="sr-only">
             {authModal === "login"
               ? "Sign in to your Mianx.ai account"
@@ -124,7 +136,7 @@ export function AuthModal() {
         </DialogHeader>
 
         <Tabs defaultValue={authModal || "login"} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-2 glass">
             <TabsTrigger value="login">Sign In</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
           </TabsList>
@@ -177,7 +189,10 @@ export function AuthModal() {
                 className="w-full btn-gradient text-white"
               >
                 {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing you in...
+                  </>
                 ) : (
                   "Sign In"
                 )}
@@ -254,7 +269,10 @@ export function AuthModal() {
                 className="w-full btn-gradient text-white"
               >
                 {loading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating your account...
+                  </>
                 ) : (
                   "Create Account"
                 )}
