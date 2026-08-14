@@ -82,6 +82,17 @@ export async function POST(req: Request) {
 
     console.log(`[register] User created: ${user.email} (${user.role})`);
 
+    // Send welcome email (best-effort — doesn't block signup)
+    try {
+      const { sendEmail, welcomeEmail } = await import("@/lib/email");
+      const { subject, html } = welcomeEmail(name);
+      await sendEmail({ to: email, subject, html });
+      console.log(`[register] Welcome email sent to ${email}`);
+    } catch (emailErr) {
+      console.error("[register] Welcome email failed:", emailErr);
+      // Don't fail signup if email fails
+    }
+
     return NextResponse.json({ user, ok: true });
   } catch (e) {
     console.error("[register] unexpected error:", e);

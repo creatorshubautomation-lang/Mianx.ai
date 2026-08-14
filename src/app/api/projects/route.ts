@@ -168,6 +168,25 @@ export async function POST(req: Request) {
       },
     });
 
+    // Send project created email (best-effort)
+    try {
+      const { sendEmail, projectCreatedEmail } = await import("@/lib/email");
+      const user = await db.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true, email: true },
+      });
+      if (user?.email) {
+        const { subject, html } = projectCreatedEmail(
+          user.name || "there",
+          title,
+          agentRecords.length,
+        );
+        await sendEmail({ to: user.email, subject, html });
+      }
+    } catch (emailErr) {
+      console.error("[projects] email failed:", emailErr);
+    }
+
     // Initial welcome message from first assigned agent
     if (agentRecords.length > 0) {
       const firstAgent = agentRecords[0];

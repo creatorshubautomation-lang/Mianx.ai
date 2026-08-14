@@ -136,14 +136,35 @@ async function handleCheckoutCompleted(
   });
 
   // Update user's plan
-  await db.user.update({
+  const updatedUser = await db.user.update({
     where: { id: userId },
     data: { plan: planTier },
+    select: { name: true, email: true },
   });
 
   console.log(
     `[stripe/webhook] ✅ Subscription activated: user=${userId}, plan=${planTier}, amount=$${amount}`,
   );
+
+  // Send subscription activated email (best-effort)
+  try {
+    const { sendEmail, subscriptionActivatedEmail } = await import("@/lib/email");
+    if (updatedUser.email) {
+      // Calculate monthly amount from session
+      const monthlyAmount = billing === "yearly"
+        ? Math.round((amount / 12) * 100) / 100
+        : amount;
+      const planDisplayName = planTier.charAt(0) + planTier.slice(1).toLowerCase() + " Plan";
+      const { subject, html } = subscriptionActivatedEmail(
+        updatedUser.name || "there",
+        planDisplayName,
+        monthlyAmount,
+      );
+      await sendEmail({ to: updatedUser.email, subject, html });
+    }
+  } catch (emailErr) {
+    console.error("[stripe/webhook] email failed:", emailErr);
+  }
 }
 
 async function handleSubscriptionUpdated(

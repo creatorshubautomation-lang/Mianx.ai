@@ -266,6 +266,30 @@ Assigned team: ${assignedAgents.map((a) => `${a.name} (${a.role})`).join(", ")}`
       console.error("[chat] activity log failed:", e);
     }
 
+    // Send agent response email to client (best-effort)
+    try {
+      const { sendEmail, agentResponseEmail } = await import("@/lib/email");
+      const user = await db.user.findUnique({
+        where: { id: project.clientId },
+        select: { name: true, email: true },
+      });
+
+      if (user?.email && teamResults.length > 0) {
+        // Send email for first agent's response (avoid spam if multiple agents)
+        const firstResponse = teamResults[0];
+        const { subject, html } = agentResponseEmail(
+          user.name || "there",
+          project.title,
+          firstResponse.agentName,
+          firstResponse.agentRole,
+          firstResponse.content,
+        );
+        await sendEmail({ to: user.email, subject, html });
+      }
+    } catch (emailErr) {
+      console.error("[chat] email failed:", emailErr);
+    }
+
     return NextResponse.json({
       userMessage,
       agentMessages,

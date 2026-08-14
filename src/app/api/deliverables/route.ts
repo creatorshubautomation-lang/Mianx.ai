@@ -125,6 +125,26 @@ Description: ${project.description}`;
       },
     });
 
+    // Send deliverable ready email (best-effort)
+    try {
+      const { sendEmail, deliverableReadyEmail } = await import("@/lib/email");
+      const user = await db.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true, email: true },
+      });
+      if (user?.email) {
+        const { subject, html } = deliverableReadyEmail(
+          user.name || "there",
+          project.title,
+          generated.title,
+          agentName,
+        );
+        await sendEmail({ to: user.email, subject, html });
+      }
+    } catch (emailErr) {
+      console.error("[deliverables] email failed:", emailErr);
+    }
+
     return NextResponse.json({ deliverable, ok: true });
   } catch (e) {
     console.error("[deliverables] error:", e);
