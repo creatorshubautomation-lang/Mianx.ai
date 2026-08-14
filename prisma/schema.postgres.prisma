@@ -283,3 +283,63 @@ model SupportTicket {
   @@index([userId])
   @@index([status])
 }
+
+// ─────────────────────────────────────────────
+//  AGENT MEMORY (D3 — agents remember client preferences)
+// ─────────────────────────────────────────────
+
+model AgentMemory {
+  id          String   @id @default(cuid())
+  projectId   String
+  agentId     String
+  memoryType  String   // preference | decision | feedback | fact
+  key         String   // e.g., "preferred_color", "brand_voice"
+  value       String   // e.g., "blue", "casual"
+  confidence  Float    @default(1.0) // 0.0 to 1.0
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([agentId])
+  @@unique([projectId, agentId, key])
+}
+
+// ─────────────────────────────────────────────
+//  NOTIFICATION (D5 — smart notifications)
+// ─────────────────────────────────────────────
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  projectId   String?
+  type        String   // project_update | deliverable_ready | agent_response | milestone | warning
+  title       String
+  message     String
+  priority    String   @default("normal") // low | normal | high | urgent
+  isRead      Boolean  @default(false)
+  actionUrl   String?
+  metadata    String?  // JSON
+  createdAt   DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([projectId])
+}
+
+// ─────────────────────────────────────────────
+//  AGENT ACTIVITY LOG (D2 — real-time agent activity)
+// ─────────────────────────────────────────────
+
+model AgentActivity {
+  id          String   @id @default(cuid())
+  projectId   String
+  agentId     String?
+  agentName   String
+  activity    String   // thinking | coding | designing | writing | testing | reviewing | done
+  description String
+  progress    Int      @default(0) // 0-100
+  isLive      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([isLive])
+}

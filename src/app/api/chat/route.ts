@@ -294,6 +294,72 @@ Assigned team: ${assignedAgents.map((a) => `${a.name} (${a.role})`).join(", ")}`
       console.error("[chat] activity log failed:", e);
     }
 
+    // D2: Log agent activity for live feed
+    try {
+      const { logAgentActivity } = await import("@/lib/auto-execute");
+      for (const result of teamResults) {
+        if (result.success) {
+          await logAgentActivity(projectId, {
+            agentName: result.agentName,
+            activity: "responded",
+            description: `${result.agentName} responded to client message`,
+            progress: 50,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[chat] agent activity log failed:", e);
+    }
+
+    // D3: Extract memories from user message
+    try {
+      const { extractMemoriesFromMessage } = await import("@/lib/agent-memory");
+      // Use first responder's agent ID for memory
+      const firstResponder = assignedAgents.find(
+        (a) => a.name === teamResults[0]?.agentName,
+      );
+      if (firstResponder) {
+        await extractMemoriesFromMessage(
+          projectId,
+          firstResponder.id,
+          content,
+        );
+      }
+    } catch (e) {
+      console.error("[chat] memory extraction failed:", e);
+    }
+
+    // D1: Auto-execute next task (trigger progress)
+    try {
+      const { autoExecuteNextTask } = await import("@/lib/auto-execute");
+      await autoExecuteNextTask(projectId);
+    } catch (e) {
+      console.error("[chat] auto-execute failed:", e);
+    }
+
+    // D5: Create notification for agent response
+    try {
+      const project2 = await db.project.findUnique({
+        where: { id: projectId },
+        select: { title: true, clientId: true },
+      });
+      if (project2) {
+        await db.notification.create({
+          data: {
+            userId: project2.clientId,
+            projectId,
+            type: "agent_response",
+            title: `💬 ${teamResults[0]?.agentName || "Agent"} responded`,
+            message: `New response on "${project2.title}"`,
+            priority: "normal",
+            actionUrl: `/projects/${projectId}`,
+          },
+        });
+      }
+    } catch (e) {
+      console.error("[chat] notification failed:", e);
+    }
+
     // Auto-update project progress (small increment for chat activity)
     try {
       const { updateProjectProgress } = await import("@/lib/project-progress");
