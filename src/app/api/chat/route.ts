@@ -266,6 +266,14 @@ Assigned team: ${assignedAgents.map((a) => `${a.name} (${a.role})`).join(", ")}`
       console.error("[chat] activity log failed:", e);
     }
 
+    // Auto-update project progress (small increment for chat activity)
+    try {
+      const { updateProjectProgress } = await import("@/lib/project-progress");
+      await updateProjectProgress(projectId);
+    } catch (e) {
+      console.error("[chat] progress update failed:", e);
+    }
+
     // Send agent response email to client (best-effort)
     try {
       const { sendEmail, agentResponseEmail } = await import("@/lib/email");

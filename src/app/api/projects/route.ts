@@ -213,6 +213,14 @@ export async function POST(req: Request) {
       },
     });
 
+    // Auto-update project progress based on tasks
+    try {
+      const { updateProjectProgress } = await import("@/lib/project-progress");
+      await updateProjectProgress(project.id);
+    } catch (e) {
+      console.error("[projects] progress update failed:", e);
+    }
+
     return NextResponse.json({ project: fullProject, ok: true });
   } catch (e) {
     console.error("[projects/create] error:", e);

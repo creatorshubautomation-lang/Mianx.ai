@@ -145,6 +145,14 @@ Description: ${project.description}`;
       console.error("[deliverables] email failed:", emailErr);
     }
 
+    // Auto-update project progress (deliverable = significant progress)
+    try {
+      const { updateProjectProgress } = await import("@/lib/project-progress");
+      await updateProjectProgress(projectId);
+    } catch (e) {
+      console.error("[deliverables] progress update failed:", e);
+    }
+
     return NextResponse.json({ deliverable, ok: true });
   } catch (e) {
     console.error("[deliverables] error:", e);
