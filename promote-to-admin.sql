@@ -22,12 +22,12 @@ ORDER BY "createdAt" ASC;
 -- 👇 REPLACE THIS EMAIL WITH YOUR ACTUAL EMAIL 👇
 UPDATE "User"
 SET role = 'ADMIN'
-WHERE email = 'creatorshubautomation@gmail.com';
+WHERE email = 'your-email@example.com';
 
 -- Step 3: Verify the change
 SELECT email, name, role
 FROM "User"
-WHERE email = 'creatorshubautomation@gmail.com';
+WHERE email = 'your-email@example.com';
 
 -- ✅ After running this:
 --   - Refresh your browser (logout + login again for safety)

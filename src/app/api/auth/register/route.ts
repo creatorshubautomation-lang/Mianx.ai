@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  // Max 10 signup attempts per IP per 15 minutes
+  const ip = getClientIp(req);
+  const limit = rateLimit(`register:${ip}`, 10, 15 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many signup attempts. Please try again later." },
+      { status: 429 },
+    );
+  }
+
   try {
     const body = await req.json();
     const { email, password, name, company } = body;
@@ -32,16 +43,14 @@ export async function POST(req: Request) {
     try {
       userCount = await db.user.count();
     } catch (dbError) {
+      // Log full details server-side only — never expose connection strings,
+      // project refs, or raw driver errors to the client.
       console.error("[register] DB connection failed:", dbError);
       return NextResponse.json(
         {
           error:
-            "Database connection failed. Please check that DATABASE_URL is set correctly in Vercel environment variables. " +
-            "For Supabase, use the connection pooler URL (port 6543) with your password, " +
-            "e.g. postgresql://postgres.sneshfeidnitwabmafsh:YOUR_PASSWORD@aws-0-region.pooler.supabase.com:6543/postgres",
+            "We're having trouble connecting right now. Please try again in a moment.",
           code: "DB_CONNECTION_FAILED",
-          details:
-            dbError instanceof Error ? dbError.message : String(dbError),
         },
         { status: 503 },
       );
@@ -115,9 +124,8 @@ export async function POST(req: Request) {
     console.error("[register] unexpected error:", e);
     return NextResponse.json(
       {
-        error: "Failed to create account",
+        error: "Failed to create account. Please try again.",
         code: "INTERNAL_ERROR",
-        details: e instanceof Error ? e.message : String(e),
       },
       { status: 500 },
     );

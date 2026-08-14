@@ -91,7 +91,6 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: "Failed to reset password",
-        details: e instanceof Error ? e.message : String(e),
       },
       { status: 500 },
     );

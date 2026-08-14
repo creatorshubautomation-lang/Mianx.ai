@@ -59,18 +59,14 @@ export const authOptions: NextAuthOptions = {
         try {
           // Normalize email (trim + lowercase) to avoid case issues
           const email = credentials.email.trim().toLowerCase();
-          console.log("[auth] authorize attempt for:", email);
 
           const user = await db.user.findUnique({
             where: { email },
           });
 
           if (!user) {
-            console.log("[auth] user not found:", email);
             return null;
           }
-
-          console.log("[auth] user found, role:", user.role);
 
           const valid = await bcrypt.compare(
             credentials.password,
@@ -78,15 +74,8 @@ export const authOptions: NextAuthOptions = {
           );
 
           if (!valid) {
-            console.log("[auth] password invalid for:", email);
-            console.log(
-              "[auth] hash preview:",
-              user.passwordHash?.slice(0, 20) + "...",
-            );
             return null;
           }
-
-          console.log("[auth] login successful:", email, "role:", user.role);
 
           return {
             id: user.id,

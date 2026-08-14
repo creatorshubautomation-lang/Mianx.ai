@@ -190,7 +190,6 @@ export async function GET() {
     return NextResponse.json(
       {
         error: "Failed to fetch AI usage stats",
-        details: e instanceof Error ? e.message : String(e),
       },
       { status: 500 },
     );

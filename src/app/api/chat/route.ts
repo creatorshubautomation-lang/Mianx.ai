@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { teamAgentResponse, type TeamAgentInfo } from "@/lib/ai-service";
+import { rateLimit } from "@/lib/rate-limit";
 
 // GET /api/chat?projectId=xxx — list messages for a project
 export async function GET(req: Request) {
@@ -50,7 +51,6 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         error: "Failed to fetch messages",
-        details: e instanceof Error ? e.message : String(e),
       },
       { status: 500 },
     );
@@ -73,6 +73,15 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Max 20 AI messages per user per minute — protects paid AI provider spend
+  const limit = rateLimit(`chat:${session.user.id}`, 20, 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "You're sending messages too quickly. Please slow down." },
+      { status: 429 },
+    );
   }
 
   try {
@@ -403,7 +412,6 @@ Assigned team: ${assignedAgents.map((a) => `${a.name} (${a.role})`).join(", ")}`
     return NextResponse.json(
       {
         error: "Failed to send message",
-        details: e instanceof Error ? e.message : String(e),
       },
       { status: 500 },
     );

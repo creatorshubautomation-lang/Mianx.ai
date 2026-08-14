@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { sendEmail, passwordResetEmail } from "@/lib/email";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 // POST /api/auth/forgot-password
 // Sends a password reset email if the user exists
@@ -10,6 +11,16 @@ import { sendEmail, passwordResetEmail } from "@/lib/email";
 // Returns: { ok: true } (always — don't reveal if email exists or not)
 
 export async function POST(req: Request) {
+  // Max 5 reset requests per IP per 15 minutes
+  const ip = getClientIp(req);
+  const limit = rateLimit(`forgot-password:${ip}`, 5, 15 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429 },
+    );
+  }
+
   try {
     const { email } = await req.json();
 
