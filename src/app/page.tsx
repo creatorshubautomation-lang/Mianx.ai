@@ -8,7 +8,8 @@ import { Footer } from "@/components/mianx/Footer";
 import { AuthModal } from "@/components/mianx/AuthModal";
 import { DashboardShell } from "@/components/mianx/DashboardShell";
 import { ResetPasswordForm } from "@/components/mianx/ForgotPasswordModal";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, Shield } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Public views
 import { HomeView } from "@/components/views/HomeView";
@@ -66,17 +67,22 @@ function AppContent() {
     const token = params.get("reset_token");
 
     if (token) {
-      // Use a flag to avoid setState warning
       const timer = setTimeout(() => setResetToken(token), 0);
       return () => clearTimeout(timer);
     }
 
-    // Clean URL if checkout params present
     const checkout = params.get("checkout");
     if (checkout) {
       window.history.replaceState({}, "", "/");
     }
   }, []);
+
+  // Scroll to top on view change
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [view]);
 
   // Show reset password form if token is in URL
   if (resetToken) {
@@ -99,10 +105,18 @@ function AppContent() {
   if (status === "loading") {
     return (
       <div className="fixed inset-0 mesh-bg flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 via-violet-500 to-cyan-500 glow animate-pulse">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 via-violet-500 to-cyan-500 glow"
+          >
             <Sparkles className="h-8 w-8 text-white" />
-          </div>
+          </motion.div>
           <h1 className="text-2xl font-bold mb-2">
             Mianx<span className="gradient-text">.ai</span>
           </h1>
@@ -110,13 +124,24 @@ function AppContent() {
             <Loader2 className="h-4 w-4 animate-spin text-purple-400" />
             <p className="text-sm text-muted-foreground">Loading your workspace...</p>
           </div>
-          {/* Animated dots */}
           <div className="flex justify-center gap-1 mt-4">
-            <span className="h-2 w-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-            <span className="h-2 w-2 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-            <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+            <motion.span
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+              className="h-2 w-2 rounded-full bg-purple-400"
+            />
+            <motion.span
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 0.6, repeat: Infinity, delay: 0.15 }}
+              className="h-2 w-2 rounded-full bg-violet-400"
+            />
+            <motion.span
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 0.6, repeat: Infinity, delay: 0.3 }}
+              className="h-2 w-2 rounded-full bg-cyan-400"
+            />
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -127,17 +152,27 @@ function AppContent() {
       <div className="relative min-h-screen mesh-bg flex flex-col">
         <Navbar />
         <main className="flex-1">
-          {view === "home" && <HomeView />}
-          {view === "services" && <ServicesView />}
-          {view === "agents" && <AgentsView />}
-          {view === "pricing" && <PricingView />}
-          {view === "about" && <AboutView />}
-          {view === "useCases" && <UseCasesView />}
-          {view === "contact" && <ContactView />}
-          {view === "templates" && <TemplatesView />}
-          {view === "apiDocs" && <ApiDocsView />}
-          {view === "academy" && <AcademyView />}
-          {view === "marketplace" && <MarketplaceView />}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={view}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              {view === "home" && <HomeView />}
+              {view === "services" && <ServicesView />}
+              {view === "agents" && <AgentsView />}
+              {view === "pricing" && <PricingView />}
+              {view === "about" && <AboutView />}
+              {view === "useCases" && <UseCasesView />}
+              {view === "contact" && <ContactView />}
+              {view === "templates" && <TemplatesView />}
+              {view === "apiDocs" && <ApiDocsView />}
+              {view === "academy" && <AcademyView />}
+              {view === "marketplace" && <MarketplaceView />}
+            </motion.div>
+          </AnimatePresence>
         </main>
         <Footer />
         <AuthModal />
@@ -147,7 +182,6 @@ function AppContent() {
 
   // Authenticated views — require login
   if (!session?.user) {
-    // Force back to home with auth modal
     return (
       <div className="relative min-h-screen mesh-bg flex flex-col">
         <Navbar />
@@ -164,12 +198,19 @@ function AppContent() {
   if (view === "admin" && session.user.role !== "ADMIN") {
     return (
       <div className="min-h-screen mesh-bg flex items-center justify-center p-6">
-        <div className="text-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/20">
+            <Shield className="h-8 w-8 text-red-400" />
+          </div>
           <h2 className="text-xl font-bold mb-2">Access Denied</h2>
           <p className="text-sm text-muted-foreground">
             You need admin privileges to access this page.
           </p>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -177,14 +218,24 @@ function AppContent() {
   // Dashboard views (authenticated)
   return (
     <DashboardShell>
-      {view === "dashboard" && <DashboardOverview />}
-      {view === "projects" && <ProjectsList />}
-      {view === "newProject" && <NewProjectWizard />}
-      {view === "projectDetail" && <ProjectDetail />}
-      {view === "deliverables" && <DeliverablesList />}
-      {view === "support" && <SupportView />}
-      {view === "settings" && <SettingsView />}
-      {view === "admin" && <AdminPanel />}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={view}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+        >
+          {view === "dashboard" && <DashboardOverview />}
+          {view === "projects" && <ProjectsList />}
+          {view === "newProject" && <NewProjectWizard />}
+          {view === "projectDetail" && <ProjectDetail />}
+          {view === "deliverables" && <DeliverablesList />}
+          {view === "support" && <SupportView />}
+          {view === "settings" && <SettingsView />}
+          {view === "admin" && <AdminPanel />}
+        </motion.div>
+      </AnimatePresence>
     </DashboardShell>
   );
 }
