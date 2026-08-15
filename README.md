@@ -147,6 +147,8 @@ Every agent interaction is a real LLM call:
 
 3. **Deliverable Generation** — When a client requests a deliverable, the system calls the LLM with the agent's system prompt + task description + project context, and saves the generated content (code, design spec, document, etc.) as a downloadable file.
 
+> **Data processing note:** Project titles, descriptions, and chat content are sent to whichever third-party AI provider is active (Z.ai, Gemini, Groq, OpenAI, or Anthropic — see `AI Providers` in `.env.example`) in order to generate responses. If you're deploying this for real clients, disclose this in your privacy policy / terms of service, since project data leaves your infrastructure and is processed by external providers.
+
 ## Project Structure
 
 ```

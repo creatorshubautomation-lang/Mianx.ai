@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { createHash } from "crypto";
 import { db } from "@/lib/db";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+
+// Must match the hashing used in forgot-password/route.ts — the DB only
+// ever stores SHA-256(rawToken), never the raw token itself.
+function hashToken(raw: string): string {
+  return createHash("sha256").update(raw).digest("hex");
+}
 
 // POST /api/auth/reset-password
 // Resets password using a valid token
@@ -9,6 +17,18 @@ import { db } from "@/lib/db";
 // Returns: { ok: true } on success
 
 export async function POST(req: Request) {
+  // Modest throttle — the token itself is 256 bits of entropy so brute
+  // force isn't practical, but this adds defense-in-depth against scripted
+  // abuse of this endpoint.
+  const ip = getClientIp(req);
+  const limit = rateLimit(`reset-password:${ip}`, 20, 15 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many attempts. Please try again later." },
+      { status: 429 },
+    );
+  }
+
   try {
     const { token, newPassword } = await req.json();
 
@@ -26,9 +46,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Find valid, unused, non-expired token
+    // Find valid, unused, non-expired token (looked up by hash)
     const resetRecord = await db.passwordReset.findUnique({
-      where: { token },
+      where: { token: hashToken(token) },
     });
 
     if (!resetRecord) {
@@ -100,6 +120,15 @@ export async function POST(req: Request) {
 // GET /api/auth/reset-password?token=xxx
 // Validates if a token is still valid (for the reset form)
 export async function GET(req: Request) {
+  const ip = getClientIp(req);
+  const limit = rateLimit(`reset-password-check:${ip}`, 30, 15 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { valid: false, error: "Too many attempts. Please try again later." },
+      { status: 429 },
+    );
+  }
+
   try {
     const url = new URL(req.url);
     const token = url.searchParams.get("token");
@@ -112,7 +141,7 @@ export async function GET(req: Request) {
     }
 
     const resetRecord = await db.passwordReset.findUnique({
-      where: { token },
+      where: { token: hashToken(token) },
     });
 
     if (!resetRecord) {

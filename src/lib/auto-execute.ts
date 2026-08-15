@@ -25,11 +25,16 @@ export async function autoExecuteNextTask(
       });
 
       if (inProgress) {
-        // Complete the in-progress task
-        await db.task.update({
-          where: { id: inProgress.id },
+        // Complete the in-progress task — atomic claim, same reasoning as
+        // the todo→in_progress transition below.
+        const claimed = await db.task.updateMany({
+          where: { id: inProgress.id, status: "in_progress" },
           data: { status: "done" },
         });
+
+        if (claimed.count === 0) {
+          return { executed: false };
+        }
 
         // Log agent activity
         await logAgentActivity(projectId, {
@@ -52,11 +57,21 @@ export async function autoExecuteNextTask(
       return { executed: false };
     }
 
-    // Mark next task as in_progress
-    await db.task.update({
-      where: { id: nextTask.id },
+    // Mark next task as in_progress — atomically, conditioned on it still
+    // being "todo". If two requests race to auto-execute the same project
+    // (e.g. a burst of chat messages), only one of them will actually flip
+    // the status and proceed; the other sees count 0 and exits early
+    // instead of duplicating activity logs / progress updates for the same
+    // task.
+    const claimed = await db.task.updateMany({
+      where: { id: nextTask.id, status: "todo" },
       data: { status: "in_progress" },
     });
+
+    if (claimed.count === 0) {
+      // Another concurrent request already claimed this task.
+      return { executed: false };
+    }
 
     // Find assigned agent
     let agentName = "AI Agent";

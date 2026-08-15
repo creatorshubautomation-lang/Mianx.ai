@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { MARKETPLACE_AGENTS } from "@/lib/marketplace-data";
+import { rateLimit } from "@/lib/rate-limit";
 
 // GET /api/marketplace/agents — list all marketplace agents (auto-seeds if empty)
 export async function GET(req: Request) {
@@ -21,7 +22,10 @@ export async function GET(req: Request) {
       take: 50,
     });
 
-    // Auto-seed marketplace agents if database is empty
+    // Auto-seed marketplace agents if database is empty.
+    // Uses createMany + skipDuplicates so concurrent requests racing to
+    // seed an empty table can't create duplicate rows (relies on the
+    // @@unique([creatorId, name]) constraint on CustomAgent).
     if (agents.length === 0) {
       // Use first admin user as creator
       const adminUser = await db.user.findFirst({
@@ -31,25 +35,27 @@ export async function GET(req: Request) {
 
       const creatorId = adminUser?.id || "system";
 
-      for (const template of MARKETPLACE_AGENTS) {
-        await db.customAgent.create({
-          data: {
-            creatorId,
-            name: template.name,
-            description: template.description,
-            category: template.category,
-            icon: template.icon,
-            color: template.color,
-            systemPrompt: template.systemPrompt,
-            capabilities: JSON.stringify(template.capabilities),
-            price: template.price,
-            isVerified: template.isVerified,
-            tags: JSON.stringify(template.tags),
-            downloadCount: Math.floor(Math.random() * 500) + 50,
-            rating: 4.5 + Math.random() * 0.5,
-          },
-        });
-      }
+      await db.customAgent.createMany({
+        data: MARKETPLACE_AGENTS.map((template, i) => ({
+          creatorId,
+          name: template.name,
+          description: template.description,
+          category: template.category,
+          icon: template.icon,
+          color: template.color,
+          systemPrompt: template.systemPrompt,
+          capabilities: JSON.stringify(template.capabilities),
+          price: template.price,
+          isVerified: template.isVerified,
+          tags: JSON.stringify(template.tags),
+          // Deterministic sample stats (not randomly generated) — this is
+          // seed/demo catalog data, not real usage figures, so it should
+          // stay stable and reproducible rather than faking organic growth.
+          downloadCount: 50 + i * 37,
+          rating: 4.5,
+        })),
+        skipDuplicates: true,
+      });
 
       // Re-fetch after seeding
       agents = await db.customAgent.findMany({
@@ -82,8 +88,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Basic anti-spam throttle on agent creation
+  const limit = rateLimit(`marketplace-create:${session.user.id}`, 10, 60 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many agents created. Please try again later." },
+      { status: 429 },
+    );
+  }
+
   try {
-    const { name, description, category, systemPrompt, capabilities, price, tags } =
+    const { name, description, category, systemPrompt, capabilities, tags } =
       await req.json();
 
     if (!name || !description || !systemPrompt) {
@@ -93,15 +108,55 @@ export async function POST(req: Request) {
       );
     }
 
+    if (typeof name !== "string" || name.trim().length === 0 || name.length > 100) {
+      return NextResponse.json(
+        { error: "name must be a string between 1 and 100 characters" },
+        { status: 400 },
+      );
+    }
+    if (typeof description !== "string" || description.length > 2000) {
+      return NextResponse.json(
+        { error: "description must be a string under 2000 characters" },
+        { status: 400 },
+      );
+    }
+    if (typeof systemPrompt !== "string" || systemPrompt.length > 8000) {
+      return NextResponse.json(
+        { error: "systemPrompt must be a string under 8000 characters" },
+        { status: 400 },
+      );
+    }
+    if (
+      capabilities !== undefined &&
+      (!Array.isArray(capabilities) || capabilities.length > 30)
+    ) {
+      return NextResponse.json(
+        { error: "capabilities must be an array of at most 30 items" },
+        { status: 400 },
+      );
+    }
+    if (tags !== undefined && (!Array.isArray(tags) || tags.length > 20)) {
+      return NextResponse.json(
+        { error: "tags must be an array of at most 20 items" },
+        { status: 400 },
+      );
+    }
+
     const agent = await db.customAgent.create({
       data: {
         creatorId: session.user.id,
         name,
         description,
-        category: category || "custom",
+        category: typeof category === "string" ? category.slice(0, 50) : "custom",
         systemPrompt,
         capabilities: JSON.stringify(capabilities || []),
-        price: price || 0,
+        // Pricing is not client-controllable: this platform has no purchase/
+        // payment flow for marketplace agents yet, and price is a
+        // trust-sensitive field that must be set server-side (by an admin
+        // review process) once monetization exists. User-created agents are
+        // always free and unverified until then.
+        price: 0,
+        isVerified: false,
         tags: JSON.stringify(tags || []),
       },
     });
