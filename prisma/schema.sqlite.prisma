@@ -183,7 +183,9 @@ model Deliverable {
   title      String
   description String?
   fileType   String   // code | document | design | report | archive
-  content    String   // text content (for code/doc deliverables)
+  content    String   // text content, or base64 for uploaded binaries (see contentEncoding)
+  contentEncoding String @default("utf8") // "utf8" | "base64"
+  mimeType   String?  // real MIME type, e.g. "image/png" — used for download headers
   fileName   String?
   fileSize   Int?
   createdAt  DateTime @default(now())

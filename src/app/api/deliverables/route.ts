@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { generateDeliverable } from "@/lib/ai-service";
+import { rateLimit } from "@/lib/rate-limit";
 
 // GET /api/deliverables?projectId=xxx
 export async function GET(req: Request) {
@@ -63,12 +64,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Deliverable generation calls paid AI providers + does ZIP generation —
+  // throttle to protect cost and avoid abuse.
+  const limit = rateLimit(`deliverables:${session.user.id}`, 10, 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please slow down." },
+      { status: 429 },
+    );
+  }
+
   try {
     const { projectId, agentName, taskDescription } = await req.json();
 
     if (!projectId || !agentName || !taskDescription) {
       return NextResponse.json(
         { error: "projectId, agentName, and taskDescription are required" },
+        { status: 400 },
+      );
+    }
+
+    if (typeof agentName !== "string" || agentName.length > 100) {
+      return NextResponse.json(
+        { error: "agentName must be a string under 100 characters" },
+        { status: 400 },
+      );
+    }
+    if (typeof taskDescription !== "string" || taskDescription.length > 5000) {
+      return NextResponse.json(
+        { error: "taskDescription must be a string under 5000 characters" },
         { status: 400 },
       );
     }
@@ -144,7 +168,13 @@ Description: ${project.description}`;
         title: generated.title,
         description: `${taskDescription}\n\n📦 ZIP contains ${fileCount} files`,
         fileType: zipBuffer ? "archive" : generated.fileType,
-        content: generated.content,
+        // When ZIP generation succeeded, persist the actual ZIP bytes
+        // (base64-encoded) so downloads return a real, openable archive.
+        // Previously this stored the raw AI text under a .zip filename,
+        // which downloaded as a broken/unopenable "archive".
+        content: zipBuffer ? zipBuffer.toString("base64") : generated.content,
+        contentEncoding: zipBuffer ? "base64" : "utf8",
+        mimeType: zipBuffer ? "application/zip" : undefined,
         fileName: zipFileName || `${agentName.toLowerCase()}-${Date.now()}.${generated.fileType === "code" ? "txt" : "md"}`,
         fileSize: zipBuffer ? zipBuffer.length : generated.content.length,
       },

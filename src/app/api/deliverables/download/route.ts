@@ -40,36 +40,26 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // If it's an archive (ZIP stored as base64 in content), return as ZIP
-    // Otherwise return as text file
-
     const fileName = deliverable.fileName || `deliverable-${id}.txt`;
-    const isZip = deliverable.fileType === "archive";
 
-    if (isZip) {
-      // For ZIP, we need to regenerate it from content
-      // (since we stored text content, not binary)
-      // For now, return the text content as .txt
-      // In production, store ZIP in S3/Supabase Storage
-      const textBuffer = Buffer.from(deliverable.content, "utf-8");
+    // Uploaded files are stored base64-encoded (see file-upload.ts); AI-
+    // generated text deliverables are stored as plain utf8. Decode
+    // accordingly so uploaded binaries (images, PDFs, zips, etc.) come
+    // back byte-for-byte instead of being served as a text placeholder.
+    const isBase64 = deliverable.contentEncoding === "base64";
+    const fileBuffer = isBase64
+      ? Buffer.from(deliverable.content, "base64")
+      : Buffer.from(deliverable.content, "utf-8");
 
-      return new NextResponse(textBuffer, {
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "Content-Disposition": `attachment; filename="${fileName.replace(".zip", ".txt")}"`,
-          "Content-Length": textBuffer.length.toString(),
-        },
-      });
-    }
+    const contentType = isBase64
+      ? deliverable.mimeType || "application/octet-stream"
+      : "text/plain; charset=utf-8";
 
-    // Text file download
-    const textBuffer = Buffer.from(deliverable.content, "utf-8");
-
-    return new NextResponse(textBuffer, {
+    return new NextResponse(fileBuffer, {
       headers: {
-        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Type": contentType,
         "Content-Disposition": `attachment; filename="${fileName}"`,
-        "Content-Length": textBuffer.length.toString(),
+        "Content-Length": fileBuffer.length.toString(),
       },
     });
   } catch (e) {

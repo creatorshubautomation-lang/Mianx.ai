@@ -122,7 +122,11 @@ export async function uploadFile(
     else if (file.type === "application/pdf") fileType = "report";
     else if (file.type === "application/zip") fileType = "archive";
 
-    // Save as deliverable
+    // Save as deliverable — the actual file bytes (base64-encoded) are
+    // stored in `content`, with `contentEncoding` marking how to decode it
+    // on download. Previously this only stored a placeholder string
+    // ("content stored separately") and the real bytes were discarded,
+    // meaning uploaded files could never actually be downloaded again.
     const deliverable = await db.deliverable.create({
       data: {
         projectId,
@@ -130,7 +134,9 @@ export async function uploadFile(
         title: file.name,
         description: `Uploaded by user — ${file.type}`,
         fileType,
-        content: `[UPLOADED FILE]\nName: ${file.name}\nType: ${file.type}\nSize: ${file.size} bytes\n\n[Base64 content stored separately — download to view]`,
+        content: base64Content,
+        contentEncoding: "base64",
+        mimeType: file.type,
         fileName: file.name,
         fileSize: file.size,
       },
