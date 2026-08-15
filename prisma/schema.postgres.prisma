@@ -231,6 +231,7 @@ model AiProviderUsage {
   id            String   @id @default(cuid())
   provider      String   // zai | gemini | groq | openai | anthropic | cloudflare
   endpoint      String   // chat | analyze | deliverable
+  tier          String   @default("fast") // fast | quality — which model tier was used
   agentName     String?
   projectId     String?
   userId        String?
@@ -246,6 +247,7 @@ model AiProviderUsage {
   @@index([provider, createdAt])
   @@index([projectId])
   @@index([userId, createdAt])
+  @@index([tier])
 }
 
 // ─────────────────────────────────────────────
@@ -477,4 +479,27 @@ model WhiteLabelConfig {
   plan          String   @default("standard") // standard | pro | enterprise
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
+//  AGENT TOOL CALLS (Phase 2 — tool usage tracking)
+// ─────────────────────────────────────────────
+
+model AgentToolCall {
+  id          String   @id @default(cuid())
+  provider    String   // which AI provider executed the tool
+  toolName    String   // code_verify | web_search | ...
+  agentName   String?
+  projectId   String?
+  userId      String?
+  input       String?  // JSON — tool input parameters
+  output      String?  // JSON — tool result
+  status      String   @default("success") // success | failed | skipped
+  durationMs  Int?
+  createdAt   DateTime @default(now())
+
+  @@index([provider, createdAt])
+  @@index([projectId])
+  @@index([userId, createdAt])
+  @@index([toolName])
 }

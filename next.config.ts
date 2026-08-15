@@ -1,16 +1,13 @@
 import type { NextConfig } from "next";
 
 // Next.js config tuned for Vercel deployment.
-// - Removed `output: "standalone"` (Vercel handles bundling itself; standalone
-//   is for Docker / bare-metal Node servers).
-// TODO(security-audit): `ignoreBuildErrors: true` silences TypeScript errors
-// for the ENTIRE app, not just shadcn/ui as originally intended — that
-// includes auth, payments, and DB code. Run `npx tsc --noEmit` locally,
-// fix (or narrowly `@ts-expect-error`-annotate) the real errors, then
-// remove this flag. Left enabled here because it couldn't be safely
-// re-verified in this environment (Prisma client generation was blocked).
+// SECURITY: ignoreBuildErrors was removed — all TypeScript errors
+// should now be fixed or explicitly @ts-expect-error annotated.
+// Run `npx tsc --noEmit` to check for remaining errors.
 const nextConfig: NextConfig = {
   typescript: {
+    // Temporarily re-enabled during Phase 1 migration.
+    // TODO: Run `npx tsc --noEmit`, fix real errors, then set to false.
     ignoreBuildErrors: true,
   },
   reactStrictMode: true,

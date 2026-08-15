@@ -22,15 +22,20 @@ import { db } from "@/lib/db";
 //  Provider configurations
 // ─────────────────────────────────────────────
 
+export type TaskTier = "fast" | "quality";
+
 interface ProviderConfig {
   name: string;
   displayName: string;
   envKeyName: string;
   baseUrl: string;
   defaultModel: string;
+  qualityModel: string;
   // Cost per 1M tokens (input, output) in USD
   costPer1MInput: number;
   costPer1MOutput: number;
+  qualityCostPer1MInput?: number;
+  qualityCostPer1MOutput?: number;
   freeLimitUsd: number;
   priority: number;
 }
@@ -42,8 +47,11 @@ const PROVIDERS: ProviderConfig[] = [
     envKeyName: "ZAI_API_KEY",
     baseUrl: "https://api.z.ai/api/paas/v4",
     defaultModel: "glm-4-flash",
+    qualityModel: "glm-4-plus",
     costPer1MInput: 0.1,
     costPer1MOutput: 0.1,
+    qualityCostPer1MInput: 0.5,
+    qualityCostPer1MOutput: 0.5,
     freeLimitUsd: 18, // $18 free credits on signup
     priority: 1,
   },
@@ -53,8 +61,11 @@ const PROVIDERS: ProviderConfig[] = [
     envKeyName: "GEMINI_API_KEY",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta",
     defaultModel: "gemini-1.5-flash",
+    qualityModel: "gemini-2.5-pro",
     costPer1MInput: 0.075,
     costPer1MOutput: 0.3,
+    qualityCostPer1MInput: 1.25,
+    qualityCostPer1MOutput: 10.0,
     freeLimitUsd: 50, // generous free tier
     priority: 2,
   },
@@ -64,8 +75,11 @@ const PROVIDERS: ProviderConfig[] = [
     envKeyName: "GROQ_API_KEY",
     baseUrl: "https://api.groq.com/openai/v1",
     defaultModel: "llama-3.1-8b-instant",
+    qualityModel: "llama-3.3-70b-versatile",
     costPer1MInput: 0.05,
     costPer1MOutput: 0.08,
+    qualityCostPer1MInput: 0.59,
+    qualityCostPer1MOutput: 0.79,
     freeLimitUsd: 20,
     priority: 3,
   },
@@ -75,8 +89,11 @@ const PROVIDERS: ProviderConfig[] = [
     envKeyName: "OPENAI_API_KEY",
     baseUrl: "https://api.openai.com/v1",
     defaultModel: "gpt-4o-mini",
+    qualityModel: "gpt-4o",
     costPer1MInput: 0.15,
     costPer1MOutput: 0.6,
+    qualityCostPer1MInput: 2.5,
+    qualityCostPer1MOutput: 10.0,
     freeLimitUsd: 5, // $5 free on signup
     priority: 4,
   },
@@ -86,8 +103,11 @@ const PROVIDERS: ProviderConfig[] = [
     envKeyName: "ANTHROPIC_API_KEY",
     baseUrl: "https://api.anthropic.com/v1",
     defaultModel: "claude-3-haiku-20240307",
+    qualityModel: "claude-sonnet-4-5-20250514",
     costPer1MInput: 0.25,
     costPer1MOutput: 1.25,
+    qualityCostPer1MInput: 3.0,
+    qualityCostPer1MOutput: 15.0,
     freeLimitUsd: 5,
     priority: 5,
   },
@@ -108,6 +128,7 @@ interface UsageLogOptions {
   status: "success" | "failed" | "rate_limited" | "quota_exceeded";
   errorMessage?: string;
   responseTimeMs?: number;
+  tier?: TaskTier;
 }
 
 async function logUsage(opts: UsageLogOptions): Promise<void> {
@@ -116,12 +137,21 @@ async function logUsage(opts: UsageLogOptions): Promise<void> {
     const outputTokens = opts.outputTokens || 0;
     const totalTokens = inputTokens + outputTokens;
 
-    // Calculate cost
+    // Calculate cost (tier-aware)
     const provider = PROVIDERS.find((p) => p.name === opts.provider);
-    const costUsd = provider
-      ? (inputTokens / 1_000_000) * provider.costPer1MInput +
-        (outputTokens / 1_000_000) * provider.costPer1MOutput
-      : 0;
+    const tier = opts.tier || "fast";
+    let costUsd = 0;
+    if (provider) {
+      if (tier === "quality" && provider.qualityCostPer1MInput) {
+        costUsd =
+          (inputTokens / 1_000_000) * provider.qualityCostPer1MInput +
+          (outputTokens / 1_000_000) * provider.qualityCostPer1MOutput!;
+      } else {
+        costUsd =
+          (inputTokens / 1_000_000) * provider.costPer1MInput +
+          (outputTokens / 1_000_000) * provider.costPer1MOutput;
+      }
+    }
 
     await db.aiProviderUsage.create({
       data: {
@@ -134,6 +164,7 @@ async function logUsage(opts: UsageLogOptions): Promise<void> {
         outputTokens,
         totalTokens,
         costUsd,
+        tier: opts.tier || "fast",
         status: opts.status,
         errorMessage: opts.errorMessage,
         responseTimeMs: opts.responseTimeMs,
@@ -178,6 +209,7 @@ interface CallProviderOptions {
   projectId?: string;
   userId?: string;
   endpoint?: string; // chat | analyze | deliverable
+  tier?: TaskTier; // "fast" | "quality" — determines which model to use
   temperature?: number;
   maxTokens?: number;
 }
@@ -192,6 +224,8 @@ async function callProvider(
   outputTokens: number;
 }> {
   const apiKey = process.env[provider.envKeyName];
+  const tier = opts.tier || "fast";
+  const model = tier === "quality" ? provider.qualityModel : provider.defaultModel;
 
   if (!apiKey) {
     throw new Error(`API key not configured: ${provider.envKeyName}`);
@@ -208,7 +242,7 @@ async function callProvider(
 
     if (provider.name === "gemini") {
       // Gemini has its own format
-      url = `${provider.baseUrl}/models/${provider.defaultModel}:generateContent?key=${apiKey}`;
+      url = `${provider.baseUrl}/models/${model}:generateContent?key=${apiKey}`;
       headers = { "Content-Type": "application/json" };
       body = {
         contents: opts.messages.map((m) => ({
@@ -231,7 +265,7 @@ async function callProvider(
       const systemMsg = opts.messages.find((m) => m.role === "system");
       const otherMsgs = opts.messages.filter((m) => m.role !== "system");
       body = {
-        model: provider.defaultModel,
+        model,
         system: systemMsg?.content,
         messages: otherMsgs.map((m) => ({
           role: m.role,
@@ -248,7 +282,7 @@ async function callProvider(
         Authorization: `Bearer ${apiKey}`,
       };
       body = {
-        model: provider.defaultModel,
+        model,
         messages: opts.messages,
         temperature: opts.temperature ?? 0.7,
         max_tokens: opts.maxTokens ?? 2000,
@@ -353,6 +387,7 @@ async function callProvider(
 export async function callAIWithFallback(
   opts: CallProviderOptions,
 ): Promise<string> {
+  const tier = opts.tier || "fast";
   // Sort providers by priority
   const sortedProviders = [...PROVIDERS].sort(
     (a, b) => a.priority - b.priority,
@@ -486,10 +521,13 @@ Respond in EXACTLY this JSON format (no markdown, no code fences):
   "summary": "One paragraph summary of approach"
 }`;
 
+  // Brief analysis uses QUALITY tier — errors here cascade into wrong
+  // agent assignments for the entire project lifecycle.
   const response = await callAIWithFallback({
     messages: [{ role: "user", content: prompt }],
     endpoint: "analyze",
     userId,
+    tier: "quality",
     temperature: 0.4,
     maxTokens: 1500,
   });
@@ -577,6 +615,8 @@ import React from 'react';
 // ... complete code
 \`\`\``;
 
+  // Deliverable generation uses QUALITY tier — this is the output
+  // clients actually keep and download as production code.
   const content = await callAIWithFallback({
     messages: [
       { role: "system", content: systemPrompt + languagePrompt },
@@ -586,6 +626,7 @@ import React from 'react';
     projectId,
     userId,
     endpoint: "deliverable",
+    tier: "quality",
     temperature: POWER_MODE.temperature,
     maxTokens: POWER_MODE.maxTokens,
   });
