@@ -12,7 +12,7 @@ import { toast } from "sonner";
 
 export function PricingView() {
   const t = useT();
-  const { setAuthModal, setView } = useApp();
+  const { setAuthModal, navigate } = useApp();
   const { data: session } = useSession();
   const [yearly, setYearly] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
@@ -101,7 +101,7 @@ export function PricingView() {
       if (!session?.user) {
         setAuthModal("signup");
       } else {
-        setView("dashboard");
+        navigate("dashboard");
         toast.success("You're on the Free plan!");
       }
       return;
@@ -110,7 +110,7 @@ export function PricingView() {
     // Enterprise — contact sales
     if (plan.id === "enterprise") {
       toast.info("Contact us at hello@mianx.ai for Enterprise pricing");
-      setView("contact");
+      navigate("contact");
       return;
     }
 
@@ -300,7 +300,7 @@ export function PricingView() {
         <div className="text-center mt-8">
           <Button
             variant="link"
-            onClick={() => setView("contact")}
+            onClick={() => navigate("contact")}
             className="text-purple-300"
           >
             Have questions? Talk to our team →

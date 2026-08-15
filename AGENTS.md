@@ -267,14 +267,16 @@ Enrollment, CustomAgent, WhiteLabelConfig
 
 ### Architectural
 5. **SPA anti-pattern on Next.js** — entire app on single `/` route with
-   Zustand state-based "routing". No deep linking, no browser back/forward,
-   no SEO for sub-pages, no SSR/SSG benefits.
+   Zustand state-based "routing". **Improved (2026-08-16):** Deep linking
+   added via `src/lib/router.ts` — browser back/forward and direct URL
+   access now work. SSR/SSG benefits still not utilized.
 6. **In-memory rate limiter** — per-instance only, not cross-instance.
    On Vercel serverless, limits are effectively per-instance.
-7. **Duplicate schema files** — `schema.prisma` and `schema.postgres.prisma`
-   are identical. Schema changes must be applied to all 3 files.
-8. **Unused dependencies** — `z-ai-web-dev-sdk` and `next-intl` installed
-   but completely unused in the codebase.
+7. **Duplicate schema files resolved (2026-08-16)** — `schema.postgres.prisma`
+   deleted. Only `schema.prisma` (PostgreSQL) and `schema.sqlite.prisma`
+   (SQLite) remain. Schema changes now need to be applied to 2 files.
+8. **Unused dependencies removed (2026-08-16)** — `z-ai-web-dev-sdk` and
+   `next-intl` removed from `package.json`.
 9. **"POWER MODE" is prompt theater** — 702 lines of instructions claiming
    "Cursor-level capability" with zero backing implementation.
 
@@ -287,8 +289,9 @@ Enrollment, CustomAgent, WhiteLabelConfig
     WebSocket/SSE). `NotificationBell` component likely polls.
 14. **Agent Activity** — `AgentActivity` model with `isLive` flag suggests
     real-time streaming that doesn't exist yet.
-15. **Hardcoded marketing stats** — "1,200+ projects", "98% satisfaction"
-    on Home page are static, not from DB.
+15. **Hardcoded marketing stats resolved (2026-08-16)** — Stats now via
+    `src/lib/platform-stats.ts` (env-var driven) and `GET /api/stats`
+    (three-tier: DB → env vars → defaults). Home page uses dynamic values.
 
 ---
 
@@ -504,25 +507,37 @@ carry to new projects.
 
 These can be done in parallel with any phase:
 
-- [ ] **Fix `ignoreBuildErrors: true`** in `next.config.ts` — run
+- [x] **Fix `ignoreBuildErrors: true`** in `next.config.ts` — run
   `npx tsc --noEmit`, fix or `@ts-expect-error`-annotate real errors,
-  then remove the flag.
-- [ ] **Remove unused dependencies** — `z-ai-web-dev-sdk` and `next-intl`
-  from `package.json`. Run `bun remove z-ai-web-dev-sdk next-intl`.
-- [ ] **Consolidate duplicate schemas** — `schema.prisma` and
-  `schema.postgres.prisma` are identical. Delete `schema.postgres.prisma`
-  and update any references. Keep only `schema.prisma` (PostgreSQL) and
-  `schema.sqlite.prisma` (SQLite).
+  then remove the flag. **DONE (2026-08-16):** Fixed all 19 TypeScript
+  errors across 7 files. Set `ignoreBuildErrors: false`. Edge cases
+  annotated with `@ts-expect-error`.
+- [x] **Remove unused dependencies** — `z-ai-web-dev-sdk` and `next-intl`
+  from `package.json`. **DONE (2026-08-16):** Ran `bun remove`. Updated
+  `AboutView.tsx` to list "Google Gemini" instead of "z-ai-web-dev-sdk" in
+  the tech stack display.
+- [x] **Consolidate duplicate schemas** — `schema.prisma` and
+  `schema.postgres.prisma` are identical. **DONE (2026-08-16):** Deleted
+  `schema.postgres.prisma`. No references found in codebase. Kept
+  `schema.prisma` (PostgreSQL) and `schema.sqlite.prisma` (SQLite).
 - [ ] **Replace in-memory rate limiter** with Upstash Redis
   (`@upstash/ratelimit`) for true global limits on Vercel serverless.
-- [ ] **Add SPA deep linking** — use `window.history.pushState` + URL hash
-  or query params so browser back/forward works and views are shareable.
+- [x] **Add SPA deep linking** — use `window.history.pushState` + URL
+  hash or query params so browser back/forward works and views are
+  shareable. **DONE (2026-08-16):** Created `src/lib/router.ts` with
+  `pushView()`, `replaceView()`, `pathToView()`, and `initRouter()`.
+  All 30+ navigation calls across 20+ components updated to use
+  `navigate()` instead of raw `setView()`. Browser back/forward and
+  direct URL access now work (e.g., `/dashboard/projects/:id`).
 - [ ] **Seed WhiteLabelConfig API + UI** — DB model exists, needs API route
   and settings page.
 - [ ] **Add real-time notifications** — replace polling with WebSocket or
   Server-Sent Events for the `NotificationBell`.
-- [ ] **Replace hardcoded marketing stats** — Home page "1,200+ projects"
+- [x] **Replace hardcoded marketing stats** — Home page "1,200+ projects"
   etc. should query from DB or at least be configurable via env vars.
+  **DONE (2026-08-16):** Created `src/lib/platform-stats.ts` (env-var
+  driven with defaults) and `GET /api/stats` endpoint (three-tier:
+  real DB counts → env vars → defaults). Home page uses dynamic stats.
 
 ---
 

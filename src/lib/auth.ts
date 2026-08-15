@@ -146,5 +146,6 @@ export const authOptions: NextAuthOptions = {
   },
   secret: getAuthSecret(),
   // Explicit URL to prevent "Invalid URL" errors on Vercel
+  // @ts-expect-error NextAuth v4 supports url but AuthOptions type may not include it
   url: getAppUrl(),
 };

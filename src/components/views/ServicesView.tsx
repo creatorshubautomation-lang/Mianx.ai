@@ -19,7 +19,7 @@ import { motion } from "framer-motion";
 
 export function ServicesView() {
   const t = useT();
-  const { setView, setAuthModal } = useApp();
+  const { navigate, setAuthModal } = useApp();
 
   const services: {
     team: AgentTeamType;
@@ -204,7 +204,7 @@ export function ServicesView() {
             <Button
               size="lg"
               variant="outline"
-              onClick={() => setView("pricing")}
+              onClick={() => navigate("pricing")}
               className="glass"
             >
               {t("nav.pricing")}

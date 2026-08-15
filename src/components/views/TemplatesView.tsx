@@ -25,7 +25,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 
 export function TemplatesView() {
-  const { setView, setAuthModal } = useApp();
+  const { navigate, setAuthModal } = useApp();
   const [selectedCategory, setSelectedCategory] = useState<
     TemplateCategory | "all"
   >("all");
@@ -66,7 +66,7 @@ export function TemplatesView() {
     }
 
     toast.success(`Starting ${selectedTemplate.name}...`);
-    setView("newProject");
+    navigate("newProject");
   };
 
   return (

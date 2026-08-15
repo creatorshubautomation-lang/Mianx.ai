@@ -40,7 +40,7 @@ const STATUS_BADGES: Record<string, { label: string; color: string }> = {
 
 export function ProjectsList() {
   const t = useT();
-  const { setView, setSelectedProject } = useApp();
+  const { navigate, setSelectedProject } = useApp();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -76,7 +76,7 @@ export function ProjectsList() {
           </p>
         </div>
         <Button
-          onClick={() => setView("newProject")}
+          onClick={() => navigate("newProject")}
           className="btn-gradient text-white"
         >
           <PlusCircle className="mr-2 h-4 w-4" />
@@ -124,7 +124,7 @@ export function ProjectsList() {
             {search ? "No projects match your search" : t("dash.noProjects")}
           </h3>
           <Button
-            onClick={() => setView("newProject")}
+            onClick={() => navigate("newProject")}
             className="btn-gradient text-white mt-4"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -141,7 +141,7 @@ export function ProjectsList() {
                 className="glass border-purple-500/10 p-5 card-hover cursor-pointer"
                 onClick={() => {
                   setSelectedProject(p.id);
-                  setView("projectDetail");
+                  navigate("projectDetail", { id: p.id });
                 }}
               >
                 <div className="flex items-start justify-between mb-2">

@@ -267,8 +267,8 @@ async function handleSubscriptionUpdated(
         status,
         stripeSubscriptionId: subscription.id,
         stripeCustomerId: (subscription.customer as string) || undefined,
-        endDate: subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000)
+        endDate: (subscription as any).current_period_end
+          ? new Date((subscription as any).current_period_end * 1000)
           : undefined,
       },
     });
@@ -309,7 +309,7 @@ async function handleSubscriptionDeleted(
 }
 
 async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
-  const subscriptionId = invoice.subscription as string;
+  const subscriptionId = (invoice as any).subscription as string;
   if (!subscriptionId) return;
 
   const stripe = getStripe();

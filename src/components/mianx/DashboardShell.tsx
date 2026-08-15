@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const t = useT();
-  const { view, setView } = useApp();
+  const { view, navigate } = useApp();
   const { data: session } = useSession();
 
   const navItems = [
@@ -41,7 +41,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <aside className="hidden lg:flex w-64 flex-shrink-0 flex-col h-screen sticky top-0 border-r border-purple-500/10 glass-strong">
           {/* Logo */}
           <button
-            onClick={() => setView("home")}
+            onClick={() => navigate("home")}
             className="flex items-center gap-2 px-6 h-16 border-b border-purple-500/10"
           >
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500">
@@ -57,7 +57,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             {navItems.map((item) => (
               <button
                 key={item.key}
-                onClick={() => setView(item.key)}
+                onClick={() => navigate(item.key)}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full",
                   view === item.key
@@ -74,7 +74,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <>
                 <div className="my-3 border-t border-purple-500/10" />
                 <button
-                  onClick={() => setView("admin")}
+                  onClick={() => navigate("admin")}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full",
                     view === "admin"
@@ -110,7 +110,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setView("home")}
+                onClick={() => navigate("home")}
                 className="flex-1 text-xs"
               >
                 <Home className="h-3 w-3 mr-1" />
@@ -132,7 +132,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <div className="lg:hidden fixed top-0 left-0 right-0 z-40 glass-strong border-b border-purple-500/10">
           <div className="flex items-center justify-between px-4 h-14">
             <button
-              onClick={() => setView("dashboard")}
+              onClick={() => navigate("dashboard")}
               className="flex items-center gap-2"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-purple-500 to-cyan-500">
@@ -145,7 +145,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setView("newProject")}
+                onClick={() => navigate("newProject")}
                 className="text-xs"
               >
                 <PlusCircle className="h-4 w-4" />
@@ -157,7 +157,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             {navItems.map((item) => (
               <button
                 key={item.key}
-                onClick={() => setView(item.key)}
+                onClick={() => navigate(item.key)}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex-shrink-0",
                   view === item.key
@@ -171,7 +171,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             ))}
             {session?.user?.role === "ADMIN" && (
               <button
-                onClick={() => setView("admin")}
+                onClick={() => navigate("admin")}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex-shrink-0",
                   view === "admin"

@@ -262,7 +262,7 @@ Assigned team: ${assignedAgents.map((a) => `${a.name} (${a.role})`).join(", ")}`
     // ─────────────────────────────────────────────
     //  SAVE ALL AGENT MESSAGES
     // ─────────────────────────────────────────────
-    const agentMessages = [];
+    const agentMessages: any[] = [];
 
     for (const result of teamResults) {
       // Find the agent record to get ID

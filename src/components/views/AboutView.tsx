@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 export function AboutView() {
-  const { setView, setAuthModal } = useApp();
+  const { setAuthModal } = useApp();
 
   const values = [
     {
@@ -55,7 +55,7 @@ export function AboutView() {
   const tech = [
     "Next.js 16", "TypeScript", "Prisma", "Tailwind CSS 4", "shadcn/ui",
     "NextAuth", "Zustand", "TanStack Query", "Framer Motion", "Recharts",
-    "OpenAI GPT", "Anthropic Claude", "z-ai-web-dev-sdk", "Vercel", "SQLite",
+    "OpenAI GPT", "Anthropic Claude", "Google Gemini", "Vercel", "SQLite",
   ];
 
   return (

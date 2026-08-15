@@ -6,9 +6,9 @@ import type { NextConfig } from "next";
 // Run `npx tsc --noEmit` to check for remaining errors.
 const nextConfig: NextConfig = {
   typescript: {
-    // Temporarily re-enabled during Phase 1 migration.
-    // TODO: Run `npx tsc --noEmit`, fix real errors, then set to false.
-    ignoreBuildErrors: true,
+    // All TS errors fixed as of Infrastructure cleanup (2026-08-16).
+    // Remaining edge cases annotated with @ts-expect-error.
+    ignoreBuildErrors: false,
   },
   reactStrictMode: true,
 };

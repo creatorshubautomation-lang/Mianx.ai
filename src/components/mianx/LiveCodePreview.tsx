@@ -305,6 +305,7 @@ root.render(<App />);`,
             files={sandpackFiles}
             theme="dark"
             options={{
+              // @ts-expect-error showNavigator exists at runtime but not in current type defs
               showNavigator: false,
               showTabs: false,
               showLineNumbers: false,

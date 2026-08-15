@@ -42,7 +42,7 @@ const CATEGORIES = [
 ];
 
 export function MarketplaceView() {
-  const { setAuthModal, setView } = useApp();
+  const { setAuthModal } = useApp();
   const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState("all");

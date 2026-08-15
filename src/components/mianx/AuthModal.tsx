@@ -18,7 +18,7 @@ import { Loader2, Sparkles, Mail, Lock, User, Building2 } from "lucide-react";
 import { ForgotPasswordModal } from "./ForgotPasswordModal";
 
 export function AuthModal() {
-  const { authModal, setAuthModal, setView } = useApp();
+  const { authModal, setAuthModal, navigate } = useApp();
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
@@ -48,7 +48,7 @@ export function AuthModal() {
         });
         // Keep loading state true so button stays disabled
         // Don't close modal — let page reload handle it
-        setView("dashboard");
+        navigate("dashboard");
         // refresh to load session
         setTimeout(() => window.location.reload(), 1000);
       }
@@ -98,7 +98,7 @@ export function AuthModal() {
         toast.success("Account created! Welcome to Mianx.ai 🎉", {
           duration: 2000,
         });
-        setView("dashboard");
+        navigate("dashboard");
         // Keep loading state true — spinner stays until page reloads
         setTimeout(() => window.location.reload(), 1000);
       }

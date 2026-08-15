@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AgentAvatar } from "../mianx/AgentAvatar";
 import { AGENT_CATALOG, TEAM_INFO, type AgentTeamType } from "@/lib/agents";
+import { getPlatformStats } from "@/lib/platform-stats";
 import {
   Sparkles,
   ArrowRight,
@@ -23,16 +24,18 @@ import { motion } from "framer-motion";
 
 export function HomeView() {
   const t = useT();
-  const { setView, setAuthModal } = useApp();
+  const { navigate, setAuthModal } = useApp();
   const { data: session } = useSession();
 
   const teams = Object.keys(TEAM_INFO) as AgentTeamType[];
 
+  const platformStats = getPlatformStats();
+
   const stats = [
-    { value: "1,200+", label: t("hero.stat.projects"), icon: Rocket },
-    { value: "24", label: t("hero.stat.agents"), icon: Bot },
-    { value: "99.9%", label: t("hero.stat.uptime"), icon: Clock },
-    { value: "98%", label: t("hero.stat.satisfaction"), icon: CheckCircle2 },
+    { value: platformStats.totalProjects, label: t("hero.stat.projects"), icon: Rocket },
+    { value: platformStats.agentsDeployed, label: t("hero.stat.agents"), icon: Bot },
+    { value: platformStats.uptime, label: t("hero.stat.uptime"), icon: Clock },
+    { value: platformStats.clientSatisfaction, label: t("hero.stat.satisfaction"), icon: CheckCircle2 },
   ];
 
   const features = [
@@ -176,7 +179,7 @@ export function HomeView() {
                 size="lg"
                 onClick={() => {
                   if (session?.user) {
-                    setView("newProject");
+                    navigate("newProject");
                   } else {
                     setAuthModal("signup");
                   }
@@ -189,7 +192,7 @@ export function HomeView() {
               <Button
                 size="lg"
                 variant="outline"
-                onClick={() => setView("agents")}
+                onClick={() => navigate("agents")}
                 className="px-8 py-6 text-base glass"
               >
                 {t("hero.cta.secondary")}
@@ -298,7 +301,7 @@ export function HomeView() {
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full glass px-3 py-1 mb-4 text-xs">
               <Bot className="h-3.5 w-3.5 text-purple-400" />
-              <span className="text-muted-foreground">6 teams · 24 agents</span>
+              <span className="text-muted-foreground">{platformStats.teamsCount} teams · {platformStats.agentsDeployed} agents</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold">
               {t("agents.title")}
@@ -324,7 +327,7 @@ export function HomeView() {
                 >
                   <Card
                     className="glass border-purple-500/10 p-6 h-full card-hover cursor-pointer"
-                    onClick={() => setView("agents")}
+                    onClick={() => navigate("agents")}
                   >
                     <div
                       className={`inline-flex h-11 w-11 items-center justify-center rounded-lg bg-gradient-to-br ${team.color} mb-4`}
@@ -359,7 +362,7 @@ export function HomeView() {
           <div className="text-center mt-8">
             <Button
               variant="outline"
-              onClick={() => setView("agents")}
+              onClick={() => navigate("agents")}
               className="glass"
             >
               {t("common.viewAll")} agents
@@ -430,14 +433,14 @@ export function HomeView() {
                 <span className="gradient-text">AI agents?</span>
               </h2>
               <p className="text-muted-foreground max-w-xl mx-auto mb-6">
-                Join 1,200+ teams who ship faster with Mianx.ai. Your first project is on us — no credit card required.
+                Join {platformStats.totalProjectsLabel} teams who ship faster with Mianx.ai. Your first project is on us — no credit card required.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
                   size="lg"
                   onClick={() => {
                     if (session?.user) {
-                      setView("newProject");
+                      navigate("newProject");
                     } else {
                       setAuthModal("signup");
                     }
@@ -450,7 +453,7 @@ export function HomeView() {
                 <Button
                   size="lg"
                   variant="outline"
-                  onClick={() => setView("pricing")}
+                  onClick={() => navigate("pricing")}
                   className="px-8 py-6 text-base glass"
                 >
                   {t("nav.pricing")}

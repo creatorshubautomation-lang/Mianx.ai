@@ -231,7 +231,7 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 export function ApiDocsView() {
-  const { setView, setAuthModal } = useApp();
+  const { setAuthModal } = useApp();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -377,7 +377,7 @@ export function ApiDocsView() {
                 </Badge>
                 <code className="text-sm font-mono flex-1">{endpoint.path}</code>
                 {endpoint.auth && (
-                  <Shield className="h-3 w-3 text-amber-400" title="Requires auth" />
+                  <span title="Requires auth"><Shield className="h-3 w-3 text-amber-400" /></span>
                 )}
                 <span className="text-xs text-muted-foreground hidden sm:block">
                   {endpoint.description.slice(0, 50)}

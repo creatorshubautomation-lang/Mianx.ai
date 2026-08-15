@@ -268,7 +268,7 @@ export function SettingsView() {
           <Button
             variant="outline"
             className="glass"
-            onClick={() => useApp.getState().setView("pricing")}
+            onClick={() => useApp.getState().navigate("pricing")}
           >
             View Plans
           </Button>

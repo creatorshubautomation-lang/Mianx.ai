@@ -3,11 +3,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Lang } from "@/lib/i18n";
+import { _suppressUrlSync, viewToPath, pushView } from "@/lib/router";
 
 // ─────────────────────────────────────────────
 //  App Navigation State
 //  Since the sandbox only exposes the `/` route,
 //  we manage "pages" via client-side state.
+//  Deep linking: URL is synced via router.ts
 // ─────────────────────────────────────────────
 
 export type ViewKey =
@@ -40,7 +42,10 @@ export type ViewKey =
 interface AppState {
   // Navigation
   view: ViewKey;
+  /** Raw state setter — prefer `navigate()` for user-initiated navigation */
   setView: (v: ViewKey) => void;
+  /** Navigate to a view: pushes browser history + updates URL + updates state */
+  navigate: (v: ViewKey, params?: Record<string, string>) => void;
 
   // Selected project (for detail view)
   selectedProjectId: string | null;
@@ -68,6 +73,20 @@ export const useApp = create<AppState>()(
         if (typeof window !== "undefined") {
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
+        // If called outside the router (legacy code), auto-sync the URL
+        if (
+          typeof window !== "undefined" &&
+          !_suppressUrlSync &&
+          // Only sync after router has initialized (pushed initial state)
+          window.history.state?.view !== undefined
+        ) {
+          const url = viewToPath(v);
+          window.history.pushState({ view: v, params: {} }, "", url);
+        }
+      },
+
+      navigate: (v, params) => {
+        pushView(v, params);
       },
 
       selectedProjectId: null,

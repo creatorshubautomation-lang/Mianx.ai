@@ -492,7 +492,7 @@ export async function logOrchestrationActivity(
           projectId,
           userId,
           action: result.success ? "ORCHESTRATION_STEP_COMPLETED" : "ORCHESTRATION_STEP_FAILED",
-          details: `Step: ${result.agentName} (${result.role}) — ${result.task}. ${result.success ? "Completed" : `Failed: ${result.error}`}. ${result.priorAgentOutput ? `Built on ${result.priorAgentOutput}'s output.` : "First step."} [${result.durationMs}ms]`,
+          details: `Step: ${result.agentName} (${result.agentRole}) — ${result.task}. ${result.success ? "Completed" : `Failed: ${result.error}`}. ${result.priorAgentOutput ? `Built on ${result.priorAgentOutput}'s output.` : "First step."} [${result.durationMs}ms]`,
         },
       });
     }

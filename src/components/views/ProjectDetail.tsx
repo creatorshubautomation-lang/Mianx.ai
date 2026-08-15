@@ -109,7 +109,7 @@ const FILE_ICONS: Record<string, typeof FileCode> = {
 
 export function ProjectDetail() {
   const t = useT();
-  const { selectedProjectId, setView } = useApp();
+  const { selectedProjectId, navigate } = useApp();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [chatInput, setChatInput] = useState("");
@@ -126,14 +126,14 @@ export function ProjectDetail() {
         setProject(data.project);
       } else {
         toast.error("Project not found");
-        setView("projects");
+        navigate("projects");
       }
     } catch {
       toast.error("Failed to load project");
     } finally {
       setLoading(false);
     }
-  }, [selectedProjectId, setView]);
+  }, [selectedProjectId, navigate]);
 
   useEffect(() => {
     loadProject();
@@ -289,7 +289,7 @@ export function ProjectDetail() {
     return (
       <div className="text-center py-20">
         <p className="text-muted-foreground">Project not found.</p>
-        <Button onClick={() => setView("projects")} className="mt-4">
+        <Button onClick={() => navigate("projects")} className="mt-4">
           Back to Projects
         </Button>
       </div>
@@ -305,7 +305,7 @@ export function ProjectDetail() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setView("projects")}
+          onClick={() => navigate("projects")}
           className="mb-3 text-xs"
         >
           <ArrowLeft className="mr-1 h-3 w-3" />

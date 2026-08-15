@@ -33,7 +33,7 @@ interface Project {
 
 export function DashboardOverview() {
   const t = useT();
-  const { setView, setSelectedProject } = useApp();
+  const { navigate, setSelectedProject } = useApp();
   const { data: session } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,7 +105,7 @@ export function DashboardOverview() {
           </p>
         </div>
         <Button
-          onClick={() => setView("newProject")}
+          onClick={() => navigate("newProject")}
           className="btn-gradient text-white"
         >
           <PlusCircle className="mr-2 h-4 w-4" />
@@ -143,7 +143,7 @@ export function DashboardOverview() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setView("projects")}
+              onClick={() => navigate("projects")}
               className="text-xs"
             >
               {t("common.viewAll")}
@@ -173,7 +173,7 @@ export function DashboardOverview() {
               Create your first project and watch AI agents design, build, and deliver it in record time.
             </p>
             <Button
-              onClick={() => setView("newProject")}
+              onClick={() => navigate("newProject")}
               className="btn-gradient text-white"
             >
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -188,7 +188,7 @@ export function DashboardOverview() {
                 className="glass border-purple-500/10 p-5 card-hover cursor-pointer"
                 onClick={() => {
                   setSelectedProject(p.id);
-                  setView("projectDetail");
+                  navigate("projectDetail", { id: p.id });
                 }}
               >
                 <div className="flex items-start justify-between gap-4">

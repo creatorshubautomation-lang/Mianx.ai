@@ -52,7 +52,7 @@ const PRIORITIES = [
 
 export function NewProjectWizard() {
   const t = useT();
-  const { setView, setSelectedProject } = useApp();
+  const { navigate, setSelectedProject } = useApp();
   const [step, setStep] = useState(1);
   const [analyzing, setAnalyzing] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -121,7 +121,7 @@ export function NewProjectWizard() {
       if (data.ok) {
         toast.success("Project created! Agents are starting work...");
         setSelectedProject(data.project.id);
-        setView("projectDetail");
+        navigate("projectDetail", { id: data.project.id });
       } else {
         toast.error(data.error || "Failed to create project");
       }
@@ -139,7 +139,7 @@ export function NewProjectWizard() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => setView("dashboard")}
+          onClick={() => navigate("dashboard")}
           className="mb-3 text-xs"
         >
           <ArrowLeft className="mr-1 h-3 w-3" />
@@ -504,7 +504,7 @@ export function NewProjectWizard() {
       <div className="flex items-center justify-between mt-6">
         <Button
           variant="ghost"
-          onClick={() => (step > 1 ? setStep(step - 1) : setView("dashboard"))}
+          onClick={() => (step > 1 ? setStep(step - 1) : navigate("dashboard"))}
           disabled={analyzing || creating}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />

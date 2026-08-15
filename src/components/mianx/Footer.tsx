@@ -6,44 +6,44 @@ import { Sparkles, Twitter, Github, Linkedin, Mail } from "lucide-react";
 
 export function Footer() {
   const t = useT();
-  const { setView, setAuthModal } = useApp();
+  const { navigate, setAuthModal } = useApp();
   const { data: session } = useSession();
 
   const cols: { title: string; links: { label: string; action: () => void }[] }[] = [
     {
       title: t("footer.product"),
       links: [
-        { label: t("nav.services"), action: () => setView("services") },
-        { label: t("nav.agents"), action: () => setView("agents") },
-        { label: t("nav.pricing"), action: () => setView("pricing") },
-        { label: t("nav.useCases"), action: () => setView("useCases") },
+        { label: t("nav.services"), action: () => navigate("services") },
+        { label: t("nav.agents"), action: () => navigate("agents") },
+        { label: t("nav.pricing"), action: () => navigate("pricing") },
+        { label: t("nav.useCases"), action: () => navigate("useCases") },
       ],
     },
     {
       title: t("footer.company"),
       links: [
-        { label: t("nav.about"), action: () => setView("about") },
-        { label: t("nav.contact"), action: () => setView("contact") },
-        { label: "Careers", action: () => setView("about") },
-        { label: "Blog", action: () => setView("about") },
+        { label: t("nav.about"), action: () => navigate("about") },
+        { label: t("nav.contact"), action: () => navigate("contact") },
+        { label: "Careers", action: () => navigate("about") },
+        { label: "Blog", action: () => navigate("about") },
       ],
     },
     {
       title: t("footer.resources"),
       links: [
-        { label: "Documentation", action: () => setView("about") },
-        { label: "API Reference", action: () => setView("about") },
-        { label: "Agent Guide", action: () => setView("agents") },
-        { label: "Community", action: () => setView("contact") },
+        { label: "Documentation", action: () => navigate("about") },
+        { label: "API Reference", action: () => navigate("about") },
+        { label: "Agent Guide", action: () => navigate("agents") },
+        { label: "Community", action: () => navigate("contact") },
       ],
     },
     {
       title: t("footer.legal"),
       links: [
-        { label: "Privacy Policy", action: () => setView("about") },
-        { label: "Terms of Service", action: () => setView("about") },
-        { label: "Cookie Policy", action: () => setView("about") },
-        { label: "GDPR", action: () => setView("about") },
+        { label: "Privacy Policy", action: () => navigate("about") },
+        { label: "Terms of Service", action: () => navigate("about") },
+        { label: "Cookie Policy", action: () => navigate("about") },
+        { label: "GDPR", action: () => navigate("about") },
       ],
     },
   ];
@@ -106,7 +106,7 @@ export function Footer() {
           <button
             onClick={() => {
               if (session?.user) {
-                setView("dashboard");
+                navigate("dashboard");
               } else {
                 setAuthModal("signup");
               }

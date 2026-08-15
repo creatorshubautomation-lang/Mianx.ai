@@ -40,7 +40,7 @@ const LEVEL_COLORS: Record<string, string> = {
 };
 
 export function AcademyView() {
-  const { setAuthModal, setView } = useApp();
+  const { setAuthModal } = useApp();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState<string | null>(null);

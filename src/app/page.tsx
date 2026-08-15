@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SessionProvider, useSession } from "next-auth/react";
 import { useApp } from "@/lib/store";
+import { initRouter } from "@/lib/router";
 import { Navbar } from "@/components/mianx/Navbar";
 import { Footer } from "@/components/mianx/Footer";
 import { AuthModal } from "@/components/mianx/AuthModal";
@@ -59,9 +60,12 @@ function AppContent() {
   const { data: session, status } = useSession();
   const [resetToken, setResetToken] = useState<string | null>(null);
 
-  // Check for reset_token in URL on mount
+  // Initialize SPA router and check for special URL params on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    // Initialize deep-linking router (reads URL → sets initial view)
+    initRouter();
 
     const params = new URLSearchParams(window.location.search);
     const token = params.get("reset_token");

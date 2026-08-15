@@ -33,7 +33,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export function Navbar() {
   const t = useT();
-  const { view, setView, setAuthModal } = useApp();
+  const { view, navigate, setAuthModal } = useApp();
   const { data: session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -58,7 +58,7 @@ export function Navbar() {
   ];
 
   const go = (v: typeof view) => {
-    setView(v);
+    navigate(v);
     setMobileOpen(false);
   };
 
@@ -137,16 +137,16 @@ export function Navbar() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => go("dashboard")}>
+                <DropdownMenuItem onClick={() => navigate("dashboard")}>
                   <LayoutDashboard className="mr-2 h-4 w-4" />
                   Dashboard
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => go("settings")}>
+                <DropdownMenuItem onClick={() => navigate("settings")}>
                   <Settings className="mr-2 h-4 w-4" />
                   Settings
                 </DropdownMenuItem>
                 {session.user.role === "ADMIN" && (
-                  <DropdownMenuItem onClick={() => go("admin")}>
+                  <DropdownMenuItem onClick={() => navigate("admin")}>
                     <Shield className="mr-2 h-4 w-4" />
                     Admin Panel
                   </DropdownMenuItem>

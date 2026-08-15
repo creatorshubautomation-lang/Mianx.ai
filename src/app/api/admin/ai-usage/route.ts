@@ -67,7 +67,7 @@ export async function GET() {
     // Get config for each provider (or use defaults)
     const providers = await Promise.all(
       DEFAULT_PROVIDERS.map(async (p) => {
-        let config = null;
+        let config: any = null;
         try {
           config = await db.aiProviderConfig.findUnique({
             where: { provider: p.name },

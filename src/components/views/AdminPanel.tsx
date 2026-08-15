@@ -63,7 +63,7 @@ interface AdminData {
 }
 
 export function AdminPanel() {
-  const { setView, setSelectedProject } = useApp();
+  const { navigate, setSelectedProject } = useApp();
   const [data, setData] = useState<AdminData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -278,7 +278,7 @@ export function AdminPanel() {
                   className="glass rounded-lg p-3 cursor-pointer hover:border-purple-500/30 transition-colors"
                   onClick={() => {
                     setSelectedProject(p.id);
-                    setView("projectDetail");
+                    navigate("projectDetail", { id: p.id });
                   }}
                 >
                   <div className="flex items-center justify-between mb-1">

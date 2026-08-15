@@ -22,7 +22,7 @@ import { motion } from "framer-motion";
 
 export function AgentsView() {
   const t = useT();
-  const { setView, setAuthModal } = useApp();
+  const { setAuthModal } = useApp();
   const [selected, setSelected] = useState<string | null>(null);
 
   const teams = Object.keys(TEAM_INFO) as AgentTeamType[];

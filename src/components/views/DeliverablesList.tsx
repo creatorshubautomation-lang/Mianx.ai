@@ -37,7 +37,7 @@ const FILE_ICONS: Record<string, typeof FileCode> = {
 };
 
 export function DeliverablesList() {
-  const { setView, setSelectedProject } = useApp();
+  const { navigate, setSelectedProject } = useApp();
   const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -115,7 +115,7 @@ export function DeliverablesList() {
             Create a project and ask your agents to generate deliverables.
           </p>
           <Button
-            onClick={() => setView("newProject")}
+            onClick={() => navigate("newProject")}
             className="btn-gradient text-white"
           >
             Start a Project
@@ -131,7 +131,7 @@ export function DeliverablesList() {
                 className="glass border-purple-500/10 p-5 card-hover cursor-pointer"
                 onClick={() => {
                   setSelectedProject(d.project.id);
-                  setView("projectDetail");
+                  navigate("projectDetail", { id: d.project.id });
                 }}
               >
                 <div className="flex items-start gap-3 mb-3">
