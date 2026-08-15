@@ -39,7 +39,7 @@ export async function GET() {
         },
       },
       orderBy: { createdAt: "desc" },
-    } as any);
+    });
 
     return NextResponse.json({ tickets });
   } catch (e) {

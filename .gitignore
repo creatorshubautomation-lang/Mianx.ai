@@ -73,4 +73,4 @@ server.log
 # Caddy config
 Caddyfile
 # Bun lock (keep for reproducibility)
-# bun.lock
+bun.lock
