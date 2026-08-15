@@ -1,12 +1,16 @@
-// Lightweight in-memory rate limiter.
+// Lightweight rate limiter with Upstash Redis support.
 //
-// NOTE: This is a pragmatic stopgap, not a production-grade solution.
-// On serverless platforms (e.g. Vercel) each function instance has its own
-// memory, so limits are per-instance rather than truly global. For strict
-// global limits, replace this with a shared store such as Upstash Redis
-// (@upstash/ratelimit) or a DB-backed counter. This still meaningfully
-// raises the cost of brute-force / abuse from a single client and is far
-// better than no limiting at all.
+// When UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are set,
+// uses Upstash Ratelimit (sliding window) for true global limits on
+// serverless platforms. Otherwise falls back to an in-memory token
+// bucket that is per-instance only.
+
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+// ─────────────────────────────────────────────
+//  In-memory fallback (per-instance)
+// ─────────────────────────────────────────────
 
 type Bucket = { count: number; resetAt: number };
 
@@ -20,19 +24,7 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000).unref?.();
 
-export interface RateLimitResult {
-  allowed: boolean;
-  remaining: number;
-  resetAt: number;
-}
-
-/**
- * Check + consume a rate limit slot for `key`.
- * @param key   Unique identifier, e.g. `login:{ip}` or `chat:{userId}`
- * @param limit Max requests allowed within the window
- * @param windowMs Window size in milliseconds
- */
-export function rateLimit(
+function inMemoryRateLimit(
   key: string,
   limit: number,
   windowMs: number,
@@ -55,6 +47,86 @@ export function rateLimit(
     remaining: limit - existing.count,
     resetAt: existing.resetAt,
   };
+}
+
+// ─────────────────────────────────────────────
+//  Upstash Ratelimit (global, lazy-init)
+// ─────────────────────────────────────────────
+
+// Cache one Ratelimit instance per (limit, windowSeconds) pair because
+// each combination needs its own slidingWindow configuration.
+const upstashInstances = new Map<string, Ratelimit>();
+
+function getUpstashInstance(
+  limit: number,
+  windowSeconds: number,
+): Ratelimit | null {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+
+  const cacheKey = `${limit}:${windowSeconds}`;
+  let instance = upstashInstances.get(cacheKey);
+  if (instance) return instance;
+
+  const redis = new Redis({ url, token });
+  instance = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(limit, `${windowSeconds} s`),
+    analytics: true,
+    prefix: "mianx:rl",
+  });
+  upstashInstances.set(cacheKey, instance);
+  return instance;
+}
+
+// ─────────────────────────────────────────────
+//  Public API
+// ─────────────────────────────────────────────
+
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number;
+}
+
+/**
+ * Check + consume a rate limit slot for `key`.
+ *
+ * When Upstash Redis env vars are configured the call goes through the
+ * Upstash sliding-window ratelimiter (global across all serverless
+ * instances). On any Upstash error — or when env vars are missing — the
+ * in-memory fallback is used instead.
+ *
+ * @param key      Unique identifier, e.g. `login:{ip}` or `chat:{userId}`
+ * @param limit    Max requests allowed within the window
+ * @param windowMs Window size in milliseconds
+ */
+export async function rateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<RateLimitResult> {
+  const windowSeconds = Math.ceil(windowMs / 1000);
+  const upstash = getUpstashInstance(limit, windowSeconds);
+
+  if (upstash) {
+    try {
+      const result = await upstash.limit(key);
+      return {
+        allowed: result.success,
+        remaining: result.remaining,
+        resetAt: result.reset, // Date → ms timestamp via valueOf()
+      };
+    } catch (e) {
+      console.error(
+        "[rate-limit] Upstash error, falling back to in-memory:",
+        e,
+      );
+    }
+  }
+
+  return inMemoryRateLimit(key, limit, windowMs);
 }
 
 /** Best-effort client identifier from request headers (IP via proxy headers). */

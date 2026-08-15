@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useApp, useT } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,11 @@ import {
   Shield,
   CreditCard,
   Crown,
+  Palette,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 
 interface UserData {
   id: string;
@@ -36,6 +39,20 @@ interface UserData {
   createdAt: string;
 }
 
+// ── White-label config interface ──
+interface WhiteLabelConfigData {
+  id: string;
+  brandName: string;
+  brandLogo: string | null;
+  brandColor: string;
+  accentColor: string;
+  customDomain: string | null;
+  isWhiteLabel: boolean;
+  plan: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export function SettingsView() {
   const t = useT();
   const { lang, setLang } = useApp();
@@ -44,12 +61,26 @@ export function SettingsView() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // White-label state
+  const [wlConfig, setWlConfig] = useState<WhiteLabelConfigData | null>(null);
+  const [wlLoading, setWlLoading] = useState(false);
+  const [wlSaving, setWlSaving] = useState(false);
+  const [wlForm, setWlForm] = useState({
+    brandName: "Mianx.ai",
+    brandColor: "#a855f7",
+    accentColor: "#06b6d4",
+    customDomain: "",
+    isWhiteLabel: false,
+  });
+
   const [form, setForm] = useState({
     name: "",
     company: "",
     phone: "",
     preferredLang: "en",
   });
+
+  const isAdmin = session?.user?.role === "ADMIN";
 
   useEffect(() => {
     fetch("/api/session")
@@ -76,6 +107,60 @@ export function SettingsView() {
         setLoading(false);
       });
   }, []);
+
+  // Fetch white-label config for admin users
+  const fetchWhiteLabel = useCallback(async () => {
+    if (!session?.user?.id || session.user.role !== "ADMIN") return;
+    setWlLoading(true);
+    try {
+      const res = await fetch("/api/whitelabel");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.config) {
+          setWlConfig(data.config);
+          setWlForm({
+            brandName: data.config.brandName,
+            brandColor: data.config.brandColor,
+            accentColor: data.config.accentColor,
+            customDomain: data.config.customDomain || "",
+            isWhiteLabel: data.config.isWhiteLabel,
+          });
+        }
+      }
+      // 404 is fine — config just doesn't exist yet
+    } catch (e) {
+      console.error("[settings/whitelabel] fetch error:", e);
+    } finally {
+      setWlLoading(false);
+    }
+  }, [session?.user?.id, session?.user?.role]);
+
+  useEffect(() => {
+    fetchWhiteLabel();
+  }, [fetchWhiteLabel]);
+
+  const handleWhiteLabelSave = async () => {
+    if (!isAdmin) return;
+    setWlSaving(true);
+    try {
+      const res = await fetch("/api/whitelabel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(wlForm),
+      });
+      const data = await res.json();
+      if (res.ok && data.config) {
+        setWlConfig(data.config);
+        toast.success("White-label settings saved");
+      } else {
+        toast.error(data.error || "Failed to save white-label settings");
+      }
+    } catch {
+      toast.error("Failed to save white-label settings");
+    } finally {
+      setWlSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -274,6 +359,186 @@ export function SettingsView() {
           </Button>
         </div>
       </Card>
+
+      {/* White Label — ADMIN only */}
+      {isAdmin && (
+        <Card className="glass border-purple-500/10 p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <Palette className="h-5 w-5 text-purple-400" />
+            <h2 className="font-semibold">White Label</h2>
+            <Badge variant="outline" className="glass text-xs text-purple-300 border-purple-500/30">
+              ADMIN
+            </Badge>
+          </div>
+
+          {wlLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Enable white-label toggle */}
+              <div className="flex items-center justify-between rounded-lg border border-purple-500/10 bg-purple-500/5 p-4">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">Enable White-Label Mode</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Replace Mianx.ai branding with your own custom brand
+                  </p>
+                </div>
+                <Switch
+                  checked={wlForm.isWhiteLabel}
+                  onCheckedChange={(checked) =>
+                    setWlForm({ ...wlForm, isWhiteLabel: checked })
+                  }
+                />
+              </div>
+
+              {/* Brand Name */}
+              <div className="space-y-2">
+                <Label htmlFor="wl-brandName">Brand Name</Label>
+                <Input
+                  id="wl-brandName"
+                  value={wlForm.brandName}
+                  onChange={(e) =>
+                    setWlForm({ ...wlForm, brandName: e.target.value.slice(0, 50) })
+                  }
+                  placeholder="Mianx.ai"
+                  maxLength={50}
+                  className="glass"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {wlForm.brandName.length}/50 characters
+                </p>
+              </div>
+
+              {/* Color pickers */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="wl-brandColor" className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-3 w-3 rounded-full border border-white/20"
+                      style={{ backgroundColor: wlForm.brandColor }}
+                    />
+                    Brand Color
+                  </Label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      id="wl-brandColor"
+                      type="color"
+                      value={wlForm.brandColor}
+                      onChange={(e) =>
+                        setWlForm({ ...wlForm, brandColor: e.target.value })
+                      }
+                      className="h-9 w-12 cursor-pointer rounded-md border border-purple-500/20 bg-transparent"
+                    />
+                    <Input
+                      value={wlForm.brandColor}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (/^#[0-9a-fA-F]{0,6}$/.test(v)) {
+                          setWlForm({ ...wlForm, brandColor: v });
+                        }
+                      }}
+                      placeholder="#a855f7"
+                      maxLength={7}
+                      className="glass font-mono text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="wl-accentColor" className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-3 w-3 rounded-full border border-white/20"
+                      style={{ backgroundColor: wlForm.accentColor }}
+                    />
+                    Accent Color
+                  </Label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      id="wl-accentColor"
+                      type="color"
+                      value={wlForm.accentColor}
+                      onChange={(e) =>
+                        setWlForm({ ...wlForm, accentColor: e.target.value })
+                      }
+                      className="h-9 w-12 cursor-pointer rounded-md border border-purple-500/20 bg-transparent"
+                    />
+                    <Input
+                      value={wlForm.accentColor}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (/^#[0-9a-fA-F]{0,6}$/.test(v)) {
+                          setWlForm({ ...wlForm, accentColor: v });
+                        }
+                      }}
+                      placeholder="#06b6d4"
+                      maxLength={7}
+                      className="glass font-mono text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Color preview */}
+              <div className="rounded-lg border border-purple-500/10 p-4 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Preview</p>
+                <div className="flex gap-3">
+                  <div
+                    className="h-10 flex-1 rounded-md"
+                    style={{ backgroundColor: wlForm.brandColor }}
+                  />
+                  <div
+                    className="h-10 flex-1 rounded-md"
+                    style={{ backgroundColor: wlForm.accentColor }}
+                  />
+                </div>
+              </div>
+
+              {/* Custom Domain */}
+              <div className="space-y-2">
+                <Label htmlFor="wl-customDomain" className="flex items-center gap-2">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Custom Domain
+                </Label>
+                <Input
+                  id="wl-customDomain"
+                  value={wlForm.customDomain}
+                  onChange={(e) =>
+                    setWlForm({ ...wlForm, customDomain: e.target.value.slice(0, 200) })
+                  }
+                  placeholder="app.yourcompany.com"
+                  maxLength={200}
+                  className="glass"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Point a CNAME record to our servers to use your own domain
+                </p>
+              </div>
+
+              {/* Last updated */}
+              {wlConfig && (
+                <p className="text-xs text-muted-foreground">
+                  Last updated {new Date(wlConfig.updatedAt).toLocaleString()}
+                </p>
+              )}
+
+              <Button
+                onClick={handleWhiteLabelSave}
+                disabled={wlSaving}
+                className="btn-gradient text-white"
+              >
+                {wlSaving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Save White-Label Settings
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

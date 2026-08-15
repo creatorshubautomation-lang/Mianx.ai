@@ -79,7 +79,7 @@ export async function POST(req: Request) {
   // Phase 3 note: Sequential orchestration may make N calls per request
   // (plan + each step). With max 5 steps + 1 plan = 6 calls per message.
   // The 20/min limit still allows ~3 orchestrated messages/min, which is reasonable.
-  const limit = rateLimit(`chat:${session.user.id}`, 20, 60 * 1000);
+  const limit = await rateLimit(`chat:${session.user.id}`, 20, 60 * 1000);
   if (!limit.allowed) {
     return NextResponse.json(
       { error: "You're sending messages too quickly. Please slow down." },

@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   // force isn't practical, but this adds defense-in-depth against scripted
   // abuse of this endpoint.
   const ip = getClientIp(req);
-  const limit = rateLimit(`reset-password:${ip}`, 20, 15 * 60 * 1000);
+  const limit = await rateLimit(`reset-password:${ip}`, 20, 15 * 60 * 1000);
   if (!limit.allowed) {
     return NextResponse.json(
       { error: "Too many attempts. Please try again later." },
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
 // Validates if a token is still valid (for the reset form)
 export async function GET(req: Request) {
   const ip = getClientIp(req);
-  const limit = rateLimit(`reset-password-check:${ip}`, 30, 15 * 60 * 1000);
+  const limit = await rateLimit(`reset-password-check:${ip}`, 30, 15 * 60 * 1000);
   if (!limit.allowed) {
     return NextResponse.json(
       { valid: false, error: "Too many attempts. Please try again later." },

@@ -21,7 +21,7 @@ function hashToken(raw: string): string {
 export async function POST(req: Request) {
   // Max 5 reset requests per IP per 15 minutes
   const ip = getClientIp(req);
-  const limit = rateLimit(`forgot-password:${ip}`, 5, 15 * 60 * 1000);
+  const limit = await rateLimit(`forgot-password:${ip}`, 5, 15 * 60 * 1000);
   if (!limit.allowed) {
     return NextResponse.json(
       { error: "Too many requests. Please try again later." },

@@ -89,7 +89,7 @@ export async function POST(req: Request) {
   }
 
   // Basic anti-spam throttle on agent creation
-  const limit = rateLimit(`marketplace-create:${session.user.id}`, 10, 60 * 60 * 1000);
+  const limit = await rateLimit(`marketplace-create:${session.user.id}`, 10, 60 * 60 * 1000);
   if (!limit.allowed) {
     return NextResponse.json(
       { error: "Too many agents created. Please try again later." },

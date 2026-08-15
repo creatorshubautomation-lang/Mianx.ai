@@ -6,7 +6,7 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 export async function POST(req: Request) {
   // Max 10 signup attempts per IP per 15 minutes
   const ip = getClientIp(req);
-  const limit = rateLimit(`register:${ip}`, 10, 15 * 60 * 1000);
+  const limit = await rateLimit(`register:${ip}`, 10, 15 * 60 * 1000);
   if (!limit.allowed) {
     return NextResponse.json(
       { error: "Too many signup attempts. Please try again later." },

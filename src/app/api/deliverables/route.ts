@@ -67,7 +67,7 @@ export async function POST(req: Request) {
 
   // Deliverable generation calls paid AI providers + does ZIP generation —
   // throttle to protect cost and avoid abuse.
-  const limit = rateLimit(`deliverables:${session.user.id}`, 10, 60 * 1000);
+  const limit = await rateLimit(`deliverables:${session.user.id}`, 10, 60 * 1000);
   if (!limit.allowed) {
     return NextResponse.json(
       { error: "Too many requests. Please slow down." },

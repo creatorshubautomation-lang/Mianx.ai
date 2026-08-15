@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   }
 
   // Max 10 analyses per user per minute — this calls paid AI providers
-  const limit = rateLimit(`ai-analyze:${session.user.id}`, 10, 60 * 1000);
+  const limit = await rateLimit(`ai-analyze:${session.user.id}`, 10, 60 * 1000);
   if (!limit.allowed) {
     return NextResponse.json(
       { error: "Too many requests. Please slow down." },

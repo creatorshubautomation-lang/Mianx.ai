@@ -270,8 +270,9 @@ Enrollment, CustomAgent, WhiteLabelConfig
    Zustand state-based "routing". **Improved (2026-08-16):** Deep linking
    added via `src/lib/router.ts` — browser back/forward and direct URL
    access now work. SSR/SSG benefits still not utilized.
-6. **In-memory rate limiter** — per-instance only, not cross-instance.
-   On Vercel serverless, limits are effectively per-instance.
+6. **In-memory rate limiter upgraded (2026-08-16)** — Now supports
+   Upstash Redis via `@upstash/ratelimit` for true global limits on
+   Vercel serverless. Falls back to in-memory when env vars not set.
 7. **Duplicate schema files resolved (2026-08-16)** — `schema.postgres.prisma`
    deleted. Only `schema.prisma` (PostgreSQL) and `schema.sqlite.prisma`
    (SQLite) remain. Schema changes now need to be applied to 2 files.
@@ -284,9 +285,12 @@ Enrollment, CustomAgent, WhiteLabelConfig
 10. **Academy** — DB models + view exist but no full CRUD API.
 11. **Marketplace** — `CustomAgent` model with create/browse but "download"
     just copies system prompt, not actual reusable functionality.
-12. **White-label** — `WhiteLabelConfig` DB model exists but no UI or API.
-13. **Notifications** — Model + API exist but no real-time system (no
-    WebSocket/SSE). `NotificationBell` component likely polls.
+12. **White-label resolved (2026-08-16)** — `GET/POST /api/whitelabel` API
+    + settings UI added to SettingsView (admin-only). Supports brand name,
+    colors, custom domain, and white-label toggle.
+13. **Notifications upgraded (2026-08-16)** — SSE endpoint
+    `/api/notifications/stream` added. `NotificationBell` uses `EventSource`
+    with exponential backoff reconnect instead of 30s polling.
 14. **Agent Activity** — `AgentActivity` model with `isLive` flag suggests
     real-time streaming that doesn't exist yet.
 15. **Hardcoded marketing stats resolved (2026-08-16)** — Stats now via
@@ -520,8 +524,13 @@ These can be done in parallel with any phase:
   `schema.postgres.prisma` are identical. **DONE (2026-08-16):** Deleted
   `schema.postgres.prisma`. No references found in codebase. Kept
   `schema.prisma` (PostgreSQL) and `schema.sqlite.prisma` (SQLite).
-- [ ] **Replace in-memory rate limiter** with Upstash Redis
+- [x] **Replace in-memory rate limiter** with Upstash Redis
   (`@upstash/ratelimit`) for true global limits on Vercel serverless.
+  **DONE (2026-08-16):** Rewrote `src/lib/rate-limit.ts` to export
+  async `rateLimit()` that tries Upstash first (slidingWindow
+  algorithm), falls back to in-memory on error or missing env vars.
+  Updated all 7 API route files (8 call sites) to use `await`.
+  Activate with `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`.
 - [x] **Add SPA deep linking** — use `window.history.pushState` + URL
   hash or query params so browser back/forward works and views are
   shareable. **DONE (2026-08-16):** Created `src/lib/router.ts` with
@@ -529,10 +538,18 @@ These can be done in parallel with any phase:
   All 30+ navigation calls across 20+ components updated to use
   `navigate()` instead of raw `setView()`. Browser back/forward and
   direct URL access now work (e.g., `/dashboard/projects/:id`).
-- [ ] **Seed WhiteLabelConfig API + UI** — DB model exists, needs API route
-  and settings page.
-- [ ] **Add real-time notifications** — replace polling with WebSocket or
-  Server-Sent Events for the `NotificationBell`.
+- [x] **Seed WhiteLabelConfig API + UI** — DB model exists, needs API route
+  and settings page. **DONE (2026-08-16):** Created
+  `GET/POST /api/whitelabel` with field whitelisting, hex color
+  validation, and ADMIN-only gate for `isWhiteLabel`. Added White
+  Label settings section to SettingsView with brand name, color
+  pickers, custom domain, and toggle. Admin-only visibility.
+- [x] **Add real-time notifications** — replace polling with WebSocket or
+  Server-Sent Events for the `NotificationBell`. **DONE (2026-08-16):**
+  Created `GET /api/notifications/stream` SSE endpoint (polls DB
+  every 2s, heartbeats every 30s). Replaced 30s polling in
+  `NotificationBell.tsx` with `EventSource` + exponential backoff
+  reconnect. Added `notifyUser()` helper in `src/lib/notification-helper.ts`.
 - [x] **Replace hardcoded marketing stats** — Home page "1,200+ projects"
   etc. should query from DB or at least be configurable via env vars.
   **DONE (2026-08-16):** Created `src/lib/platform-stats.ts` (env-var

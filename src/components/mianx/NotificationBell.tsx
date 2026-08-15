@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -8,7 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Bell, Check, Clock } from "lucide-react";
+import { Bell, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 interface Notification {
@@ -25,26 +25,119 @@ interface Notification {
 export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
 
-  const loadNotifications = () => {
+  // Ref to hold the EventSource so we can close it on unmount / reconnect.
+  const eventSourceRef = useRef<EventSource | null>(null);
+  // Ref for reconnect timer
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Exponential backoff delay (starts at 1 s, caps at 30 s)
+  const reconnectDelayRef = useRef(1000);
+  // Keep a ref to current notification ids so the SSE handler can avoid
+  // duplicates without depending on stale state closures.
+  const notifIdsRef = useRef<Set<string>>(new Set());
+
+  // ── Fetch existing notifications (initial load) ──────────────────
+  const loadNotifications = useCallback(() => {
     fetch("/api/notifications")
       .then((r) => r.json())
       .then((data) => {
         if (data.notifications) {
           setNotifications(data.notifications);
           setUnreadCount(data.unreadCount || 0);
+          // Sync the id set so SSE can deduplicate.
+          notifIdsRef.current = new Set(data.notifications.map((n: Notification) => n.id));
         }
       })
       .catch(() => {});
-  };
-
-  useEffect(() => {
-    loadNotifications();
-    // Poll every 30 seconds for new notifications
-    const interval = setInterval(loadNotifications, 30000);
-    return () => clearInterval(interval);
   }, []);
+
+  // Ref that holds the connect function so the error handler can
+  // call it for reconnection without triggering the "accessed before
+  // declaration" lint rule.
+  const connectSSERef = useRef<() => void>(() => {});
+
+  // ── Connect to the SSE stream ────────────────────────────────────
+  const connectSSE = useCallback(() => {
+    // Close any existing connection first.
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    const es = new EventSource("/api/notifications/stream");
+    eventSourceRef.current = es;
+
+    // ── Handle incoming notification events ────────────────────────
+    es.addEventListener("notification", (e) => {
+      try {
+        const parsed: Notification | Notification[] = JSON.parse(e.data);
+        const currentIds = notifIdsRef.current;
+
+        if (Array.isArray(parsed)) {
+          // Initial batch from server — merge avoiding duplicates.
+          const fresh = parsed.filter((n) => !currentIds.has(n.id));
+          if (fresh.length === 0) return;
+
+          // Update the id set.
+          fresh.forEach((n) => currentIds.add(n.id));
+          notifIdsRef.current = currentIds;
+
+          setNotifications((prev) => [...fresh, ...prev]);
+          setUnreadCount((prev) => prev + fresh.length);
+        } else {
+          // Single new notification — prepend if not already known.
+          if (currentIds.has(parsed.id)) return;
+          currentIds.add(parsed.id);
+          notifIdsRef.current = currentIds;
+
+          setNotifications((prev) => [parsed, ...prev]);
+          setUnreadCount((prev) => prev + 1);
+        }
+      } catch {
+        // ignore malformed data
+      }
+    });
+
+    // ── Heartbeat — confirms connection is alive ───────────────────
+    es.addEventListener("heartbeat", () => {
+      // Connection is healthy — reset backoff delay.
+      reconnectDelayRef.current = 1000;
+    });
+
+    // ── Error handling — reconnect with exponential backoff ────────
+    es.onerror = () => {
+      es.close();
+      eventSourceRef.current = null;
+
+      const delay = reconnectDelayRef.current;
+      reconnectDelayRef.current = Math.min(delay * 2, 30_000);
+
+      reconnectTimerRef.current = setTimeout(() => {
+        connectSSERef.current();
+      }, delay);
+    };
+  }, []);
+
+  // Keep the ref in sync so the error handler always calls the latest.
+  connectSSERef.current = connectSSE;
+
+  // ── Lifecycle: mount / unmount ────────────────────────────────────
+  useEffect(() => {
+    // Fetch existing notifications on mount.
+    loadNotifications();
+    // Open the SSE stream for real-time updates.
+    connectSSE();
+
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
+  }, [loadNotifications, connectSSE]);
 
   const handleMarkAllRead = async () => {
     try {
