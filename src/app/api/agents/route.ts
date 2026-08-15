@@ -29,6 +29,7 @@ export async function GET() {
           color: a.color,
           systemPrompt: a.systemPrompt,
         })),
+        skipDuplicates: true,
       });
 
       agents = await db.agent.findMany({

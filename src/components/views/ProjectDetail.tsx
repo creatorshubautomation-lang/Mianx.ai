@@ -261,16 +261,20 @@ export function ProjectDetail() {
   };
 
   const handleDownload = (deliverable: Deliverable) => {
-    const blob = new Blob([deliverable.content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
+    // Route through /api/deliverables/download instead of building a Blob
+    // from `deliverable.content` directly — that field can now be
+    // base64-encoded (uploaded files, generated ZIPs), and the download
+    // endpoint already knows how to decode it correctly and set the right
+    // Content-Type. Building a text/plain Blob from raw base64 here would
+    // produce a corrupted, unopenable file for anything but plain-text
+    // AI-generated deliverables.
     const a = document.createElement("a");
-    a.href = url;
+    a.href = `/api/deliverables/download?id=${deliverable.id}`;
     a.download = deliverable.fileName || `${deliverable.title}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success("Downloaded!");
+    toast.success("Downloading...");
   };
 
   if (loading) {

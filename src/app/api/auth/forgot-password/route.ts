@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 import { db } from "@/lib/db";
 import { sendEmail, passwordResetEmail } from "@/lib/email";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+
+// Store only a hash of the reset token in the DB. The raw token is what
+// gets emailed to the user and appears in the reset URL — if the database
+// were ever compromised, the leaked hashes alone can't be used as working
+// reset links.
+function hashToken(raw: string): string {
+  return createHash("sha256").update(raw).digest("hex");
+}
 
 // POST /api/auth/forgot-password
 // Sends a password reset email if the user exists
@@ -10,6 +19,16 @@ import { sendEmail, passwordResetEmail } from "@/lib/email";
 // Returns: { ok: true } (always — don't reveal if email exists or not)
 
 export async function POST(req: Request) {
+  // Max 5 reset requests per IP per 15 minutes
+  const ip = getClientIp(req);
+  const limit = rateLimit(`forgot-password:${ip}`, 5, 15 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429 },
+    );
+  }
+
   try {
     const { email } = await req.json();
 
@@ -45,11 +64,18 @@ export async function POST(req: Request) {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1);
 
-    // Save token to DB
+    // Save only the HASH to DB — the raw token never touches storage.
+    // Also invalidate any older unused tokens for this user so only the
+    // newest reset link is valid.
+    await db.passwordReset.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
     await db.passwordReset.create({
       data: {
         userId: user.id,
-        token,
+        token: hashToken(token),
         expiresAt,
       },
     });

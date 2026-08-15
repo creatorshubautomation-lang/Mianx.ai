@@ -72,7 +72,6 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         error: "Failed to fetch projects",
-        details: e instanceof Error ? e.message : String(e),
       },
       { status: 500 },
     );
@@ -103,6 +102,85 @@ export async function POST(req: Request) {
     if (!title || !description || !projectType) {
       return NextResponse.json(
         { error: "Title, description, and projectType are required" },
+        { status: 400 },
+      );
+    }
+
+    // ── Input validation ──────────────────────────────────────────
+    if (typeof title !== "string" || title.trim().length === 0 || title.length > 200) {
+      return NextResponse.json(
+        { error: "title must be a string between 1 and 200 characters" },
+        { status: 400 },
+      );
+    }
+    if (typeof description !== "string" || description.length > 10_000) {
+      return NextResponse.json(
+        { error: "description must be a string under 10,000 characters" },
+        { status: 400 },
+      );
+    }
+    const ALLOWED_PROJECT_TYPES = [
+      "web",
+      "mobile",
+      "branding",
+      "content",
+      "marketing",
+      "full_stack",
+    ];
+    if (
+      typeof projectType !== "string" ||
+      !ALLOWED_PROJECT_TYPES.includes(projectType)
+    ) {
+      return NextResponse.json(
+        {
+          error: `projectType must be one of: ${ALLOWED_PROJECT_TYPES.join(", ")}`,
+        },
+        { status: 400 },
+      );
+    }
+    const ALLOWED_PRIORITIES = ["low", "normal", "high", "urgent"];
+    if (typeof priority !== "string" || !ALLOWED_PRIORITIES.includes(priority)) {
+      return NextResponse.json(
+        { error: `priority must be one of: ${ALLOWED_PRIORITIES.join(", ")}` },
+        { status: 400 },
+      );
+    }
+    if (budget !== undefined && budget !== null && budget !== "") {
+      const parsedBudget = parseFloat(budget);
+      if (isNaN(parsedBudget) || parsedBudget < 0) {
+        return NextResponse.json(
+          { error: "budget must be a non-negative number" },
+          { status: 400 },
+        );
+      }
+    }
+    if (deadline) {
+      const parsedDeadline = new Date(deadline);
+      if (isNaN(parsedDeadline.getTime())) {
+        return NextResponse.json(
+          { error: "deadline must be a valid date" },
+          { status: 400 },
+        );
+      }
+    }
+    if (requirements !== undefined) {
+      const requirementsStr = JSON.stringify(requirements ?? {});
+      if (requirementsStr.length > 50_000) {
+        return NextResponse.json(
+          { error: "requirements payload is too large" },
+          { status: 400 },
+        );
+      }
+    }
+    if (!Array.isArray(recommendedAgents) || recommendedAgents.length > 20) {
+      return NextResponse.json(
+        { error: "recommendedAgents must be an array of at most 20 items" },
+        { status: 400 },
+      );
+    }
+    if (!Array.isArray(suggestedTasks) || suggestedTasks.length > 50) {
+      return NextResponse.json(
+        { error: "suggestedTasks must be an array of at most 50 items" },
         { status: 400 },
       );
     }
@@ -281,6 +359,31 @@ export async function POST(req: Request) {
   }
 }
 
+// Fields a project's own client is allowed to edit.
+const CLIENT_EDITABLE_FIELDS = [
+  "title",
+  "description",
+  "requirements",
+  "priority",
+  "budget",
+  "deadline",
+] as const;
+
+// Additional fields only an ADMIN may edit (internal workflow state).
+const ADMIN_ONLY_FIELDS = ["status", "progress"] as const;
+
+const ALLOWED_PRIORITIES = ["low", "normal", "high", "urgent"];
+const ALLOWED_STATUSES = [
+  "BRIEFING",
+  "PLANNING",
+  "IN_PROGRESS",
+  "REVIEW",
+  "DELIVERED",
+  "COMPLETED",
+  "ON_HOLD",
+  "CANCELLED",
+];
+
 // PATCH /api/projects — update project
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions);
@@ -289,17 +392,104 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const { id, ...updates } = await req.json();
+    const body = await req.json();
+    const { id } = body;
+
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
+    }
 
     const project = await db.project.findUnique({ where: { id } });
     if (!project) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    if (
-      project.clientId !== session.user.id &&
-      session.user.role !== "ADMIN"
-    ) {
+
+    const isAdmin = session.user.role === "ADMIN";
+    if (project.clientId !== session.user.id && !isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Whitelist: only accept known, role-appropriate fields. Anything else
+    // in the request body (e.g. clientId, id, createdAt) is silently
+    // ignored rather than passed through to the DB update.
+    const allowedFields: readonly string[] = isAdmin
+      ? [...CLIENT_EDITABLE_FIELDS, ...ADMIN_ONLY_FIELDS]
+      : CLIENT_EDITABLE_FIELDS;
+
+    const updates: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (field in body) updates[field] = body[field];
+    }
+
+    // Basic validation on whatever was actually submitted.
+    if (typeof updates.title === "string") {
+      if (updates.title.trim().length === 0 || updates.title.length > 200) {
+        return NextResponse.json(
+          { error: "title must be 1-200 characters" },
+          { status: 400 },
+        );
+      }
+    }
+    if (
+      typeof updates.description === "string" &&
+      updates.description.length > 10_000
+    ) {
+      return NextResponse.json(
+        { error: "description must be under 10,000 characters" },
+        { status: 400 },
+      );
+    }
+    if (updates.priority !== undefined) {
+      if (
+        typeof updates.priority !== "string" ||
+        !ALLOWED_PRIORITIES.includes(updates.priority)
+      ) {
+        return NextResponse.json(
+          { error: `priority must be one of: ${ALLOWED_PRIORITIES.join(", ")}` },
+          { status: 400 },
+        );
+      }
+    }
+    if (updates.budget !== undefined && updates.budget !== null) {
+      if (typeof updates.budget !== "number" || updates.budget < 0) {
+        return NextResponse.json(
+          { error: "budget must be a non-negative number" },
+          { status: 400 },
+        );
+      }
+    }
+    if (updates.deadline !== undefined && updates.deadline !== null) {
+      const parsed = new Date(updates.deadline as string);
+      if (isNaN(parsed.getTime())) {
+        return NextResponse.json(
+          { error: "deadline must be a valid date" },
+          { status: 400 },
+        );
+      }
+      updates.deadline = parsed;
+    }
+    if (updates.status !== undefined) {
+      if (
+        typeof updates.status !== "string" ||
+        !ALLOWED_STATUSES.includes(updates.status)
+      ) {
+        return NextResponse.json(
+          { error: `status must be one of: ${ALLOWED_STATUSES.join(", ")}` },
+          { status: 400 },
+        );
+      }
+    }
+    if (updates.progress !== undefined) {
+      if (
+        typeof updates.progress !== "number" ||
+        updates.progress < 0 ||
+        updates.progress > 100
+      ) {
+        return NextResponse.json(
+          { error: "progress must be a number between 0 and 100" },
+          { status: 400 },
+        );
+      }
     }
 
     const updated = await db.project.update({

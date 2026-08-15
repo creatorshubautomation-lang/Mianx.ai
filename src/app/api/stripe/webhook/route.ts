@@ -11,6 +11,13 @@ import { db } from "@/lib/db";
 //   - customer.subscription.updated → update plan if changed
 //   - customer.subscription.deleted → downgrade to FREE
 //   - invoice.payment_failed → mark subscription past_due
+//
+// Idempotency: Stripe explicitly documents that webhooks may be delivered
+// more than once for the same event (retries on timeout/non-2xx, and
+// occasional duplicate delivery). We record each processed event.id in
+// WebhookEvent (unique primary key) before handling it, so a redelivered
+// event is detected and skipped rather than re-applied (e.g. creating a
+// second subscription row or sending a duplicate "activated" email).
 
 export async function POST(req: Request) {
   const body = await req.text();
@@ -42,6 +49,29 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "Invalid signature" },
       { status: 400 },
+    );
+  }
+
+  // Idempotency guard: claim this event.id before doing any work. If
+  // another delivery already claimed it, this insert fails with a unique
+  // constraint violation (Prisma error code P2002) and we return 200
+  // immediately without reprocessing — Stripe expects 2xx either way.
+  try {
+    await db.webhookEvent.create({
+      data: { id: event.id, type: event.type },
+    });
+  } catch (e) {
+    const code = (e as { code?: string })?.code;
+    if (code === "P2002") {
+      console.log(`[stripe/webhook] duplicate delivery ignored: ${event.id}`);
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+    // If we can't even record the event (DB issue), fail closed and let
+    // Stripe retry later rather than silently skipping the idempotency check.
+    console.error("[stripe/webhook] failed to record event:", e);
+    return NextResponse.json(
+      { error: "Failed to process webhook" },
+      { status: 500 },
     );
   }
 
@@ -95,7 +125,6 @@ async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
 ): Promise<void> {
   const userId = session.metadata?.userId;
-  const planId = session.metadata?.planId;
   const planTier = session.metadata?.planTier as
     | "STARTER"
     | "PRO"
@@ -108,32 +137,64 @@ async function handleCheckoutCompleted(
     return;
   }
 
+  const stripeSubscriptionId = session.subscription as string | null;
+  const stripeCustomerId = (session.customer as string) || null;
+
   // Get subscription details
   const stripe = getStripe();
-  const subscription = await stripe.subscriptions.retrieve(
-    session.subscription as string,
-  );
+  const subscription = stripeSubscriptionId
+    ? await stripe.subscriptions.retrieve(stripeSubscriptionId)
+    : null;
 
   // Calculate amount
-  const amount = session.amount_total
-    ? session.amount_total / 100
-    : 0;
+  const amount = session.amount_total ? session.amount_total / 100 : 0;
   const interval = billing === "yearly" ? 365 : 30;
   const endDate = new Date();
   endDate.setDate(endDate.getDate() + interval);
 
-  // Create subscription record in DB
-  await db.subscription.create({
-    data: {
-      userId,
-      plan: planTier,
-      status: "active",
-      startDate: new Date(),
-      endDate,
-      amount,
-      currency: "USD",
-    },
-  });
+  // Upsert on stripeSubscriptionId so a redelivered/duplicate event (or a
+  // customer re-running checkout for the same subscription) updates the
+  // existing record instead of creating a second one.
+  if (stripeSubscriptionId) {
+    await db.subscription.upsert({
+      where: { stripeSubscriptionId },
+      create: {
+        userId,
+        plan: planTier,
+        status: "active",
+        startDate: new Date(),
+        endDate,
+        amount,
+        currency: "USD",
+        stripeCustomerId,
+        stripeSubscriptionId,
+        stripeCheckoutSessionId: session.id,
+      },
+      update: {
+        plan: planTier,
+        status: "active",
+        endDate,
+        amount,
+        stripeCustomerId,
+      },
+    });
+  } else {
+    // No subscription id (e.g. one-time payment) — fall back to a plain
+    // create; there's no natural Stripe key to dedupe against here.
+    await db.subscription.create({
+      data: {
+        userId,
+        plan: planTier,
+        status: "active",
+        startDate: new Date(),
+        endDate,
+        amount,
+        currency: "USD",
+        stripeCustomerId,
+        stripeCheckoutSessionId: session.id,
+      },
+    });
+  }
 
   // Update user's plan
   const updatedUser = await db.user.update({
@@ -185,11 +246,18 @@ async function handleSubscriptionUpdated(
   else if (subscription.status === "canceled") status = "cancelled";
   else if (subscription.status === "unpaid") status = "past_due";
 
-  // Update existing subscription record
-  const existing = await db.subscription.findFirst({
-    where: { userId, status: { in: ["active", "past_due"] } },
-    orderBy: { createdAt: "desc" },
-  });
+  // Look up by the Stripe subscription id first — this is the correct,
+  // unambiguous identifier. Fall back to the old "most recent active
+  // subscription for this user" heuristic only for rows created before
+  // stripeSubscriptionId was tracked.
+  const existing =
+    (await db.subscription.findUnique({
+      where: { stripeSubscriptionId: subscription.id },
+    })) ??
+    (await db.subscription.findFirst({
+      where: { userId, status: { in: ["active", "past_due"] } },
+      orderBy: { createdAt: "desc" },
+    }));
 
   if (existing) {
     await db.subscription.update({
@@ -197,6 +265,8 @@ async function handleSubscriptionUpdated(
       data: {
         plan: planTier,
         status,
+        stripeSubscriptionId: subscription.id,
+        stripeCustomerId: (subscription.customer as string) || undefined,
         endDate: subscription.current_period_end
           ? new Date(subscription.current_period_end * 1000)
           : undefined,

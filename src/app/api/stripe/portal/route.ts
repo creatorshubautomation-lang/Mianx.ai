@@ -40,7 +40,6 @@ export async function POST() {
     return NextResponse.json(
       {
         error: "Failed to create billing portal session",
-        details: e instanceof Error ? e.message : String(e),
       },
       { status: 500 },
     );

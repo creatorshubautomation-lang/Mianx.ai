@@ -13,11 +13,19 @@ export async function POST(req: Request) {
   try {
     const { courseId } = await req.json();
 
-    if (!courseId) {
+    if (!courseId || typeof courseId !== "string") {
       return NextResponse.json(
         { error: "courseId is required" },
         { status: 400 },
       );
+    }
+
+    const course = await db.course.findUnique({
+      where: { id: courseId },
+      select: { id: true },
+    });
+    if (!course) {
+      return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
     // Check if already enrolled

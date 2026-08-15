@@ -183,7 +183,9 @@ model Deliverable {
   title      String
   description String?
   fileType   String   // code | document | design | report | archive
-  content    String   // text content (for code/doc deliverables)
+  content    String   // text content, or base64 for uploaded binaries (see contentEncoding)
+  contentEncoding String @default("utf8") // "utf8" | "base64"
+  mimeType   String?  // real MIME type, e.g. "image/png" — used for download headers
   fileName   String?
   fileSize   Int?
   createdAt  DateTime @default(now())
@@ -199,18 +201,29 @@ model Deliverable {
 // ─────────────────────────────────────────────
 
 model Subscription {
-  id        String   @id @default(cuid())
-  userId    String
-  plan      PlanTier
-  status    String   @default("active") // active | cancelled | expired | past_due
-  startDate DateTime @default(now())
-  endDate   DateTime?
-  amount    Float
-  currency  String   @default("USD")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                     String    @id @default(cuid())
+  userId                 String
+  plan                   PlanTier
+  status                 String    @default("active") // active | cancelled | expired | past_due
+  startDate              DateTime  @default(now())
+  endDate                DateTime?
+  amount                 Float
+  currency               String    @default("USD")
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?   @unique
+  stripeCheckoutSessionId String?  @unique
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model WebhookEvent {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now())
 }
 
 // ─────────────────────────────────────────────

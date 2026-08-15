@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { getAuthSecret } from "@/lib/auth-secret";
 
 // Helper to compute the canonical app URL.
 // Handles Vercel preview deployments, production, and local dev.
@@ -59,18 +60,14 @@ export const authOptions: NextAuthOptions = {
         try {
           // Normalize email (trim + lowercase) to avoid case issues
           const email = credentials.email.trim().toLowerCase();
-          console.log("[auth] authorize attempt for:", email);
 
           const user = await db.user.findUnique({
             where: { email },
           });
 
           if (!user) {
-            console.log("[auth] user not found:", email);
             return null;
           }
-
-          console.log("[auth] user found, role:", user.role);
 
           const valid = await bcrypt.compare(
             credentials.password,
@@ -78,15 +75,8 @@ export const authOptions: NextAuthOptions = {
           );
 
           if (!valid) {
-            console.log("[auth] password invalid for:", email);
-            console.log(
-              "[auth] hash preview:",
-              user.passwordHash?.slice(0, 20) + "...",
-            );
             return null;
           }
-
-          console.log("[auth] login successful:", email, "role:", user.role);
 
           return {
             id: user.id,
@@ -154,7 +144,7 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || "mianx-ai-secret-key-2026",
+  secret: getAuthSecret(),
   // Explicit URL to prevent "Invalid URL" errors on Vercel
   url: getAppUrl(),
 };

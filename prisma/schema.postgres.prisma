@@ -137,6 +137,8 @@ model Task {
   updatedAt   DateTime @updatedAt
 
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
 }
 
 model Message {
@@ -163,7 +165,9 @@ model Deliverable {
   title      String
   description String?
   fileType   String
-  content    String
+  content    String   // for uploaded binaries, base64-encoded (see contentEncoding)
+  contentEncoding String @default("utf8") // "utf8" | "base64"
+  mimeType   String?  // real MIME type, e.g. "image/png" — used for download headers
   fileName   String?
   fileSize   Int?
   createdAt  DateTime @default(now())
@@ -172,21 +176,36 @@ model Deliverable {
   uploader   User     @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
 
   @@index([projectId])
+  @@index([uploadedBy])
 }
 
 model Subscription {
-  id        String   @id @default(cuid())
-  userId    String
-  plan      PlanTier
-  status    String   @default("active")
-  startDate DateTime @default(now())
-  endDate   DateTime?
-  amount    Float
-  currency  String   @default("USD")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                     String    @id @default(cuid())
+  userId                 String
+  plan                   PlanTier
+  status                 String    @default("active")
+  startDate              DateTime  @default(now())
+  endDate                DateTime?
+  amount                 Float
+  currency               String    @default("USD")
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?   @unique
+  stripeCheckoutSessionId String?  @unique
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([stripeCustomerId])
+}
+
+// Tracks processed Stripe webhook event IDs so retried/duplicate
+// deliveries (which Stripe sends by design) are only applied once.
+model WebhookEvent {
+  id          String   @id // Stripe event.id — natural idempotency key
+  type        String
+  processedAt DateTime @default(now())
 }
 
 model Activity {
@@ -201,6 +220,7 @@ model Activity {
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
+  @@index([userId, createdAt])
 }
 
 // ─────────────────────────────────────────────
@@ -225,6 +245,7 @@ model AiProviderUsage {
 
   @@index([provider, createdAt])
   @@index([projectId])
+  @@index([userId, createdAt])
 }
 
 // ─────────────────────────────────────────────
@@ -370,6 +391,8 @@ model Course {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@unique([title])
+
   @@index([category])
   @@index([isPublished])
 }
@@ -389,6 +412,7 @@ model Lesson {
   course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([courseId])
+  @@unique([courseId, order])
 }
 
 model Enrollment {
@@ -434,6 +458,7 @@ model CustomAgent {
   @@index([category])
   @@index([isPublished])
   @@index([creatorId])
+  @@unique([creatorId, name])
 }
 
 // ─────────────────────────────────────────────
