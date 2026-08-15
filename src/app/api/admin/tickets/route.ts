@@ -84,6 +84,20 @@ export async function PATCH(req: Request) {
       );
     }
 
+    const ALLOWED_STATUSES = ["open", "in_progress", "resolved", "closed"];
+    if (status !== undefined && !ALLOWED_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { error: `status must be one of: ${ALLOWED_STATUSES.join(", ")}` },
+        { status: 400 },
+      );
+    }
+    if (response !== undefined && typeof response === "string" && response.length > 5000) {
+      return NextResponse.json(
+        { error: "response must be under 5000 characters" },
+        { status: 400 },
+      );
+    }
+
     const updateData: {
       response?: string;
       status?: string;

@@ -93,6 +93,12 @@ export async function POST(req: Request) {
 Type: ${project.projectType}
 Description: ${project.description}`;
 
+    // Look up the assigned agent's role for the ZIP metadata (best-effort —
+    // falls back to a generic label if this agent isn't formally assigned).
+    const assignedAgent = project.agents.find(
+      (pa) => pa.agent.name === agentName,
+    )?.agent;
+
     // Generate real deliverable using AI
     const generated = await generateDeliverable(
       agentName,
@@ -119,7 +125,7 @@ Description: ${project.description}`;
         files,
         deliverableTitle: generated.title,
         agentName,
-        agentRole: agent?.role || "Agent",
+        agentRole: assignedAgent?.role || "Agent",
         description: taskDescription,
       });
 

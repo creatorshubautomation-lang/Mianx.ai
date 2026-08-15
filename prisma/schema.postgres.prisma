@@ -389,6 +389,8 @@ model Course {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@unique([title])
+
   @@index([category])
   @@index([isPublished])
 }
@@ -408,6 +410,7 @@ model Lesson {
   course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([courseId])
+  @@unique([courseId, order])
 }
 
 model Enrollment {

@@ -56,10 +56,16 @@ export async function PATCH(req: Request) {
     }
 
     if (id) {
-      await db.notification.update({
-        where: { id },
+      // Ownership check via updateMany's where clause — without scoping to
+      // userId, any authenticated user could mark ANY other user's
+      // notification as read just by knowing/guessing its id.
+      const result = await db.notification.updateMany({
+        where: { id, userId: session.user.id },
         data: { isRead: true },
       });
+      if (result.count === 0) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
       return NextResponse.json({ ok: true });
     }
 

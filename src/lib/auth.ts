@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { getAuthSecret } from "@/lib/auth-secret";
 
 // Helper to compute the canonical app URL.
 // Handles Vercel preview deployments, production, and local dev.
@@ -43,29 +44,6 @@ declare module "next-auth/jwt" {
     email?: string;
     name?: string | null;
   }
-}
-
-// NextAuth requires a secret to sign JWTs/session cookies. A predictable
-// fallback value here would mean anyone could forge valid session tokens
-// if the env var is ever missing in production — so we fail loudly instead.
-function getAuthSecret(): string {
-  const secret = process.env.NEXTAUTH_SECRET;
-  if (secret) return secret;
-
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "[auth] NEXTAUTH_SECRET is not set. Refusing to start with a " +
-        "predictable fallback secret in production — set NEXTAUTH_SECRET " +
-        "in your environment variables (min 32 random chars).",
-    );
-  }
-
-  // Local/dev-only fallback so `next dev` doesn't hard-fail without setup.
-  console.warn(
-    "[auth] NEXTAUTH_SECRET is not set — using an insecure development-only " +
-      "fallback. Set NEXTAUTH_SECRET in .env before deploying.",
-  );
-  return "dev-only-insecure-secret-do-not-use-in-production";
 }
 
 export const authOptions: NextAuthOptions = {

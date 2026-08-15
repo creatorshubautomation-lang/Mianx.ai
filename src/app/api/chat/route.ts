@@ -94,6 +94,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (typeof content !== "string" || content.length > 8000) {
+      return NextResponse.json(
+        { error: "content must be a string under 8000 characters" },
+        { status: 400 },
+      );
+    }
+
     const project = await db.project.findUnique({
       where: { id: projectId },
       include: { agents: { include: { agent: true } } },

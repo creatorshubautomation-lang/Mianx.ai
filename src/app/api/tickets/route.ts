@@ -44,6 +44,44 @@ export async function POST(req: Request) {
       );
     }
 
+    if (typeof subject !== "string" || subject.length > 200) {
+      return NextResponse.json(
+        { error: "subject must be a string under 200 characters" },
+        { status: 400 },
+      );
+    }
+    if (typeof description !== "string" || description.length > 5000) {
+      return NextResponse.json(
+        { error: "description must be a string under 5000 characters" },
+        { status: 400 },
+      );
+    }
+    const ALLOWED_PRIORITIES = ["low", "normal", "high", "urgent"];
+    if (priority !== undefined && !ALLOWED_PRIORITIES.includes(priority)) {
+      return NextResponse.json(
+        { error: `priority must be one of: ${ALLOWED_PRIORITIES.join(", ")}` },
+        { status: 400 },
+      );
+    }
+
+    let linkedProjectId: string | null = null;
+    if (projectId) {
+      const linkedProject = await db.project.findUnique({
+        where: { id: projectId },
+        select: { clientId: true },
+      });
+      if (
+        linkedProject &&
+        (linkedProject.clientId === session.user.id ||
+          session.user.role === "ADMIN")
+      ) {
+        linkedProjectId = projectId;
+      }
+      // If the project doesn't exist or isn't theirs, silently drop the
+      // link rather than letting a client attach a ticket to a project
+      // they don't own.
+    }
+
     const ticket = await db.supportTicket.create({
       data: {
         userId: session.user.id,
@@ -51,7 +89,7 @@ export async function POST(req: Request) {
         description,
         priority: priority || "normal",
         category: category || "general",
-        projectId: projectId || null,
+        projectId: linkedProjectId,
         status: "open",
       },
     });

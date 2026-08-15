@@ -83,6 +83,25 @@ export async function PATCH(req: Request) {
       if (key in updates) data[key] = updates[key];
     }
 
+    const FIELD_MAX_LENGTHS: Record<string, number> = {
+      name: 100,
+      company: 100,
+      phone: 30,
+      avatarUrl: 2000,
+      preferredLang: 10,
+    };
+    for (const [key, max] of Object.entries(FIELD_MAX_LENGTHS)) {
+      const value = data[key];
+      if (value !== undefined && value !== null) {
+        if (typeof value !== "string" || value.length > max) {
+          return NextResponse.json(
+            { error: `${key} must be a string under ${max} characters` },
+            { status: 400 },
+          );
+        }
+      }
+    }
+
     const user = await db.user.update({
       where: { id: session.user.id },
       data,

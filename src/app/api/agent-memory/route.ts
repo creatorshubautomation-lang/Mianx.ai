@@ -21,6 +21,24 @@ export async function GET(req: Request) {
       );
     }
 
+    // Ownership check — without this, any authenticated user could read
+    // any other user's project memories by guessing/enumerating projectId.
+    const project = await db.project.findUnique({
+      where: { id: projectId },
+      select: { clientId: true },
+    });
+
+    if (!project) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    if (
+      project.clientId !== session.user.id &&
+      session.user.role !== "ADMIN"
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const memories = await db.agentMemory.findMany({
       where: { projectId },
       orderBy: { updatedAt: "desc" },

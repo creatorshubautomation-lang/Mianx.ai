@@ -15,36 +15,50 @@ export async function GET() {
       orderBy: { createdAt: "asc" },
     });
 
-    // Auto-seed courses if database is empty
+    // Auto-seed courses if database is empty.
+    // Race-safe: createMany + skipDuplicates relies on @@unique([title])
+    // on Course and @@unique([courseId, order]) on Lesson, so concurrent
+    // requests hitting an empty table can't create duplicate rows.
     if (courses.length === 0) {
-      for (const template of COURSES) {
-        const course = await db.course.create({
-          data: {
-            title: template.title,
-            description: template.description,
-            instructor: template.instructor,
-            category: template.category,
-            level: template.level,
-            price: template.price,
-            duration: template.duration,
-            isPremium: template.isPremium,
-          },
-        });
+      await db.course.createMany({
+        data: COURSES.map((template) => ({
+          title: template.title,
+          description: template.description,
+          instructor: template.instructor,
+          category: template.category,
+          level: template.level,
+          price: template.price,
+          duration: template.duration,
+          isPremium: template.isPremium,
+        })),
+        skipDuplicates: true,
+      });
 
-        for (let i = 0; i < template.lessons.length; i++) {
-          const lesson = template.lessons[i];
-          await db.lesson.create({
-            data: {
-              courseId: course.id,
-              title: lesson.title,
-              description: lesson.description,
-              content: `Lesson content for: ${lesson.title}`,
-              duration: lesson.duration,
-              order: i,
-              isPreview: lesson.isPreview,
-            },
-          });
-        }
+      const seededCourses = await db.course.findMany({
+        where: { title: { in: COURSES.map((c) => c.title) } },
+        select: { id: true, title: true },
+      });
+      const idByTitle = new Map(seededCourses.map((c) => [c.title, c.id]));
+
+      const lessonRows = COURSES.flatMap((template) => {
+        const courseId = idByTitle.get(template.title);
+        if (!courseId) return [];
+        return template.lessons.map((lesson, i) => ({
+          courseId,
+          title: lesson.title,
+          description: lesson.description,
+          content: `Lesson content for: ${lesson.title}`,
+          duration: lesson.duration,
+          order: i,
+          isPreview: lesson.isPreview,
+        }));
+      });
+
+      if (lessonRows.length > 0) {
+        await db.lesson.createMany({
+          data: lessonRows,
+          skipDuplicates: true,
+        });
       }
 
       // Re-fetch after seeding
