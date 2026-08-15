@@ -582,12 +582,12 @@ export async function generateDeliverable(
     }
   }
 
-  // Get memory context
+  // Get memory context (Phase 4: includes client-level memories)
   let memoryContext = "";
   if (projectId) {
     try {
       const { getMemoryContext } = await import("@/lib/agent-memory");
-      memoryContext = await getMemoryContext(projectId);
+      memoryContext = await getMemoryContext(projectId, userId);
     } catch {
       // skip
     }
@@ -662,12 +662,12 @@ export async function autoAgentResponse(
   const powerPrompt = getPowerPrompt(agentName);
   const systemPrompt = powerPrompt || agent.systemPrompt;
 
-  // Get agent memory context (D3)
+  // Get agent memory context (Phase 4: includes client-level memories)
   let memoryContext = "";
   if (projectId) {
     try {
       const { getMemoryContext } = await import("@/lib/agent-memory");
-      memoryContext = await getMemoryContext(projectId);
+      memoryContext = await getMemoryContext(projectId, userId);
     } catch {
       // memory module not available — skip
     }

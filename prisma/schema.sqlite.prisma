@@ -331,22 +331,45 @@ model SupportTicket {
 
 // ─────────────────────────────────────────────
 //  AGENT MEMORY
+//  Phase 4: Added clientId for cross-project memory scope
 // ─────────────────────────────────────────────
 
 model AgentMemory {
   id          String   @id @default(cuid())
   projectId   String
   agentId     String
+  clientId    String?  // Phase 4: nullable — when set, memory applies across all client's projects
   memoryType  String
   key         String
   value       String
   confidence  Float    @default(1.0)
+  source      String   @default("regex") // regex | llm
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([projectId])
   @@index([agentId])
+  @@index([clientId])
   @@unique([projectId, agentId, key])
+}
+
+// ─────────────────────────────────────────────
+//  CLIENT MEMORY (Phase 4 — cross-project client preferences)
+// ─────────────────────────────────────────────
+
+model ClientMemory {
+  id          String   @id @default(cuid())
+  userId      String
+  memoryType  String
+  key         String
+  value       String
+  confidence  Float    @default(0.9)
+  sourceProjectId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@unique([userId, key])
 }
 
 // ─────────────────────────────────────────────

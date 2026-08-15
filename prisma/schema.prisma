@@ -309,22 +309,48 @@ model SupportTicket {
 
 // ─────────────────────────────────────────────
 //  AGENT MEMORY (D3 — agents remember client preferences)
+//  Phase 4: Added clientId for cross-project memory scope
 // ─────────────────────────────────────────────
 
 model AgentMemory {
   id          String   @id @default(cuid())
   projectId   String
   agentId     String
+  clientId    String?  // Phase 4: nullable — when set, memory applies across all client's projects
   memoryType  String   // preference | decision | feedback | fact
-  key         String   // e.g., "preferred_color", "brand_voice"
-  value       String   // e.g., "blue", "casual"
+  key         String   // e.g., "preferred_color", "brand_voice", "writing_style"
+  value       String   // e.g., "blue", "casual", "concise/punchy"
   confidence  Float    @default(1.0) // 0.0 to 1.0
+  source      String   @default("regex") // regex | llm — how this memory was extracted
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([projectId])
   @@index([agentId])
+  @@index([clientId])
   @@unique([projectId, agentId, key])
+}
+
+// ─────────────────────────────────────────────
+//  CLIENT MEMORY (Phase 4 — cross-project client preferences)
+//  High-confidence memories that persist across all projects
+//  for a given client. Populated from AgentMemory entries with
+//  confidence >= 0.8 and broad applicability.
+// ─────────────────────────────────────────────
+
+model ClientMemory {
+  id          String   @id @default(cuid())
+  userId      String   // the client/user
+  memoryType  String   // preference | decision | feedback | fact
+  key         String   // e.g., "writing_style", "preferred_color"
+  value       String   // e.g., "concise/punchy", "blue"
+  confidence  Float    @default(0.9) // 0.0 to 1.0 — only high-confidence memories promoted here
+  sourceProjectId String? // which project this was first learned from
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@unique([userId, key])
 }
 
 // ─────────────────────────────────────────────

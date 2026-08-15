@@ -345,18 +345,19 @@ Assigned team: ${assignedAgents.map((a) => `${a.name} (${a.role})`).join(", ")}`
       console.error("[chat] agent activity log failed:", e);
     }
 
-    // D3: Extract memories from user message
+    // Phase 4: Extract memories from user message (background, non-blocking)
     try {
-      const { extractMemoriesFromMessage } = await import("@/lib/agent-memory");
+      const { extractMemoriesInBackground } = await import("@/lib/agent-memory");
       // Use first responder's agent ID for memory
       const firstResponder = assignedAgents.find(
         (a) => a.name === teamResults[0]?.agentName,
       );
       if (firstResponder) {
-        await extractMemoriesFromMessage(
+        extractMemoriesInBackground(
           projectId,
           firstResponder.id,
           content,
+          session.user.id, // Phase 4: pass userId for cross-project memory
         );
       }
     } catch (e) {

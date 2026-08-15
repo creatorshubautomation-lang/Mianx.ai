@@ -158,19 +158,29 @@ Enrollment, CustomAgent, WhiteLabelConfig
 
 ### 1.5 Memory
 - **File:** `src/lib/agent-memory.ts`
-- `extractMemoriesFromMessage()` uses **hardcoded regexes** to pull out a
-  handful of fact types from user messages:
-  1. Color preference (red, blue, green, etc.)
-  2. Brand voice (professional, casual, friendly, etc.)
-  3. Tech stack (react, next.js, vue, etc.)
-  4. Font preference (serif, sans-serif, etc.)
-  5. Budget ($N)
-  6. Deadline (today, tomorrow, next week, etc.)
-- Anything not matching one of these ~6 regex patterns is invisible to
-  the memory system (e.g., "I hate long paragraphs" = not captured).
-- Memory is scoped per-project only (`projectId + agentId + key`);
-  no cross-project client memory.
-- `getMemoryContext()` builds a string injected into agent prompts.
+- **Phase 4 (2026-08-15):** Memory extraction upgraded from hardcoded regex
+  to LLM-based structured output.
+  - `extractMemoriesFromMessage()` now uses a fast-tier LLM call with a
+    structured-output prompt to extract preferences, decisions, feedback,
+    and facts as JSON: `{memoryType, key, value, confidence}[]`.
+  - Falls back to legacy regex extraction if LLM call fails.
+  - Skips very short messages (< 15 chars) and code-heavy messages.
+  - Low-confidence memories (< 0.5) are discarded.
+- **ClientMemory model (new):** High-confidence preferences (>= 0.8)
+  are automatically promoted to `ClientMemory` table, persisting across
+  all projects for a given client. `getMemoryContext()` now returns both
+  project-level and client-level memories.
+- **AgentMemory model updated:** Added `clientId` (nullable, for cross-project
+  scope) and `source` column ("regex" or "llm").
+- **Background extraction:** Memory extraction is now fire-and-forget
+  (`extractMemoriesInBackground()`) — non-blocking, runs after chat
+  response is sent. Uses `setImmediate()` to yield to event loop first.
+- **Chat history relevance cutoff:** `getRelevantChatHistory()` limits
+  prompt context to most recent N messages (default 20) with a lightweight
+  summary of older messages, preventing token explosion on long projects.
+- Memory is scoped per-project by default (`projectId + agentId + key`),
+  with optional cross-project scope via `clientId`. `getMemoryContext()`
+  builds a string injected into agent prompts.
 
 ### 1.6 Deliverable generation
 - **Route:** `src/app/api/deliverables/route.ts`
@@ -443,32 +453,44 @@ and the admin dashboard shows tool-call counts alongside LLM-call counts.
 the activity log (plan → agent A output → agent B sees A's output → QA
 review), not N independent messages that happen to arrive together.
 
-### Phase 4 — Deeper memory & context — **PENDING**
+### Phase 4 — Deeper memory & context — **DONE** (2026-08-15)
 **Goal:** Move from regex keyword-matching to model-driven, structured
 memory extraction, and extend memory beyond a single project.
 
-- [ ] Replace `extractMemoriesFromMessage()`'s regex patterns with a
+- [x] Replace `extractMemoriesFromMessage()`'s regex patterns with a
       structured-output LLM call (JSON schema: `{memoryType, key, value,
       confidence}[]`) run on each message — same `saveMemory()` upsert
       target, just a smarter extraction step. Keep this on the `"fast"`
       tier from Phase 1 — extraction doesn't need premium reasoning.
-      Prompt example:
-      ```
-      Extract client preferences from this message. Return JSON array:
-      [{"memoryType": "preference|decision|feedback|fact", "key": "short_key", "value": "extracted_value", "confidence": 0.0-1.0}]
-      Message: "I hate long paragraphs, keep copy punchy"
-      → [{"memoryType": "preference", "key": "writing_style", "value": "concise/punchy, no long paragraphs", "confidence": 0.9}]
-      ```
-- [ ] Add `clientId` column to `AgentMemory` model (nullable) for
+      **Implementation:** `extractMemoriesFromMessage()` in
+      `src/lib/agent-memory.ts` now calls a fast-tier LLM with a
+      structured-output system prompt. Falls back to regex extraction
+      if LLM call fails. Low-confidence memories (< 0.5) are discarded.
+      Extraction is logged to `AgentToolCall` table via `tool-logger.ts`.
+- [x] Add `clientId` column to `AgentMemory` model (nullable) for
       cross-project memory alongside existing `projectId` scope.
-- [ ] Add `ClientMemory` model (or extend AgentMemory) for client-level
+      **Implementation:** Added `clientId String?` to `AgentMemory` in all
+      3 Prisma schema files + `source` column ("regex" | "llm").
+      SQL migration in `prisma/phase4-migration.sql`.
+- [x] Add `ClientMemory` model (or extend AgentMemory) for client-level
       preferences that persist across projects.
-- [ ] For projects with long chat histories, stop stuffing the entire
+      **Implementation:** New `ClientMemory` model in all 3 Prisma schemas.
+      `promoteToClientMemory()` automatically promotes high-confidence
+      preferences (>= 0.8) from AgentMemory to ClientMemory.
+      `getClientMemories()` fetches cross-project memories.
+      `getMemoryContext()` now includes both project and client memories.
+- [x] For projects with long chat histories, stop stuffing the entire
       history into every prompt — add a simple relevance cutoff (most
       recent N messages + memory summary) now, and only reach for real
       embeddings/vector search if that proves insufficient in practice.
-- [ ] Add memory extraction as a background task (fire-and-forget after
+      **Implementation:** `getRelevantChatHistory()` returns most recent 20
+      messages (configurable) with a lightweight topic summary of older
+      messages. Available for use by any code that builds prompt context.
+- [x] Add memory extraction as a background task (fire-and-forget after
       chat message save) to avoid adding latency to the chat response.
+      **Implementation:** `extractMemoriesInBackground()` uses
+      `setImmediate()` for fire-and-forget execution. Chat route uses
+      this instead of `await extractMemoriesFromMessage()`.
 
 **Done when:** a preference mentioned in free-form text that doesn't
 match any of the old regex patterns (e.g. "I hate long paragraphs, keep

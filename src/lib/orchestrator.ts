@@ -290,7 +290,7 @@ export async function executeSequentialPlan(
       if (projectId) {
         try {
           const { getMemoryContext } = await import("@/lib/agent-memory");
-          memoryContext = await getMemoryContext(projectId);
+          memoryContext = await getMemoryContext(projectId, userId);
         } catch {
           // memory module not available
         }
