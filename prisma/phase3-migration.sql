@@ -1,0 +1,24 @@
+-- Phase 3 Migration: Real Multi-Agent Orchestration
+-- Date: 2026-08-15
+--
+-- Phase 3 does NOT require new database models. All orchestration data is logged
+-- to the existing `Activity` table using new action types:
+--   - ORCHESTRATION_PLAN_CREATED
+--   - ORCHESTRATION_STEP_COMPLETED
+--   - ORCHESTRATION_STEP_FAILED
+--   - ORCHESTRATED_CHAT_MESSAGE
+--   - QA_REVIEW_PASSED
+--   - QA_REVIEW_FAILED
+--
+-- The `AgentToolCall` table (added in Phase 2) gets a new toolName value:
+--   - "qa_review" — Lens code review on deliverables
+--
+-- Message `meta` JSON now includes orchestration fields:
+--   - orchestrationMode: "parallel" | "sequential"
+--   - orchestrationPlan: string (plan summary)
+--   - stepTask: string (step-specific task)
+--   - stepIndex: number (0-based step index)
+--   - priorAgentOutput: string (name of agent whose output was received)
+--   - durationMs: number (step execution time)
+--
+-- No schema changes needed. This migration is for documentation/awareness only.

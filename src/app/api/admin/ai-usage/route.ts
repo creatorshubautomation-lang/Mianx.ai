@@ -142,6 +142,7 @@ export async function GET() {
           id: true,
           provider: true,
           endpoint: true,
+          tier: true,
           agentName: true,
           inputTokens: true,
           outputTokens: true,
@@ -173,9 +174,76 @@ export async function GET() {
     );
     const activeProviders = providers.filter((p) => p.apiKeySet).length;
 
+    // ─────────────────────────────────────────────
+    //  Phase 2: Tier breakdown
+    // ─────────────────────────────────────────────
+    let tierBreakdown = { fast: { calls: 0, costUsd: 0 }, quality: { calls: 0, costUsd: 0 } };
+    try {
+      const tierStats = await db.aiProviderUsage.groupBy({
+        by: ["tier"],
+        _count: true,
+        _sum: { costUsd: true },
+      });
+      for (const r of tierStats) {
+        if (r.tier === "fast") {
+          tierBreakdown.fast.calls += r._count;
+          tierBreakdown.fast.costUsd += r._sum.costUsd || 0;
+        } else if (r.tier === "quality") {
+          tierBreakdown.quality.calls += r._count;
+          tierBreakdown.quality.costUsd += r._sum.costUsd || 0;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // ─────────────────────────────────────────────
+    //  Phase 2: Tool call stats
+    // ─────────────────────────────────────────────
+    let toolCallStats: { toolCalls: unknown[]; summary: Record<string, number> } = {
+      toolCalls: [],
+      summary: {},
+    };
+    try {
+      const toolCalls = await db.agentToolCall.findMany({
+        take: 30,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          toolName: true,
+          agentName: true,
+          provider: true,
+          status: true,
+          durationMs: true,
+          createdAt: true,
+        },
+      });
+
+      const toolSummary = await db.agentToolCall.groupBy({
+        by: ["toolName", "status"],
+        _count: true,
+      });
+
+      const summaryAcc: Record<string, number> = {};
+      for (const r of toolSummary) {
+        const key = `${r.toolName}:${r.status}`;
+        summaryAcc[key] = r._count;
+        summaryAcc[`${r.toolName}_total`] = (summaryAcc[`${r.toolName}_total`] || 0) + r._count;
+      }
+
+      toolCallStats = { toolCalls, summary: summaryAcc };
+    } catch {
+      // ignore — table may not exist yet
+    }
+
     return NextResponse.json({
       providers,
       recentLogs,
+      tierBreakdown: {
+        fast: { calls: tierBreakdown.fast.calls, costUsd: Number(tierBreakdown.fast.costUsd.toFixed(4)) },
+        quality: { calls: tierBreakdown.quality.calls, costUsd: Number(tierBreakdown.quality.costUsd.toFixed(4)) },
+      },
+      toolCallStats,
       summary: {
         totalProviders: providers.length,
         activeProviders,

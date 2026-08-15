@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { generateDeliverable } from "@/lib/ai-service";
+import { generateDeliverable, callAIWithFallback } from "@/lib/ai-service";
 import { rateLimit } from "@/lib/rate-limit";
+import { AGENT_CATALOG } from "@/lib/agents";
 
 // GET /api/deliverables?projectId=xxx
 export async function GET(req: Request) {
@@ -124,11 +125,180 @@ Description: ${project.description}`;
     )?.agent;
 
     // Generate real deliverable using AI
-    const generated = await generateDeliverable(
+    let generated = await generateDeliverable(
       agentName,
       taskDescription,
       projectContext,
+      projectId,
+      session.user.id,
     );
+
+    // ─────────────────────────────────────────────
+    //  Phase 2: Code verification (with retry)
+    //  For code-type deliverables, run tsc --noEmit syntax check.
+    //  If verification fails, feed errors back to LLM for one retry.
+    // ─────────────────────────────────────────────
+    let verificationStatus: "verified" | "unverified" | "skipped" = "skipped";
+
+    if (generated.fileType === "code") {
+      try {
+        const { verifyCode, buildRetryPrompt } = await import(
+          "@/lib/code-verify"
+        );
+
+        const verifyResult = await verifyCode(generated.content, {
+          agentName,
+          projectId,
+          userId: session.user.id,
+        });
+
+        if (!verifyResult.verified && verifyResult.filesChecked > 0) {
+          console.log(
+            `[deliverables] Code verification failed (${verifyResult.errors.length} errors), retrying...`,
+          );
+
+          // One retry with error feedback
+          const retryPrompt = buildRetryPrompt(
+            taskDescription,
+            verifyResult.errors,
+          );
+
+          generated = await generateDeliverable(
+            agentName,
+            retryPrompt,
+            projectContext,
+            projectId,
+            session.user.id,
+          );
+
+          // Verify the retry
+          const retryVerify = await verifyCode(generated.content, {
+            agentName,
+            projectId,
+            userId: session.user.id,
+          });
+
+          verificationStatus = retryVerify.verified ? "verified" : "unverified";
+
+          if (!retryVerify.verified) {
+            console.log(
+              `[deliverables] Retry also failed — flagging as unverified`,
+            );
+          }
+        } else {
+          verificationStatus = verifyResult.verified ? "verified" : "skipped";
+        }
+      } catch (verifyErr) {
+        console.error(
+          "[deliverables] Code verification error (non-blocking):",
+          verifyErr,
+        );
+        // Verification failure doesn't block deliverable creation
+        verificationStatus = "skipped";
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    //  Phase 3: QA auto-review for code deliverables
+    //  After code generation (and optional verification), run Lens (Code Reviewer)
+    //  as a mandatory review pass before saving the deliverable.
+    // ─────────────────────────────────────────────
+    let qaReview: { reviewer: string; review: string; passed: boolean } | null = null;
+
+    if (generated.fileType === "code") {
+      try {
+        const lensAgent = AGENT_CATALOG.find((a) => a.name === "Lens");
+
+        if (lensAgent) {
+          // Truncate content for review to avoid token explosion
+          const codeForReview = generated.content.length > 4000
+            ? generated.content.slice(0, 4000) + "\n\n[... code truncated for review ...]"
+            : generated.content;
+
+          const reviewResult = await callAIWithFallback({
+            messages: [
+              {
+                role: "system",
+                content: `${lensAgent.systemPrompt}
+
+You are performing a MANDATORY code review for a deliverable that will be sent to a client.
+
+REVIEW CHECKLIST:
+1. 🔴 CRITICAL: Security vulnerabilities (SQL injection, XSS, hardcoded secrets, missing auth)
+2. 🔴 CRITICAL: Bugs that would crash at runtime
+3. 🟡 IMPORTANT: Missing error handling, broken imports, incomplete code
+4. 🟡 IMPORTANT: Best practices violations (unused variables, poor naming, missing types)
+5. 🟢 NICE TO HAVE: Performance optimizations, code style, documentation
+
+FORMAT YOUR REVIEW AS:
+## Verdict: PASS or NEEDS_REVISION
+
+### 🔴 Critical Issues (if any)
+- issue description
+
+### 🟡 Important Issues (if any)
+- issue description
+
+### 🟢 Suggestions (if any)
+- suggestion
+
+## Summary
+1-2 sentence overall assessment.`,
+              },
+              {
+                role: "user",
+                content: `Review this code deliverable for a client project titled "${project.title}":\n\n${codeForReview}`,
+              },
+            ],
+            agentName: "Lens",
+            projectId,
+            userId: session.user.id,
+            endpoint: "deliverables", // quality tier for reviews
+            temperature: 0.3, // low temperature for consistent review
+            maxTokens: 800,
+          });
+
+          const passed = !reviewResult.includes("Verdict: NEEDS_REVISION") &&
+                         !reviewResult.includes("Verdict: FAIL");
+
+          qaReview = {
+            reviewer: "Lens (Code Reviewer)",
+            review: reviewResult,
+            passed,
+          };
+
+          // Log QA review to AgentToolCall table
+          try {
+            const { logToolCall } = await import("@/lib/tool-logger");
+            await logToolCall({
+              provider: "orchestrator",
+              toolName: "qa_review",
+              agentName: "Lens",
+              projectId,
+              userId: session.user.id,
+              input: { fileType: generated.fileType, codeLength: generated.content.length },
+              output: { passed, reviewLength: reviewResult.length },
+              status: passed ? "success" : "failed",
+            });
+          } catch {
+            // logging best-effort
+          }
+
+          // Log QA activity
+          await db.activity.create({
+            data: {
+              projectId,
+              userId: session.user.id,
+              action: passed ? "QA_REVIEW_PASSED" : "QA_REVIEW_FAILED",
+              details: `Lens code review ${passed ? "passed" : "flagged issues"} for deliverable "${generated.title}"`,
+            },
+          });
+        }
+      } catch (qaErr) {
+        console.error("[deliverables] QA review error (non-blocking):", qaErr);
+        // QA failure doesn't block deliverable creation
+      }
+    }
 
     // Generate ZIP file with multiple project files
     let zipBuffer: Buffer | null = null;
@@ -166,7 +336,7 @@ Description: ${project.description}`;
         projectId,
         uploadedBy: session.user.id,
         title: generated.title,
-        description: `${taskDescription}\n\n📦 ZIP contains ${fileCount} files`,
+        description: `${taskDescription}\n\n📦 ZIP contains ${fileCount} files${verificationStatus === "verified" ? "\n✅ Code syntax verified" : verificationStatus === "unverified" ? "\n⚠️ Code syntax unverified — may contain errors" : ""}${qaReview ? (qaReview.passed ? "\n🔍 QA Code Review: PASSED" : "\n🔍 QA Code Review: Issues flagged — review recommended") : ""}`,
         fileType: zipBuffer ? "archive" : generated.fileType,
         // When ZIP generation succeeded, persist the actual ZIP bytes
         // (base64-encoded) so downloads return a real, openable archive.

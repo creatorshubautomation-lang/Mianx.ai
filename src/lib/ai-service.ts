@@ -673,6 +673,30 @@ export async function autoAgentResponse(
     }
   }
 
+  // Phase 2: Web search for search-enabled agents
+  // Only agents on the allowlist (Insight, Pulse, Sage, Nova, Aria, Lyra)
+  // can use web search. Keeps cost and latency bounded.
+  let searchContext = "";
+  try {
+    const { canAgentSearch, webSearch, formatSearchContext } = await import(
+      "@/lib/web-search-tool"
+    );
+    if (canAgentSearch(agentName)) {
+      // Derive a search query from the user message (best-effort)
+      const searchQuery = userMessage.slice(0, 200);
+      const searchResult = await webSearch(searchQuery, {
+        agentName,
+        projectId,
+        userId,
+      });
+      if (searchResult.totalResults > 0) {
+        searchContext = `\n\nWEB SEARCH RESULTS (real-time data):\n${formatSearchContext(searchResult)}`;
+      }
+    }
+  } catch {
+    // search module not available or search failed — skip
+  }
+
   return callAIWithFallback({
     messages: [
       {
@@ -682,7 +706,7 @@ export async function autoAgentResponse(
 You are currently working on a project for a Mianx.ai client. Project context:
 ${projectContext}
 ${memoryContext}
-
+${searchContext}
 Respond to the client's message. Be helpful, specific, and within your expertise as ${agent.name} (${agent.role}).
 
 POWER MODE ACTIVE: Generate COMPLETE, PRODUCTION-READY code when coding is needed. Use proper file paths in code blocks. Include ALL imports. No placeholders. No TODOs. If the question is outside your scope, briefly say so and tag the right teammate (@AgentName).`,
@@ -699,8 +723,8 @@ POWER MODE ACTIVE: Generate COMPLETE, PRODUCTION-READY code when coding is neede
 }
 
 // ─────────────────────────────────────────────
-//  Multi-Agent Team Response (NEW!)
-//  Multiple agents respond in parallel, each aware of the team
+//  Multi-Agent Team Response
+//  Phase 3: Supports both parallel (legacy) and sequential (orchestrated) modes
 // ─────────────────────────────────────────────
 
 export interface TeamAgentInfo {
@@ -716,17 +740,26 @@ export interface TeamResponseResult {
   content: string;
   success: boolean;
   error?: string;
+  /** Phase 3: orchestration metadata */
+  orchestrationMode?: "parallel" | "sequential";
+  orchestrationPlan?: string;
+  stepTask?: string;
+  stepIndex?: number;
+  priorAgentOutput?: string;
+  durationMs?: number;
 }
 
 /**
- * Get responses from multiple agents in parallel.
- * Each agent knows:
- *   - Who else is on the team
- *   - What their specialties are
- *   - Their role in this response
+ * Get responses from multiple agents.
  *
- * Agents respond simultaneously (parallel) for speed.
- * Each focuses on their expertise area.
+ * Phase 3 behavior:
+ *   - Auto-detects orchestration mode (parallel vs sequential)
+ *   - "parallel": agents respond simultaneously (legacy, for simple queries)
+ *   - "sequential": orchestrator plans, then agents execute one at a time
+ *     with each agent receiving the prior agent's actual output
+ *
+ * The mode can be overridden via the `mode` parameter, or auto-detected
+ * from the message content and agent count.
  */
 export async function teamAgentResponse(
   agents: TeamAgentInfo[],
@@ -734,8 +767,9 @@ export async function teamAgentResponse(
   projectContext: string,
   projectId?: string,
   userId?: string,
+  mode?: "parallel" | "sequential",
 ): Promise<TeamResponseResult[]> {
-  // If only 1 agent, use simple response (faster)
+  // If only 1 agent, use simple response (faster — no orchestration needed)
   if (agents.length === 1) {
     try {
       const content = await autoAgentResponse(
@@ -752,6 +786,7 @@ export async function teamAgentResponse(
           agentTeam: agents[0].team,
           content,
           success: true,
+          orchestrationMode: "parallel",
         },
       ];
     } catch (e) {
@@ -763,12 +798,82 @@ export async function teamAgentResponse(
           content: `I'm ${agents[0].name}, your ${agents[0].role}. I encountered an issue. Please try again.`,
           success: false,
           error: e instanceof Error ? e.message : String(e),
+          orchestrationMode: "parallel",
         },
       ];
     }
   }
 
-  // Multiple agents — build team context
+  // ─────────────────────────────────────────────
+  //  Phase 3: Auto-detect or use provided mode
+  // ─────────────────────────────────────────────
+  const effectiveMode = mode || detectMode(userMessage, agents);
+
+  if (effectiveMode === "sequential") {
+    return sequentialTeamResponse(agents, userMessage, projectContext, projectId, userId);
+  }
+
+  // ─────────────────────────────────────────────
+  //  Legacy parallel mode (unchanged from Phase 2)
+  // ─────────────────────────────────────────────
+  return parallelTeamResponse(agents, userMessage, projectContext, projectId, userId);
+}
+
+// ─────────────────────────────────────────────
+//  Mode detection helper
+// ─────────────────────────────────────────────
+
+function detectMode(
+  userMessage: string,
+  agents: TeamAgentInfo[],
+): "parallel" | "sequential" {
+  const lower = userMessage.toLowerCase();
+
+  // Multi-step keywords that suggest sequential orchestration
+  const sequentialKeywords = [
+    "build", "create", "design and", "develop", "implement", "make a",
+    "set up", "architect", "full stack", "full-stack", "end to end", "end-to-end",
+    "from scratch", "complete project", "landing page", "website", "web app",
+    "mobile app", "dashboard", "e-commerce", "ecommerce", "saas",
+    "brand identity", "marketing campaign", "content strategy",
+    "design then code", "prototype", "mvp", "minimum viable",
+  ];
+
+  // Simple keywords that suggest parallel is fine
+  const parallelKeywords = [
+    "question", "how do", "what is", "explain", "help me understand",
+    "quick", "simple", "just", "only", "fix", "update",
+  ];
+
+  // 3+ agents → sequential (complex coordination needed)
+  if (agents.length >= 3) return "sequential";
+
+  // 2+ agents from different teams → sequential
+  const teams = new Set(agents.map((a) => a.team));
+  if (agents.length >= 2 && teams.size >= 2) {
+    // Check for sequential keywords or long messages
+    const hasSequential = sequentialKeywords.some((kw) => lower.includes(kw));
+    const hasParallel = parallelKeywords.some((kw) => lower.includes(kw));
+    const isLong = userMessage.length > 200;
+
+    if (hasSequential || (isLong && !hasParallel)) return "sequential";
+  }
+
+  return "parallel";
+}
+
+// ─────────────────────────────────────────────
+//  Parallel team response (legacy Phase 2 behavior)
+// ─────────────────────────────────────────────
+
+async function parallelTeamResponse(
+  agents: TeamAgentInfo[],
+  userMessage: string,
+  projectContext: string,
+  projectId?: string,
+  userId?: string,
+): Promise<TeamResponseResult[]> {
+  // Build team context
   const teamSummary = agents
     .map((a) => `- ${a.name} (${a.role}, ${a.team} team)`)
     .join("\n");
@@ -784,10 +889,32 @@ export async function teamAgentResponse(
         content: `Agent ${agentInfo.name} not found.`,
         success: false,
         error: "Agent not found in catalog",
+        orchestrationMode: "parallel" as const,
       } as TeamResponseResult;
     }
 
     try {
+      // Phase 2: Web search for search-enabled agents in team mode
+      let searchContext = "";
+      try {
+        const { canAgentSearch, webSearch, formatSearchContext } = await import(
+          "@/lib/web-search-tool"
+        );
+        if (canAgentSearch(agent.name)) {
+          const searchQuery = userMessage.slice(0, 200);
+          const searchResult = await webSearch(searchQuery, {
+            agentName: agent.name,
+            projectId,
+            userId,
+          });
+          if (searchResult.totalResults > 0) {
+            searchContext = `\n\nWEB SEARCH RESULTS (real-time data):\n${formatSearchContext(searchResult)}`;
+          }
+        }
+      } catch {
+        // search module not available — skip
+      }
+
       const content = await callAIWithFallback({
         messages: [
           {
@@ -799,6 +926,7 @@ ${teamSummary}
 
 Project context:
 ${projectContext}
+${searchContext}
 
 IMPORTANT TEAM GUIDELINES:
 1. Focus ONLY on your area of expertise (${agent.role})
@@ -816,7 +944,7 @@ Respond to the client's message from your expertise perspective:`,
         userId,
         endpoint: "chat",
         temperature: 0.6,
-        maxTokens: 800, // Shorter since multiple agents respond
+        maxTokens: 800,
       });
 
       return {
@@ -825,6 +953,7 @@ Respond to the client's message from your expertise perspective:`,
         agentTeam: agent.team,
         content,
         success: true,
+        orchestrationMode: "parallel" as const,
       } as TeamResponseResult;
     } catch (e) {
       return {
@@ -834,11 +963,78 @@ Respond to the client's message from your expertise perspective:`,
         content: `I'm ${agent.name}, your ${agent.role}. I encountered an issue generating a response. The team will continue without me — please try again if needed.`,
         success: false,
         error: e instanceof Error ? e.message : String(e),
+        orchestrationMode: "parallel" as const,
       } as TeamResponseResult;
     }
   });
 
-  // Wait for all responses in parallel
   const results = await Promise.all(responsePromises);
   return results;
+}
+
+// ─────────────────────────────────────────────
+//  Phase 3: Sequential orchestrated response
+//  Uses orchestrator to plan, then executes step by step
+// ─────────────────────────────────────────────
+
+async function sequentialTeamResponse(
+  agents: TeamAgentInfo[],
+  userMessage: string,
+  projectContext: string,
+  projectId?: string,
+  userId?: string,
+): Promise<TeamResponseResult[]> {
+  const availableAgentNames = agents.map((a) => a.name);
+
+  try {
+    // Import orchestrator
+    const {
+      generateOrchestrationPlan,
+      executeSequentialPlan,
+      logOrchestrationActivity,
+    } = await import("@/lib/orchestrator");
+
+    // Step 1: Generate orchestration plan
+    const plan = await generateOrchestrationPlan(
+      userMessage,
+      availableAgentNames,
+      projectContext,
+      projectId,
+      userId,
+    );
+
+    // Step 2: Execute plan sequentially
+    const seqResult = await executeSequentialPlan(
+      plan,
+      userMessage,
+      projectContext,
+      projectId,
+      userId,
+    );
+
+    // Step 3: Log orchestration activity
+    if (projectId && userId) {
+      await logOrchestrationActivity(projectId, userId, plan, seqResult.results).catch(() => {});
+    }
+
+    // Convert sequential results to TeamResponseResult format
+    return seqResult.results.map((r, i) => ({
+      agentName: r.agentName,
+      agentRole: r.agentRole,
+      agentTeam: r.agentTeam,
+      content: r.content,
+      success: r.success,
+      error: r.error,
+      orchestrationMode: "sequential" as const,
+      orchestrationPlan: plan.plan,
+      stepTask: r.task,
+      stepIndex: i,
+      priorAgentOutput: r.priorAgentOutput,
+      durationMs: r.durationMs,
+    }));
+  } catch (e) {
+    console.error("[teamAgentResponse] Sequential orchestration failed, falling back to parallel:", e);
+    // Fallback to parallel mode if orchestration fails
+    return parallelTeamResponse(agents, userMessage, projectContext, projectId, userId);
+  }
 }

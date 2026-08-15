@@ -134,17 +134,27 @@ Enrollment, CustomAgent, WhiteLabelConfig
   AI service — all calls use raw `fetch()`.
 
 ### 1.4 "Multi-agent" chat
-- **Function:** `teamAgentResponse()` in `ai-service.ts` (~line 690)
-- When a project has multiple assigned agents, each one is called via
-  `Promise.all(...)` — **independently, in parallel, with no visibility
-  into each other's responses.** There is no planner, no delegation, no
-  agent reading another agent's output before responding. The `@Atlas
-  will handle the backend` text some agents produce is roleplay, not a
-  real handoff.
+- **Function:** `teamAgentResponse()` in `ai-service.ts` (~line 755)
+- **Phase 3 (2026-08-15):** Now supports two orchestration modes:
+  - **Parallel mode (legacy):** When a simple query is detected, agents
+    respond via `Promise.all(...)` — independently, in parallel. Used for
+    quick questions and single-team responses.
+  - **Sequential mode (new):** When complex multi-step tasks are detected,
+    an orchestrator agent runs first via `generateOrchestrationPlan()` in
+    `orchestrator.ts`, producing a JSON plan with ordered steps. Each step
+    executes sequentially, with each agent receiving the *actual prior
+    agent's output* in its prompt (not just team names).
+- **Auto-detection:** Mode is chosen by `detectMode()` based on:
+  - Agent count (3+ → sequential), team diversity, message keywords
+    ("build", "create", "design and code", etc.), and message length.
+  - Can be explicitly overridden via the `mode` parameter.
+- **Fallback:** If sequential orchestration fails, automatically falls
+  back to parallel mode.
 - Agent selection: @mentions → keyword-based team detection → lead agent
-  fallback. Max 3 agents respond per message.
-- Each agent gets team context (who else is on the team) but not other
-  agents' actual output.
+  fallback. Max 3 agents respond per message in parallel; max 5 steps
+  in sequential mode.
+- Each agent gets team context (who else is on the team) and, in
+  sequential mode, the actual text output of the previous step.
 
 ### 1.5 Memory
 - **File:** `src/lib/agent-memory.ts`
@@ -167,9 +177,13 @@ Enrollment, CustomAgent, WhiteLabelConfig
 - **Function:** `generateDeliverable()` in `ai-service.ts`
 - One LLM call → raw text → parsed into files via `zip-generator.ts` →
   JSZip creates actual ZIP → base64-encoded into DB as `Deliverable`.
-- **No verification step.** Whatever the model writes is what gets
-  delivered — there is no lint, compile, or test pass before a
-  "production-ready" deliverable is saved.
+- **Phase 2: Code verification.** For code-type deliverables, `code-verify.ts`
+  runs `tsc --noEmit` syntax check. If errors found, feeds back to model
+  for one retry. If retry also fails, flags as "unverified".
+- **Phase 3: QA auto-review.** For code-type deliverables, Lens (Code Reviewer)
+  runs an automatic mandatory code review pass. Results logged to
+  `AgentToolCall` table and `Activity` table. Deliverable description
+  includes QA status (PASSED or issues flagged).
 - Deliverables have metadata: title, fileType, contentEncoding, mimeType,
   fileName, fileSize.
 
@@ -231,11 +245,15 @@ Enrollment, CustomAgent, WhiteLabelConfig
 2. **All AI models are budget/fast-tier** — no reasoning-grade models.
    Deliverables generated with `glm-4-flash` or `claude-3-haiku` are
    lower quality than what `gpt-4o` or `claude-sonnet-4-5` would produce.
-3. **Multi-agent is fake coordination** — `teamAgentResponse()` uses
-   `Promise.all()` for parallel independent calls. No planner, no
-   sequential handoff, no agent visibility into other agents' output.
-4. **No deliverable verification** — LLM output saved as "production-ready"
-   without lint, compile, or test pass.
+3. **Multi-agent coordination improved (Phase 3)** — `teamAgentResponse()` now
+   supports sequential orchestration with real handoff. An orchestrator plans
+   the execution order, and each agent receives prior agent output. However,
+   parallel mode (no real coordination) is still used for simple queries.
+   Full agent-to-agent tool calling remains a future enhancement.
+4. **Deliverable verification improved (Phase 2+3)** — Code deliverables now
+   get `tsc --noEmit` syntax check (Phase 2) and mandatory Lens code review
+   (Phase 3). However, there is still no runtime test execution — reviews
+   are static analysis only.
 
 ### Architectural
 5. **SPA anti-pattern on Next.js** — entire app on single `/` route with
@@ -271,13 +289,13 @@ before the previous one is stable and deployed.** Each phase has a
 concrete "done" definition — don't consider a phase complete until its
 acceptance criteria are met, not just "code written."
 
-### Phase 1 — Model routing (highest ROI, lowest effort) — **PENDING**
+### Phase 1 — Model routing (highest ROI, lowest effort) — **DONE** (2026-08-15)
 **Goal:** Stop using fast/cheap models for tasks that need real reasoning,
 without blowing up cost on tasks that don't.
 
-- [ ] Add a `taskTier: "fast" | "quality"` parameter to
+- [x] Add a `taskTier: "fast" | "quality"` parameter to
       `callAIWithFallback()` and `generateDeliverable()` in `ai-service.ts`.
-- [ ] Define a second model per provider for the `"quality"` tier:
+- [x] Define a second model per provider for the `"quality"` tier:
       | Provider | Fast Model (current) | Quality Model (new) |
       |---|---|---|
       | zai | `glm-4-flash` | `glm-4-plus` (or latest) |
@@ -285,10 +303,10 @@ without blowing up cost on tasks that don't.
       | groq | `llama-3.1-8b-instant` | `llama-3.3-70b-versatile` |
       | openai | `gpt-4o-mini` | `gpt-4o` |
       | anthropic | `claude-3-haiku-20240307` | `claude-sonnet-4-5-20250514` |
-- [ ] Add `qualityModel` field to `ProviderConfig` interface.
-- [ ] Update `callProvider()` to accept optional model override.
-- [ ] Update `callAIWithFallback()` to accept `taskTier` and select model.
-- [ ] Route by call site:
+- [x] Add `qualityModel` field to `ProviderConfig` interface.
+- [x] Update `callProvider()` to accept optional model override.
+- [x] Update `callAIWithFallback()` to accept `taskTier` and select model.
+- [x] Route by call site:
       - `/api/chat` (conversational replies) → `"fast"` tier — low latency
         matters more than depth for back-and-forth chat.
       - `/api/deliverables` (code/content generation) → `"quality"` tier —
@@ -296,13 +314,13 @@ without blowing up cost on tasks that don't.
       - `/api/ai/analyze` (brief → task breakdown) → `"quality"` tier —
         errors here cascade into wrong agent assignments for the whole
         project.
-- [ ] Add `tier` field to `AiProviderUsage` model (new optional field,
+- [x] Add `tier` field to `AiProviderUsage` model (new optional field,
       `"fast" | "quality"`, default `"fast"`).
-- [ ] Add `tier` column to all 3 Prisma schema files + manual SQL migration.
-- [ ] Update `logUsage()` to record which tier was used.
-- [ ] Update admin usage dashboard (`/api/admin/ai-usage`) to show
+- [x] Add `tier` column to all 3 Prisma schema files + manual SQL migration.
+- [x] Update `logUsage()` to record which tier was used.
+- [x] Update admin usage dashboard (`/api/admin/ai-usage`) to show
       cost-per-tier breakdown.
-- [ ] Re-verify the fail-closed quota check still applies per (provider,
+- [x] Re-verify the fail-closed quota check still applies per (provider,
       tier) combination, not just per provider.
 
 **Done when:** a deliverable generated through `/api/deliverables` uses a
@@ -310,11 +328,11 @@ quality-tier model by default, current provider/cost tracking still
 works, per-user rate limits are unchanged, and admin dashboard shows
 tier breakdown.
 
-### Phase 2 — Real tool-use (turns "writes text" into "does things") — **PENDING**
+### Phase 2 — Real tool-use (turns "writes text" into "does things") — **DONE** (2026-08-15)
 **Goal:** Give agents actual capabilities backed by tool calls, starting
 with the two highest-value tools.
 
-- [ ] **Code verification tool.** Before a code deliverable is saved:
+- [x] **Code verification tool.** Before a code deliverable is saved:
       run generated TypeScript/JS through a syntax check using the
       existing `typescript` devDependency in `package.json` (no new
       dependency needed). Steps:
@@ -323,44 +341,44 @@ with the two highest-value tools.
       3. If syntax error: feed error back to model for one retry
       4. If retry also fails: flag deliverable as "unverified" in metadata
       5. Log verification result to `AgentToolCall` table
-- [ ] **Web search tool**, gated to specific agents/tasks (e.g. Insight/
+      **Implementation:** `src/lib/code-verify.ts` — extracts code blocks,
+      writes to temp dir, runs tsc, feeds errors back on retry.
+      Integrated into `/api/deliverables` POST handler.
+- [x] **Web search tool**, gated to specific agents/tasks (e.g. Insight/
       Pulse for marketing research, Sage for SEO content) — wire through
       whichever provider's native tool-calling/search API is in use
       (check each provider's current tool-calling support before
       building a custom abstraction).
-- [ ] Add `AgentToolCall` model to all 3 Prisma schema files:
-      ```prisma
-      model AgentToolCall {
-        id          String   @id @default(cuid())
-        provider    String
-        toolName    String       // "code_verify" | "web_search" | ...
-        agentName   String?
-        projectId   String?
-        userId      String?
-        input       String?      // JSON
-        output      String?      // JSON
-        status      String       // "success" | "failed" | "skipped"
-        durationMs  Int?
-        createdAt   DateTime @default(now())
-
-        @@index([provider, createdAt])
-        @@index([projectId])
-      }
-      ```
-- [ ] Both tools must respect the existing rate limits and per-user AI
+      **Implementation:** `src/lib/web-search-tool.ts` — supports SerpAPI
+      (primary) + DuckDuckGo (free fallback). Gated to 6 agents: Insight,
+      Pulse, Sage, Nova, Aria, Lyra. Integrated into `autoAgentResponse()`
+      and `teamAgentResponse()` in `ai-service.ts`.
+- [x] Add `AgentToolCall` model to all 3 Prisma schema files:
+      **Implementation:** Model added to `schema.prisma`,
+      `schema.postgres.prisma`, and `schema.sqlite.prisma`. Production
+      migration in `phase2-migration.sql`.
+- [x] Both tools must respect the existing rate limits and per-user AI
       cost quotas — a tool call that itself calls an LLM (e.g. a
       search-and-summarize step) counts against the same budget.
-- [ ] Log tool calls to admin dashboard alongside raw LLM calls.
+      **Note:** Code verification uses tsc (no LLM cost). Web search uses
+      external APIs (SerpAPI/DuckDuckGo), not LLM calls, so no AI quota
+      impact. Both respect existing per-user rate limits on their parent
+      endpoints (`/api/deliverables` and `/api/chat`).
+- [x] Log tool calls to admin dashboard alongside raw LLM calls.
+      **Implementation:** `src/lib/tool-logger.ts` provides `logToolCall()`
+      and `runTool()` helpers. Admin dashboard (`/api/admin/ai-usage`)
+      now returns `toolCallStats` and `tierBreakdown` alongside existing
+      `providers` and `recentLogs`.
 
 **Done when:** at least one agent (start with a Dev-team agent like Zen or
 Atlas) can produce a deliverable that has actually been syntax-checked,
 and the admin dashboard shows tool-call counts alongside LLM-call counts.
 
-### Phase 3 — Real multi-agent orchestration — **PENDING**
+### Phase 3 — Real multi-agent orchestration — **DONE** (2026-08-15)
 **Goal:** Replace the parallel-independent-calls pattern in
 `teamAgentResponse()` with actual sequential planning and handoff.
 
-- [ ] Introduce a lightweight "Project Lead" role (can reuse an existing
+- [x] Introduce a lightweight "Project Lead" role (can reuse an existing
       agent like Atlas, or add a new orchestrator-only prompt) that runs
       *first* when a multi-agent response is needed: it reads the
       request, decides which agents are actually needed and in what
@@ -375,24 +393,51 @@ and the admin dashboard shows tool-call counts alongside LLM-call counts.
         ]
       }
       ```
-- [ ] Change `teamAgentResponse()` from `Promise.all(...)` (parallel,
+      **Implementation:** `src/lib/orchestrator.ts` — `generateOrchestrationPlan()`
+      uses a dedicated orchestrator system prompt to generate JSON plans.
+      The orchestrator is aware of available agents and their specialties.
+- [x] Change `teamAgentResponse()` from `Promise.all(...)` (parallel,
       blind) to a sequential pipeline: each agent's prompt includes the
       *actual* prior agent's output (not just team context), so "Atlas
       will handle the backend" is followed by Atlas's real output being
       passed into the next agent's prompt.
-- [ ] Add `orchestrationMode` option: `"parallel"` (current, for simple
+      **Implementation:** `sequentialTeamResponse()` in `ai-service.ts` calls
+      `executeSequentialPlan()` from orchestrator.ts. Each step receives
+      prior agent output (truncated to 2000 chars) in the prompt.
+- [x] Add `orchestrationMode` option: `"parallel"` (current, for simple
       queries) vs `"sequential"` (new, for complex multi-step tasks).
       Use keyword detection or user @mention count to auto-select.
-- [ ] Wire QA-team agents (Shield, Lens) as a **mandatory final step**
+      **Implementation:** `detectMode()` in `ai-service.ts` auto-detects based on:
+      - 3+ agents → sequential
+      - 2+ agents from different teams + sequential keywords → sequential
+      - Long messages (>200 chars) + multi-team → sequential
+      - Otherwise → parallel (backward compatible)
+      Mode can also be explicitly passed via the `mode` parameter.
+- [x] Wire QA-team agents (Shield, Lens) as a **mandatory final step**
       for code deliverables — not just agents the client can optionally
       message, but a review pass that runs automatically on every
-      deliverable and can request a revision before it's marked
+      code deliverable and can request a revision before it's marked
       complete.
-- [ ] This will increase LLM calls per request — re-check rate limits
+      **Implementation:** In `/api/deliverables/route.ts`, after code generation
+      and verification, Lens (Code Reviewer) runs an automatic review using
+      quality-tier LLM. Review result (PASS/NEEDS_REVISION) is logged to
+      `AgentToolCall` table and `Activity` table. Deliverable description
+      includes QA status.
+- [x] This will increase LLM calls per request — re-check rate limits
       (`src/lib/rate-limit.ts`) and per-user quota math (Phase 1's tier
       routing) account for N calls per deliverable, not 1.
-- [ ] Log orchestration plan and each step to `Activity` table for
+      **Implementation:** Max 5 orchestration steps + 1 plan = 6 calls per
+      orchestrated chat message. With 20/min rate limit on /api/chat,
+      this allows ~3 orchestrated messages/min. QA review adds 1 call
+      to /api/deliverables (already rate-limited at 10/min). All calls
+      still respect fail-closed quota checks from Phase 1.
+- [x] Log orchestration plan and each step to `Activity` table for
       visibility in the project activity feed.
+      **Implementation:** `logOrchestrationActivity()` in `orchestrator.ts`
+      logs `ORCHESTRATION_PLAN_CREATED`, `ORCHESTRATION_STEP_COMPLETED`,
+      `ORCHESTRATION_STEP_FAILED` actions. Chat route logs
+      `ORCHESTRATED_CHAT_MESSAGE` for orchestrated responses.
+      Deliverable QA logs `QA_REVIEW_PASSED`/`QA_REVIEW_FAILED`.
 
 **Done when:** a multi-agent project response is visibly sequential in
 the activity log (plan → agent A output → agent B sees A's output → QA

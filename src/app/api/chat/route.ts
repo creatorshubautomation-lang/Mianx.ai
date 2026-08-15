@@ -75,7 +75,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Max 20 AI messages per user per minute — protects paid AI provider spend
+  // Max 20 AI messages per user per minute — protects paid AI provider spend.
+  // Phase 3 note: Sequential orchestration may make N calls per request
+  // (plan + each step). With max 5 steps + 1 plan = 6 calls per message.
+  // The 20/min limit still allows ~3 orchestrated messages/min, which is reasonable.
   const limit = rateLimit(`chat:${session.user.id}`, 20, 60 * 1000);
   if (!limit.allowed) {
     return NextResponse.json(
@@ -283,6 +286,13 @@ Assigned team: ${assignedAgents.map((a) => `${a.name} (${a.role})`).join(", ")}`
               teammates: responders
                 .filter((r) => r.name !== result.agentName)
                 .map((r) => r.name),
+              // Phase 3: orchestration metadata
+              orchestrationMode: result.orchestrationMode,
+              orchestrationPlan: result.orchestrationPlan,
+              stepTask: result.stepTask,
+              stepIndex: result.stepIndex,
+              priorAgentOutput: result.priorAgentOutput,
+              durationMs: result.durationMs,
             }),
           },
           include: { user: true, agent: true },
@@ -293,17 +303,25 @@ Assigned team: ${assignedAgents.map((a) => `${a.name} (${a.role})`).join(", ")}`
       }
     }
 
+    // Phase 3: Determine orchestration mode for logging
+    const orchestrationMode = teamResults[0]?.orchestrationMode || "parallel";
+    const orchestrationPlan = teamResults[0]?.orchestrationPlan;
+
     // Log activity
     try {
       await db.activity.create({
         data: {
           projectId,
           userId: session.user.id,
-          action: "TEAM_CHAT_MESSAGE",
+          action: orchestrationMode === "sequential"
+            ? "ORCHESTRATED_CHAT_MESSAGE"
+            : "TEAM_CHAT_MESSAGE",
           details:
-            teamResults.length > 1
-              ? `${teamResults.length} agents responded: ${teamResults.map((r) => r.agentName).join(", ")}`
-              : `${teamResults[0]?.agentName} responded to client message`,
+            orchestrationMode === "sequential"
+              ? `Sequential orchestration (${teamResults.length} steps): ${teamResults.map((r) => r.agentName).join(" → ")}. Plan: ${orchestrationPlan || "N/A"}`
+              : teamResults.length > 1
+                ? `${teamResults.length} agents responded in parallel: ${teamResults.map((r) => r.agentName).join(", ")}`
+                : `${teamResults[0]?.agentName} responded to client message`,
         },
       });
     } catch (e) {
@@ -413,6 +431,9 @@ Assigned team: ${assignedAgents.map((a) => `${a.name} (${a.role})`).join(", ")}`
       agentMessages,
       teamSize: teamResults.length,
       isTeamResponse: teamResults.length > 1,
+      // Phase 3: orchestration metadata
+      orchestrationMode,
+      orchestrationPlan: orchestrationPlan || undefined,
     });
   } catch (e) {
     console.error("[chat] error:", e);
