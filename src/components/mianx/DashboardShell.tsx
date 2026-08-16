@@ -29,6 +29,7 @@ import {
   Rocket,
   Wrench,
   ShieldCheck,
+  Activity,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     { key: "newProject" as const, icon: PlusCircle, label: t("dash.newProject") },
     { key: "deliverables" as const, icon: FileBox, label: t("dash.deliverables") },
     { key: "missions" as const, icon: Rocket, label: "Missions" },
+    { key: "commandCenter" as const, icon: Activity, label: "Command Center" },
     { key: "toolRegistry" as const, icon: Wrench, label: "Tools" },
     { key: "approvals" as const, icon: ShieldCheck, label: "Approvals" },
     { key: "support" as const, icon: LifeBuoy, label: "Support" },
@@ -80,7 +82,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     : allNavItems;
 
   const handleNavClick = (key: string) => {
-    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "toolRegistry" | "approvals" | "support" | "settings" | "admin");
+    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "commandCenter" | "toolRegistry" | "approvals" | "support" | "settings" | "admin");
     setSearchOpen(false);
     setSearchQuery("");
   };

@@ -45,6 +45,8 @@ const VIEW_PATH_MAP: Record<ViewKey, string> = {
   toolRegistry: "/dashboard/tools",
   // Approval Queue (Phase 5)
   approvals: "/dashboard/approvals",
+  // Command Center (Phase 7)
+  commandCenter: "/dashboard/command-center",
   // Admin
   admin: "/admin",
 };

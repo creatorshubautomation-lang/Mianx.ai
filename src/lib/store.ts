@@ -43,6 +43,8 @@ export type ViewKey =
   | "toolRegistry"
   // Approval Queue (Phase 5)
   | "approvals"
+  // Command Center (Phase 7)
+  | "commandCenter"
   // Admin
   | "admin";
 
@@ -61,6 +63,10 @@ interface AppState {
   // Selected mission (for detail view)
   selectedMissionId: string | null;
   setSelectedMission: (id: string | null) => void;
+
+  // Selected approval (for detail view)
+  selectedApprovalId: string | null;
+  setSelectedApproval: (id: string | null) => void;
 
   // Auth modal
   authModal: "login" | "signup" | null;
@@ -105,6 +111,9 @@ export const useApp = create<AppState>()(
 
       selectedMissionId: null,
       setSelectedMission: (id) => set({ selectedMissionId: id }),
+
+      selectedApprovalId: null,
+      setSelectedApproval: (id) => set({ selectedApprovalId: id }),
 
       authModal: null,
       setAuthModal: (m) => set({ authModal: m }),
