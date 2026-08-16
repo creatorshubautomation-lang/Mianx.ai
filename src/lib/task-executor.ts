@@ -4,9 +4,13 @@
 //   1. Loading the task definition and mission context
 //   2. Building agent context (prior task outputs, memory, tools)
 //   3. Executing required tools via the Tool Registry (Phase 4)
-//   4. Calling the assigned AI agent via callAIWithFallback
+//   4. Running the Agent Loop (Phase 6) for iterative ReAct execution
 //   5. Capturing the output and updating the task record
 //   6. Tracking cost via the budget system
+//
+// Phase 6 Enhancement: Tasks now use the Agent Loop (ReAct pattern)
+// for iterative execution instead of a single AI call. The loop allows
+// agents to think→act→observe→reflect until the task is complete.
 
 import { db } from "@/lib/db";
 import { callAIWithFallback } from "@/lib/ai-service";
@@ -16,6 +20,7 @@ import {
   trackMissionBudget,
 } from "./mission-engine";
 import { executeTool, executeToolBatch } from "./tool-executor";
+import { runAgentLoop, type AgentLoopResult } from "./agent-loop";
 
 // ─────────────────────────────────────────────
 //  Types
@@ -279,42 +284,102 @@ export async function executeTask(
       // ignore parse error
     }
 
-    // Build the system prompt (with tool context)
-    const systemPrompt = buildTaskSystemPrompt(
-      agent,
-      task,
-      priorContext,
-      memoryContext,
-      projectContext,
-      verificationCriteria,
-      toolContext,
-    );
+    // ── Phase 6: Decide execution path — Agent Loop vs Simple Call ──
+    // LOW-risk + simple tasks: single AI call (fast, cheap)
+    // MEDIUM+ risk or complex tasks: Agent Loop (iterative, self-reflective)
+    const useAgentLoop = shouldUseAgentLoop(task, priorContext);
 
-    // Call the AI agent
-    const output = await callAIWithFallback({
-      messages: [
-        { role: "system", content: systemPrompt },
+    let output: string;
+    let outputType: string;
+    let durationMs: number;
+    let estimatedCost: number;
+    let loopResult: AgentLoopResult | null = null;
+
+    if (useAgentLoop) {
+      // Phase 6: Run the Agent Loop (ReAct pattern)
+      const requiredTools: string[] = JSON.parse(task.requiredTools || "[]");
+
+      loopResult = await runAgentLoop(
         {
-          role: "user",
-          content: `Mission Objective: ${mission.description}\n\nYour Task: ${task.description || task.title}`,
+          missionId: ctx.missionId,
+          taskId: ctx.taskId,
+          userId: ctx.userId,
+          maxIterations: task.riskLevel === "HIGH" || task.riskLevel === "CRITICAL" ? 10 : 6,
+          enableReflection: true,
+          enableDynamicTools: true,
+          contextTokenBudget: 8000,
         },
-      ],
-      agentName,
-      projectId: mission.projectId || undefined,
-      userId: ctx.userId,
-      endpoint: "chat",
-      temperature: 0.5,
-      maxTokens: 2000,
-    });
+        {
+          title: task.title,
+          description: task.description || "",
+          missionDescription: mission.description,
+          agentName,
+          agentSystemPrompt: agent?.systemPrompt || `You are ${agentName}, a specialist agent.`,
+          priorOutputs: ctx.priorOutputs,
+          projectContext,
+          memoryContext,
+          verificationCriteria,
+          preAssignedTools: requiredTools,
+          riskLevel: task.riskLevel,
+        },
+      );
 
-    const durationMs = Date.now() - startTime;
+      output = loopResult.finalOutput;
+      outputType = loopResult.outputType;
+      durationMs = loopResult.totalDurationMs;
+      estimatedCost = loopResult.totalCostUsd;
 
-    // Estimate cost (fast tier: ~$0.002 avg per task call)
-    const estimatedCost = 0.002;
-    await trackMissionBudget(ctx.missionId, estimatedCost);
+      // Collect tool results from the loop
+      if (loopResult.iterations) {
+        for (const iter of loopResult.iterations) {
+          if (iter.toolCall) {
+            toolResults.push({
+              toolName: iter.toolCall.toolName,
+              success: iter.toolCall.success,
+              durationMs: iter.toolCall.durationMs,
+              costUsd: iter.toolCall.costUsd,
+              error: iter.toolCall.success ? undefined : "Tool call failed",
+            });
+          }
+        }
+      }
 
-    // Determine output type
-    const outputType = detectOutputType(output);
+      // Handle loop termination reasons
+      if (loopResult.terminationReason === "approval_required") {
+        await db.missionTask.update({
+          where: { id: ctx.taskId },
+          data: { status: "PENDING", approvalStatus: "PENDING", approvalReason: loopResult.error },
+        });
+        return {
+          taskId: ctx.taskId, success: false, output: "", outputType: "text",
+          durationMs: Date.now() - startTime, costUsd: loopResult.totalCostUsd,
+          agentName, error: loopResult.error,
+        };
+      }
+
+      if (!loopResult.success && !output) {
+        throw new Error(loopResult.error || "Agent loop failed to produce output");
+      }
+    } else {
+      // Legacy: Simple single-call execution for LOW-risk simple tasks
+      const systemPrompt = buildTaskSystemPrompt(
+        agent, task, priorContext, memoryContext, projectContext, verificationCriteria, toolContext,
+      );
+
+      output = await callAIWithFallback({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Mission Objective: ${mission.description}\n\nYour Task: ${task.description || task.title}` },
+        ],
+        agentName, projectId: mission.projectId || undefined, userId: ctx.userId,
+        endpoint: "chat", temperature: 0.5, maxTokens: 2000,
+      });
+
+      durationMs = Date.now() - startTime;
+      estimatedCost = 0.002;
+      await trackMissionBudget(ctx.missionId, estimatedCost);
+      outputType = detectOutputType(output);
+    }
 
     // Update task with results
     await db.missionTask.update({
@@ -328,14 +393,27 @@ export async function executeTask(
       },
     });
 
-    // Log completion
+    // Log completion (with loop details if used)
+    const loopMetadata = loopResult
+      ? {
+          agentName, durationMs, outputType, estimatedCost,
+          loopIterations: loopResult.totalIterations,
+          loopToolCalls: loopResult.toolCallsCount,
+          loopReflectionScore: loopResult.reflectionScore,
+          loopTermination: loopResult.terminationReason,
+          executionMode: "agent_loop" as const,
+        }
+      : { agentName, durationMs, outputType, estimatedCost, executionMode: "single_call" as const };
+
     await logMissionEvent(ctx.missionId, {
       eventType: "TASK_COMPLETED",
       title: `Completed: ${task.title}`,
-      description: `Agent ${agentName} completed "${task.title}" in ${durationMs}ms`,
+      description: loopResult
+        ? `Agent loop completed "${task.title}" in ${loopResult.totalIterations} iterations (${toolResults.length} tool calls, reflection: ${loopResult.reflectionScore}/100)`
+        : `Agent ${agentName} completed "${task.title}" in ${durationMs}ms`,
       taskId: ctx.taskId,
       level: "success",
-      metadata: { agentName, durationMs, outputType, estimatedCost },
+      metadata: loopMetadata,
     });
 
     // Add tool costs to total cost
@@ -386,6 +464,38 @@ export async function executeTask(
       error: errorMessage,
     };
   }
+}
+
+// ─────────────────────────────────────────────
+//  Execution Path Decision (Phase 6)
+// ─────────────────────────────────────────────
+
+function shouldUseAgentLoop(
+  task: { riskLevel: string; description: string | null; title: string; requiredTools: string },
+  priorContext: string,
+): boolean {
+  // Always use Agent Loop for MEDIUM+ risk tasks
+  if (task.riskLevel === "MEDIUM" || task.riskLevel === "HIGH" || task.riskLevel === "CRITICAL") {
+    return true;
+  }
+
+  // Use Agent Loop for tasks with pre-assigned tools (tool interaction needed)
+  try {
+    const tools: string[] = JSON.parse(task.requiredTools || "[]");
+    if (tools.length > 0) return true;
+  } catch { /* ignore */ }
+
+  // Use Agent Loop for complex tasks (long descriptions, multi-step)
+  const descLength = (task.description || "").length;
+  const hasSteps = (task.description || "").toLowerCase().includes("step") ||
+    (task.description || "").toLowerCase().includes("then");
+  if (descLength > 200 || hasSteps) return true;
+
+  // Use Agent Loop if there's significant prior context to build on
+  if (priorContext.length > 500) return true;
+
+  // Default to simple execution for LOW-risk, simple tasks
+  return false;
 }
 
 // ─────────────────────────────────────────────

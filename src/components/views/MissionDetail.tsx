@@ -65,6 +65,10 @@ import {
   RotateCcw,
   Trash2,
   Rocket,
+  Activity,
+  RefreshCw,
+  Cpu,
+  Sparkles,
 } from "lucide-react";
 import {
   MISSION_STATUS_CONFIG,
@@ -147,6 +151,13 @@ function timeAgo(dateStr: string): string {
 /** Get the event icon component and color class based on event type / level */
 function getEventIcon(event: MissionEventOutput) {
   const level = event.level || "info";
+  const eventType = event.eventType || "";
+
+  // Phase 6: Special icons for agent loop events
+  if (eventType === "AGENT_LOOP_STARTED") return { icon: <Cpu className="h-4 w-4" />, color: "text-purple-400" };
+  if (eventType === "AGENT_LOOP_ITERATION") return { icon: <RefreshCw className="h-4 w-4" />, color: "text-cyan-400" };
+  if (eventType === "AGENT_LOOP_REFLECTION") return { icon: <Sparkles className="h-4 w-4" />, color: "text-amber-400" };
+  if (eventType === "AGENT_LOOP_COMPLETED") return { icon: <CheckCircle className="h-4 w-4" />, color: "text-emerald-400" };
 
   const iconMap: Record<string, { icon: React.ReactNode; color: string }> = {
     info: { icon: <FileText className="h-4 w-4" />, color: "text-blue-400" },
@@ -702,6 +713,13 @@ export function MissionDetail() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [eventsOpen, setEventsOpen] = useState(false);
+  const [loopStats, setLoopStats] = useState<{
+    totalIterations: number | null;
+    toolCalls: number | null;
+    reflectionScore: number | null;
+    terminationReason: string | null;
+    executionMode: string | null;
+  } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     title: string;
@@ -747,6 +765,38 @@ export function MissionDetail() {
       if (!res.ok) return;
       const data = await res.json();
       setEvents(data.events || []);
+
+      // Phase 6: Extract loop stats from events metadata
+      const loopEvent = (data.events || []).find((e: MissionEventOutput) =>
+        e.metadata && typeof e.metadata === "object" &&
+        "loopIterations" in (e.metadata as Record<string, unknown>)
+      );
+      if (loopEvent) {
+        const meta = loopEvent.metadata as Record<string, unknown>;
+        setLoopStats({
+          totalIterations: (meta.loopIterations as number) ?? null,
+          toolCalls: (meta.loopToolCalls as number) ?? null,
+          reflectionScore: (meta.loopReflectionScore as number) ?? null,
+          terminationReason: (meta.loopTermination as string) ?? null,
+          executionMode: (meta.executionMode as string) ?? null,
+        });
+      } else {
+        // Check if any completed task used single_call mode
+        const directEvent = (data.events || []).find((e: MissionEventOutput) =>
+          e.metadata && typeof e.metadata === "object" &&
+          "executionMode" in (e.metadata as Record<string, unknown>)
+        );
+        if (directEvent) {
+          const meta = directEvent.metadata as Record<string, unknown>;
+          setLoopStats({
+            totalIterations: null,
+            toolCalls: null,
+            reflectionScore: null,
+            terminationReason: null,
+            executionMode: (meta.executionMode as string) ?? null,
+          });
+        }
+      }
     } catch {
       // Silently ignore event fetch errors
     }
@@ -1561,6 +1611,77 @@ export function MissionDetail() {
             </AnimatePresence>
           </Card>
         </motion.div>
+
+        {/* ─── Agent Loop Visualization (Phase 6) ─── */}
+        {loopStats && (
+          <motion.div {...fadeIn}>
+            <Card className="border-purple-500/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-purple-400" />
+                  Agent Loop Trace
+                  <Badge variant="secondary" className="text-xs ml-auto">
+                    {loopStats.executionMode === "agent_loop" ? "ReAct" : "Direct"}
+                  </Badge>
+                </CardTitle>
+                <CardDescription>
+                  {loopStats.executionMode === "agent_loop"
+                    ? `${loopStats.totalIterations} think→act→observe cycles with ${loopStats.toolCalls ?? 0} tool calls`
+                    : "Single AI call execution (no loop)"
+                  }
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-3 mb-3">
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-purple-400">
+                      {loopStats.totalIterations ?? "-"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Iterations</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-cyan-400">
+                      {loopStats.toolCalls ?? 0}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Tool Calls</p>
+                  </div>
+                  <div className="text-center">
+                    <p className={`text-lg font-bold ${loopStats.reflectionScore && loopStats.reflectionScore >= 70 ? "text-emerald-400" : "text-amber-400"}`}>
+                      {loopStats.reflectionScore ?? "-"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Quality Score</p>
+                  </div>
+                  <div className="text-center">
+                    <p className={`text-lg font-bold ${loopStats.terminationReason === "task_complete" ? "text-emerald-400" : "text-amber-400"}`}>
+                      {loopStats.terminationReason === "task_complete" ? "Done" :
+                       loopStats.terminationReason === "max_iterations" ? "Max" :
+                       loopStats.terminationReason === "approval_required" ? "Paused" : "-"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Status</p>
+                  </div>
+                </div>
+                {/* Loop iteration visualization */}
+                {loopStats.totalIterations && loopStats.totalIterations > 1 && (
+                  <div className="flex items-center gap-1 mt-2">
+                    {Array.from({ length: Math.min(loopStats.totalIterations, 12) }).map((_, i) => (
+                      <div key={i} className="flex-1 h-2 rounded-full bg-purple-500/20 relative overflow-hidden">
+                        <motion.div
+                          className="absolute inset-0 bg-purple-500 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: "100%" }}
+                          transition={{ delay: i * 0.1, duration: 0.3 }}
+                        />
+                      </div>
+                    ))}
+                    {loopStats.totalIterations > 12 && (
+                      <span className="text-[10px] text-muted-foreground ml-1">+{loopStats.totalIterations - 12}</span>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
 
         {/* ─── Terminal State Banner ─── */}
         {isTerminalStatus(mission.status) && (

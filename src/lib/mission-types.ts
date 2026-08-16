@@ -53,6 +53,10 @@ export type MissionEventType =
   | "MISSION_COMPLETED"
   | "MISSION_FAILED"
   | "MISSION_CANCELLED"
+  | "AGENT_LOOP_STARTED"
+  | "AGENT_LOOP_ITERATION"
+  | "AGENT_LOOP_REFLECTION"
+  | "AGENT_LOOP_COMPLETED"
   | "ERROR";
 
 export type ApprovalStatus =
