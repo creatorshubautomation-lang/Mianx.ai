@@ -163,7 +163,7 @@ export function ApprovalQueue() {
         // Remove from list or update status
         setApprovals((prev) =>
           prev.map((a) =>
-            a.id === approvalId ? { ...a, status: data.newStatus, responseNote: note } : a
+            a.id === approvalId ? { ...a, status: data.newStatus as string, responseNote: note ?? null } : a
           )
         );
         // Refresh stats

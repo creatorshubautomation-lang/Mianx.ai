@@ -649,7 +649,7 @@ export async function getApprovalStats(userId: string): Promise<ApprovalStats> {
     }),
     db.humanApproval.findMany({
       where: { userId, status: "PENDING" },
-      select: { riskLevel: true, createdAt: true },
+      select: { id: true, riskLevel: true, createdAt: true, title: true },
       orderBy: { createdAt: "asc" },
     }),
   ]);
@@ -690,7 +690,7 @@ export async function getApprovalStats(userId: string): Promise<ApprovalStats> {
       taskId: null,
       userId,
       status: "PENDING",
-      title: "",
+      title: allPending[0].title,
       description: null,
       riskLevel: allPending[0].riskLevel as RiskLevel,
       approvalType: "custom",
