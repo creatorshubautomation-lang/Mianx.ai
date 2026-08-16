@@ -583,3 +583,54 @@ model AgentInstall {
   @@index([agentId])
   @@index([userId])
 }
+
+// ─────────────────────────────────────────────
+//  TEMPLATE ENHANCEMENT (Phase 11)
+// ─────────────────────────────────────────────
+
+model TemplateUsage {
+  id            String   @id @default(cuid())
+  templateId    String
+  userId        String
+  projectId     String?
+  createdAt     DateTime @default(now())
+
+  @@index([templateId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model TemplateFavorite {
+  id            String   @id @default(cuid())
+  templateId    String
+  userId        String
+  createdAt     DateTime @default(now())
+
+  @@unique([templateId, userId])
+  @@index([templateId])
+  @@index([userId])
+}
+
+model CustomTemplate {
+  id            String   @id @default(cuid())
+  creatorId     String
+  name          String
+  description   String
+  category      String   @default("custom")
+  icon          String   @default("Sparkles")
+  color         String   @default("from-purple-500 to-cyan-500")
+  isPremium     Boolean  @default(false)
+  requiredAgents String   @default("[]")
+  estimatedDays Int      @default(3)
+  features      String   @default("[]")
+  techStack     String   @default("[]")
+  defaultProjectType String @default("web")
+  defaultDescription String @default("")
+  usageCount    Int      @default(0)
+  isPublished   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([creatorId])
+  @@index([isPublished])
+}

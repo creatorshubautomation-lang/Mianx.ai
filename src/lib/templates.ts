@@ -5,7 +5,7 @@ export interface ProjectTemplate {
   id: string;
   name: string;
   description: string;
-  category: TemplateCategory;
+  category: TemplateCategory | "landing" | "agency" | "ai_tool" | "community" | "custom";
   icon: string;
   color: string;
   popularity: number; // 1-100
@@ -17,6 +17,10 @@ export interface ProjectTemplate {
   previewImage?: string;
   defaultProjectType: string;
   defaultDescription: string;
+  // Phase 11: Mission-ready config
+  missionObjective?: string; // pre-built mission brief
+  suggestedTools?: string[];   // tools needed
+  difficulty?: "beginner" | "intermediate" | "advanced";
 }
 
 export type TemplateCategory =
@@ -29,7 +33,12 @@ export type TemplateCategory =
   | "education"
   | "healthcare"
   | "finance"
-  | "social";
+  | "social"
+  | "landing"
+  | "agency"
+  | "ai_tool"
+  | "community"
+  | "custom";
 
 export const TEMPLATES: ProjectTemplate[] = [
   // 1. E-Commerce Platform
@@ -59,6 +68,10 @@ export const TEMPLATES: ProjectTemplate[] = [
     defaultProjectType: "web",
     defaultDescription:
       "Build a modern fashion e-commerce store with product catalog, shopping cart, Stripe checkout, user accounts, and admin dashboard. Should be mobile-first and SEO optimized.",
+    difficulty: "advanced",
+    missionObjective:
+      "Build a complete fashion e-commerce platform with product catalog, shopping cart, Stripe checkout, user accounts, order management, and admin dashboard. Mobile-first, SEO optimized.",
+    suggestedTools: ["file_write", "code_verify", "web_search"],
   },
 
   // 2. Portfolio Website
@@ -87,6 +100,10 @@ export const TEMPLATES: ProjectTemplate[] = [
     defaultProjectType: "web",
     defaultDescription:
       "Create a stunning creative portfolio website with smooth animations, project gallery, about section, contact form, and dark mode support.",
+    difficulty: "beginner",
+    missionObjective:
+      "Create a stunning creative portfolio with smooth Framer Motion animations, project gallery with filtering, about section, contact form, and dark mode.",
+    suggestedTools: ["file_write", "code_verify"],
   },
 
   // 3. SaaS MVP
@@ -116,6 +133,10 @@ export const TEMPLATES: ProjectTemplate[] = [
     defaultProjectType: "fullstack",
     defaultDescription:
       "Build a production-ready SaaS MVP with authentication, subscription billing, admin + user dashboards, API, email notifications, and analytics. Should be investor-pitch ready.",
+    difficulty: "advanced",
+    missionObjective:
+      "Build a production-ready SaaS MVP with NextAuth authentication, Stripe subscription billing, admin + user dashboards, API with rate limiting, email notifications, and analytics. Investor-pitch ready.",
+    suggestedTools: ["file_write", "code_verify", "web_search", "api_call"],
   },
 
   // 4. Blog Platform
@@ -144,6 +165,10 @@ export const TEMPLATES: ProjectTemplate[] = [
     defaultProjectType: "web",
     defaultDescription:
       "Create a modern blog platform with MDX support, categories, tags, search, admin writing panel, comments, RSS feed, and SEO optimization.",
+    difficulty: "beginner",
+    missionObjective:
+      "Create a modern blog with MDX support, category/tag system, full-text search, admin writing panel, comments, RSS feed, and SEO optimization.",
+    suggestedTools: ["file_write", "code_verify"],
   },
 
   // 5. Restaurant Website
@@ -172,6 +197,10 @@ export const TEMPLATES: ProjectTemplate[] = [
     defaultProjectType: "web",
     defaultDescription:
       "Build a restaurant website with online menu, ordering system, table reservation, photo gallery, location/hours, and contact form.",
+    difficulty: "intermediate",
+    missionObjective:
+      "Build a restaurant website with online menu, ordering system, table reservation, photo gallery, location/hours, reviews section, and contact form.",
+    suggestedTools: ["file_write", "code_verify", "web_search"],
   },
 
   // 6. Real Estate Platform
@@ -201,6 +230,10 @@ export const TEMPLATES: ProjectTemplate[] = [
     defaultProjectType: "web",
     defaultDescription:
       "Create a real estate platform with property listings, advanced search, map integration, agent dashboard, mortgage calculator, and favorites.",
+    difficulty: "advanced",
+    missionObjective:
+      "Build a real estate platform with property listings, advanced search filters, map integration, agent dashboard, mortgage calculator, favorites, and contact system.",
+    suggestedTools: ["file_write", "code_verify", "web_search"],
   },
 
   // 7. Online Course Platform
@@ -230,6 +263,10 @@ export const TEMPLATES: ProjectTemplate[] = [
     defaultProjectType: "fullstack",
     defaultDescription:
       "Build a learning management system with video courses, quizzes, progress tracking, certificates, student/instructor dashboards, and payment integration.",
+    difficulty: "advanced",
+    missionObjective:
+      "Build an LMS with video courses, quizzes, progress tracking, certificates, student/instructor dashboards, discussion forum, and payment integration.",
+    suggestedTools: ["file_write", "code_verify", "web_search", "api_call"],
   },
 
   // 8. Healthcare Portal
@@ -259,6 +296,10 @@ export const TEMPLATES: ProjectTemplate[] = [
     defaultProjectType: "fullstack",
     defaultDescription:
       "Create a HIPAA-compliant healthcare patient portal with appointment booking, medical records, prescriptions, telemedicine, and secure messaging.",
+    difficulty: "advanced",
+    missionObjective:
+      "Create a HIPAA-compliant healthcare portal with appointment booking, medical records, prescriptions, telemedicine video calls, and secure messaging.",
+    suggestedTools: ["file_write", "code_verify", "web_search"],
   },
 
   // 9. Finance Dashboard
@@ -288,6 +329,10 @@ export const TEMPLATES: ProjectTemplate[] = [
     defaultProjectType: "web",
     defaultDescription:
       "Build a personal finance dashboard with expense tracking, budget management, charts, goal setting, and reports.",
+    difficulty: "intermediate",
+    missionObjective:
+      "Build a personal finance dashboard with expense tracking, budget management, interactive charts, goal setting, category management, CSV import, and reports.",
+    suggestedTools: ["file_write", "code_verify"],
   },
 
   // 10. Social Media App
@@ -317,6 +362,179 @@ export const TEMPLATES: ProjectTemplate[] = [
     defaultProjectType: "fullstack",
     defaultDescription:
       "Create a social media platform with user profiles, posts, likes, comments, follow system, real-time notifications, and direct messaging.",
+    difficulty: "advanced",
+    missionObjective:
+      "Build a complete social media platform with user authentication, post feed, likes/comments, follow system, real-time notifications via SSE, and direct messaging. Include an admin panel for content moderation.",
+    suggestedTools: ["file_write", "code_verify", "web_search"],
+  },
+
+  // 11. Landing Page Builder
+  {
+    id: "landing-page",
+    name: "High-Converting Landing Page",
+    description:
+      "Beautiful, conversion-optimized landing page with hero, features, testimonials, pricing, and CTA sections. Perfect for product launches.",
+    category: "landing",
+    icon: "Sparkles",
+    color: "from-indigo-500 to-violet-500",
+    popularity: 90,
+    isPremium: false,
+    requiredAgents: ["Aria", "Kairo", "Zen", "Lyra", "Sage"],
+    estimatedDays: 1,
+    features: [
+      "Hero section with CTA",
+      "Feature highlights",
+      "Testimonials carousel",
+      "Pricing table",
+      "FAQ section",
+      "Contact form",
+      "SEO optimization",
+      "A/B ready sections",
+    ],
+    techStack: ["Next.js", "Framer Motion", "Tailwind"],
+    defaultProjectType: "web",
+    defaultDescription:
+      "Build a high-converting landing page with hero section, features, testimonials, pricing, FAQ, and contact form. Optimized for conversions and SEO.",
+    difficulty: "beginner",
+    missionObjective:
+      "Create a stunning, mobile-responsive landing page with hero, features grid, testimonials, pricing table, FAQ accordion, and contact form. Focus on conversion optimization and page speed.",
+    suggestedTools: ["file_write", "code_verify"],
+  },
+
+  // 12. Agency Website
+  {
+    id: "agency-website",
+    name: "Digital Agency Website",
+    description:
+      "Professional agency website with portfolio showcase, team section, services, and client onboarding flow.",
+    category: "agency",
+    icon: "Briefcase",
+    color: "from-slate-500 to-zinc-500",
+    popularity: 76,
+    isPremium: false,
+    requiredAgents: ["Aria", "Kairo", "Zen", "Nova", "Lyra", "Sage"],
+    estimatedDays: 3,
+    features: [
+      "Hero with video background",
+      "Services showcase",
+      "Portfolio gallery",
+      "Team profiles",
+      "Client testimonials",
+      "Case studies",
+      "Contact form + booking",
+      "Blog/news section",
+    ],
+    techStack: ["Next.js", "Framer Motion", "Prisma", "Tailwind"],
+    defaultProjectType: "web",
+    defaultDescription:
+      "Build a professional digital agency website with portfolio, team, services, case studies, and client onboarding.",
+    difficulty: "intermediate",
+    missionObjective:
+      "Build a full digital agency website with animated hero, services cards, portfolio filter gallery, team grid, case study pages, testimonial slider, and a contact/booking form. Include a blog section.",
+    suggestedTools: ["file_write", "code_verify", "web_search"],
+  },
+
+  // 13. AI Tool / Wrapper
+  {
+    id: "ai-tool-wrapper",
+    name: "AI SaaS Tool Wrapper",
+    description:
+      "Wrap any AI API into a polished SaaS product with user auth, usage tracking, billing, and clean UI.",
+    category: "ai_tool",
+    icon: "Brain",
+    color: "from-purple-500 to-fuchsia-500",
+    popularity: 93,
+    isPremium: true,
+    requiredAgents: ["Zen", "Atlas", "Orion", "Vega", "Shield", "Cipher", "Lyra"],
+    estimatedDays: 4,
+    features: [
+      "User authentication",
+      "API key management",
+      "Usage dashboard",
+      "Stripe billing",
+      "Rate limiting",
+      "API documentation",
+      "Webhook support",
+      "Admin analytics",
+    ],
+    techStack: ["Next.js", "TypeScript", "Prisma", "Stripe", "Redis"],
+    defaultProjectType: "fullstack",
+    defaultDescription:
+      "Build an AI SaaS wrapper that takes any AI API and turns it into a polished product with auth, billing, usage tracking, and clean dashboard UI.",
+    difficulty: "advanced",
+    missionObjective:
+      "Build a complete AI SaaS product wrapper with Next.js frontend, Stripe billing, user auth, API key management, usage dashboard with charts, rate limiting, and admin analytics. Include API docs page.",
+    suggestedTools: ["file_write", "code_verify", "web_search", "api_call"],
+  },
+
+  // 14. Community Forum
+  {
+    id: "community-forum",
+    name: "Community Forum Platform",
+    description:
+      "Modern community forum with topics, threads, replies, user reputation, and moderation tools.",
+    category: "community",
+    icon: "MessageSquare",
+    color: "from-teal-500 to-emerald-500",
+    popularity: 72,
+    isPremium: false,
+    requiredAgents: ["Aria", "Kairo", "Zen", "Atlas", "Vega", "Lyra"],
+    estimatedDays: 3,
+    features: [
+      "Topic categories",
+      "Thread + reply system",
+      "User reputation/points",
+      "Rich text editor",
+      "Search + filters",
+      "User profiles",
+      "Moderation tools",
+      "Email notifications",
+    ],
+    techStack: ["Next.js", "Prisma", "TipTap", "Tailwind"],
+    defaultProjectType: "fullstack",
+    defaultDescription:
+      "Build a modern community forum with categories, threads, replies, user reputation system, rich text editor, and moderation tools.",
+    difficulty: "intermediate",
+    missionObjective:
+      "Build a community forum with topic categories, nested thread/reply system, user reputation and badges, rich text editor (TipTap), full-text search, and admin moderation panel.",
+    suggestedTools: ["file_write", "code_verify", "web_search"],
+  },
+
+  // 15. Startup MVP Combo
+  {
+    id: "startup-mvp-combo",
+    name: "Startup MVP — Landing + Auth + Dashboard",
+    description:
+      "The ultimate startup starter: landing page, authentication, user dashboard, and billing — all in one shot.",
+    category: "saas",
+    icon: "Rocket",
+    color: "from-orange-500 to-amber-500",
+    popularity: 97,
+    isPremium: true,
+    requiredAgents: ["Aria", "Kairo", "Zen", "Atlas", "Vega", "Orion", "Shield", "Cipher", "Lyra", "Sage", "Echo", "Pulse"],
+    estimatedDays: 7,
+    features: [
+      "Conversion landing page",
+      "User authentication (JWT)",
+      "Email verification",
+      "Subscription billing",
+      "User dashboard",
+      "Admin panel",
+      "Analytics tracking",
+      "API documentation",
+      "Blog/CMS",
+      "Email notifications",
+      "SEO optimization",
+      "Dark mode",
+    ],
+    techStack: ["Next.js", "TypeScript", "Prisma", "Stripe", "NextAuth", "Resend", "Recharts"],
+    defaultProjectType: "fullstack",
+    defaultDescription:
+      "Build a complete startup MVP with landing page, auth, billing, dashboards, blog, and all the essentials needed to launch.",
+    difficulty: "advanced",
+    missionObjective:
+      "Build the ultimate startup MVP: a high-converting landing page, NextAuth authentication with email verification, Stripe subscription billing, user and admin dashboards, blog/CMS, analytics, API docs, email notifications, and dark mode. This is a full production-ready SaaS.",
+    suggestedTools: ["file_write", "code_verify", "web_search", "api_call"],
   },
 ];
 
@@ -363,4 +581,9 @@ export const CATEGORIES: {
   { id: "healthcare", label: "Healthcare", icon: "HeartPulse" },
   { id: "finance", label: "Finance", icon: "TrendingUp" },
   { id: "social", label: "Social", icon: "Users" },
+  { id: "landing", label: "Landing Page", icon: "Sparkles" },
+  { id: "agency", label: "Agency", icon: "Briefcase" },
+  { id: "ai_tool", label: "AI Tool", icon: "Brain" },
+  { id: "community", label: "Community", icon: "MessageSquare" },
+  { id: "custom", label: "Custom", icon: "Plus" },
 ];

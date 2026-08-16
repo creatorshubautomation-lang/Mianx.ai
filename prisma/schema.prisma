@@ -831,3 +831,55 @@ model AgentInstall {
   @@index([agentId])
   @@index([userId])
 }
+
+// ─────────────────────────────────────────────
+//  TEMPLATE ENHANCEMENT (Phase 11)
+//  Usage tracking, favorites, and custom templates
+// ─────────────────────────────────────────────
+
+model TemplateUsage {
+  id            String   @id @default(cuid())
+  templateId    String   // template.id from templates.ts (string)
+  userId        String
+  projectId     String?  // the project that was created from this template
+  createdAt     DateTime @default(now())
+
+  @@index([templateId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model TemplateFavorite {
+  id            String   @id @default(cuid())
+  templateId    String   // template.id from templates.ts (string)
+  userId        String
+  createdAt     DateTime @default(now())
+
+  @@unique([templateId, userId])
+  @@index([templateId])
+  @@index([userId])
+}
+
+model CustomTemplate {
+  id            String   @id @default(cuid())
+  creatorId     String
+  name          String
+  description   String
+  category      String   @default("custom")
+  icon          String   @default("Sparkles")
+  color         String   @default("from-purple-500 to-cyan-500")
+  isPremium     Boolean  @default(false)
+  requiredAgents String   @default("[]") // JSON array
+  estimatedDays Int      @default(3)
+  features      String   @default("[]") // JSON array
+  techStack     String   @default("[]") // JSON array
+  defaultProjectType String @default("web")
+  defaultDescription String @default("")
+  usageCount    Int      @default(0)
+  isPublished   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([creatorId])
+  @@index([isPublished])
+}
