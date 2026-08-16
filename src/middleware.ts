@@ -17,18 +17,23 @@ const SECURITY_HEADERS = {
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 } as const;
 
-// Content Security Policy for production security
-// Allows: self, Next.js assets, Google Fonts, inline styles (for Tailwind/React)
+// Content Security Policy for production security.
+// NOTE: We do NOT use nonce-based CSP because Next.js generates nonces
+// during SSR independently, and middleware would inject a DIFFERENT nonce,
+// causing ALL scripts to be blocked → blank page.
+// Instead, we use 'self' + hash-based approach (Next.js handles this).
 function getCSPHeader(req: NextRequest): string {
   const isDev = process.env.NODE_ENV === "development";
-  const nonce = crypto.randomUUID();
 
   const base = [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}'${isDev ? " 'unsafe-eval'" : ""}`,
+    // Allow scripts from self (Next.js bundles) and unsafe-eval in dev (HMR)
+    `script-src 'self'${isDev ? " 'unsafe-eval' 'unsafe-inline'" : ""}`,
+    // Allow inline styles (required by Tailwind CSS runtime + Radix UI)
     `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
     `font-src 'self' https://fonts.gstatic.com`,
     `img-src 'self' data: blob: https:`,
+    // Allow API calls, WebSocket connections, and external resources
     `connect-src 'self' https: wss:${isDev ? " ws:" : ""}`,
     `frame-ancestors 'none'`,
     `base-uri 'self'`,
@@ -96,11 +101,78 @@ async function handleApiRoute(
 }
 
 // ─────────────────────────────────────────────
-//  Page Route — Apply security headers to page responses
+//  Page Route — SPA catch-all
+// ─────────────────────────────────────────────
+//  Mianx.ai is an SPA with a single entry point at `/`
+//  (src/app/page.tsx). All views are rendered client-side
+//  via Zustand + router.ts. We must rewrite ALL page
+//  requests to `/` so Next.js serves our SPA shell,
+//  then the client-side router handles the actual view.
 // ─────────────────────────────────────────────
 
+const SPA_REWRITE_PATHS = [
+  "/",
+  "/services",
+  "/agents",
+  "/pricing",
+  "/about",
+  "/use-cases",
+  "/contact",
+  "/templates",
+  "/api-docs",
+  "/academy",
+  "/marketplace",
+  "/login",
+  "/signup",
+  // Dashboard
+  "/dashboard",
+  "/dashboard/projects",
+  "/dashboard/projects/new",
+  "/dashboard/deliverables",
+  "/dashboard/support",
+  "/dashboard/settings",
+  "/dashboard/missions",
+  "/dashboard/tools",
+  "/dashboard/approvals",
+  "/dashboard/command-center",
+  "/dashboard/budget",
+  "/dashboard/trust",
+  "/dashboard/agent-performance",
+  "/admin",
+];
+
 function handlePageRoute(req: NextRequest): NextResponse {
-  const response = NextResponse.next();
+  const { pathname } = req.nextUrl;
+
+  // If the request is for the root `/`, let it pass through normally
+  if (pathname === "/") {
+    return applySecurityHeaders(NextResponse.next(), req);
+  }
+
+  // Check if this is a known SPA path or a dynamic route
+  const isKnownPath = SPA_REWRITE_PATHS.includes(pathname);
+
+  // Match dynamic routes: /dashboard/projects/:id, /dashboard/missions/:id,
+  // /dashboard/agent-performance/:name
+  const isDynamicRoute =
+    /^\/dashboard\/projects\/[^/]+$/.test(pathname) ||
+    /^\/dashboard\/missions\/[^/]+$/.test(pathname) ||
+    /^\/dashboard\/agent-performance\/[^/]+$/.test(pathname);
+
+  if (isKnownPath || isDynamicRoute) {
+    // Rewrite to `/` so Next.js serves our SPA shell (page.tsx)
+    // The client-side router will handle the actual view from the URL
+    const url = req.nextUrl.clone();
+    url.pathname = "/";
+    const response = NextResponse.rewrite(url);
+    return applySecurityHeaders(response, req);
+  }
+
+  // For any other path (unknown), also rewrite to SPA shell
+  // so the client-side 404 handler can take over
+  const url = req.nextUrl.clone();
+  url.pathname = "/";
+  const response = NextResponse.rewrite(url);
   return applySecurityHeaders(response, req);
 }
 
@@ -116,7 +188,7 @@ export async function middleware(req: NextRequest) {
     return handleApiRoute(req);
   }
 
-  // Page routes (including _next/static, etc.)
+  // Page routes — SPA rewrite
   return handlePageRoute(req);
 }
 
