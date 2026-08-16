@@ -14,7 +14,6 @@ import {
   logMissionEvent,
   trackMissionBudget,
 } from "./mission-engine";
-import { logToolCall } from "@/lib/tool-logger";
 
 // ─────────────────────────────────────────────
 //  Types
@@ -90,7 +89,7 @@ export async function executeTask(
     let memoryContext = "";
     try {
       const { getMemoryContext } = await import("@/lib/agent-memory");
-      memoryContext = await getMemoryContext(mission.projectId || undefined, ctx.userId);
+      memoryContext = await getMemoryContext(mission.projectId!, ctx.userId);
     } catch {
       // memory module not available
     }
@@ -343,30 +342,4 @@ function detectOutputType(output: string): string {
 
   // Default
   return "text";
-}
-
-// ─────────────────────────────────────────────
-//  Tool Logger Helper
-// ─────────────────────────────────────────────
-
-async function logToolCall(
-  _provider: string,
-  _toolName: string,
-  _opts: {
-    agentName?: string;
-    projectId?: string;
-    userId?: string;
-    input?: unknown;
-    output?: unknown;
-    status?: string;
-    durationMs?: number;
-  },
-): Promise<void> {
-  // Re-use existing tool logger
-  try {
-    const { logToolCall: doLog } = await import("@/lib/tool-logger");
-    await doLog(_provider, _toolName, _opts);
-  } catch {
-    // tool-logger not available, skip
-  }
 }

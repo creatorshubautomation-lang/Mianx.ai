@@ -134,7 +134,7 @@ export async function GET(
           // Get task states and send updates for changed tasks
           const tasks = await db.missionTask.findMany({
             where: { missionId: id },
-            select: { id: true, status: true, title: true, progress: true },
+            select: { id: true, status: true, title: true },
             orderBy: { order: "asc" },
           });
 
