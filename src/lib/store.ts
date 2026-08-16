@@ -45,6 +45,8 @@ export type ViewKey =
   | "approvals"
   // Command Center (Phase 7)
   | "commandCenter"
+  // Budget Control (Phase 8)
+  | "budget"
   // Admin
   | "admin";
 

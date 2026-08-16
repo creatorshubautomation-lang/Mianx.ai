@@ -47,6 +47,8 @@ const VIEW_PATH_MAP: Record<ViewKey, string> = {
   approvals: "/dashboard/approvals",
   // Command Center (Phase 7)
   commandCenter: "/dashboard/command-center",
+  // Budget Control (Phase 8)
+  budget: "/dashboard/budget",
   // Admin
   admin: "/admin",
 };

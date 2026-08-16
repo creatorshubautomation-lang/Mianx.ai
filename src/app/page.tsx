@@ -35,6 +35,7 @@ import { MissionDetail } from "@/components/views/MissionDetail";
 import { ToolRegistry } from "@/components/views/ToolRegistry";
 import { ApprovalQueue } from "@/components/views/ApprovalQueue";
 import { CommandCenter } from "@/components/views/CommandCenter";
+import { BudgetDashboard } from "@/components/views/BudgetDashboard";
 import { DeliverablesList } from "@/components/views/DeliverablesList";
 import { SettingsView } from "@/components/views/SettingsView";
 import { SupportView } from "@/components/views/SupportView";
@@ -244,6 +245,7 @@ function AppContent() {
           {view === "toolRegistry" && <ToolRegistry />}
           {view === "approvals" && <ApprovalQueue />}
           {view === "commandCenter" && <CommandCenter />}
+          {view === "budget" && <BudgetDashboard />}
           {view === "deliverables" && <DeliverablesList />}
           {view === "support" && <SupportView />}
           {view === "settings" && <SettingsView />}
