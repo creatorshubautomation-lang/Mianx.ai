@@ -30,6 +30,8 @@ import { DashboardOverview } from "@/components/views/DashboardOverview";
 import { ProjectsList } from "@/components/views/ProjectsList";
 import { NewProjectWizard } from "@/components/views/NewProjectWizard";
 import { ProjectDetail } from "@/components/views/ProjectDetail";
+import { MissionsList } from "@/components/views/MissionsList";
+import { MissionDetail } from "@/components/views/MissionDetail";
 import { DeliverablesList } from "@/components/views/DeliverablesList";
 import { SettingsView } from "@/components/views/SettingsView";
 import { SupportView } from "@/components/views/SupportView";
@@ -234,6 +236,8 @@ function AppContent() {
           {view === "projects" && <ProjectsList />}
           {view === "newProject" && <NewProjectWizard />}
           {view === "projectDetail" && <ProjectDetail />}
+          {view === "missions" && <MissionsList />}
+          {view === "missionDetail" && <MissionDetail />}
           {view === "deliverables" && <DeliverablesList />}
           {view === "support" && <SupportView />}
           {view === "settings" && <SettingsView />}

@@ -26,6 +26,7 @@ import {
   LifeBuoy,
   Search,
   Command,
+  Rocket,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -59,6 +60,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     { key: "projects" as const, icon: FolderKanban, label: t("dash.projects") },
     { key: "newProject" as const, icon: PlusCircle, label: t("dash.newProject") },
     { key: "deliverables" as const, icon: FileBox, label: t("dash.deliverables") },
+    { key: "missions" as const, icon: Rocket, label: "Missions" },
     { key: "support" as const, icon: LifeBuoy, label: "Support" },
     { key: "settings" as const, icon: Settings, label: t("dash.settings") },
   ];
@@ -74,7 +76,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     : allNavItems;
 
   const handleNavClick = (key: string) => {
-    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "support" | "settings" | "admin");
+    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "support" | "settings" | "admin");
     setSearchOpen(false);
     setSearchQuery("");
   };

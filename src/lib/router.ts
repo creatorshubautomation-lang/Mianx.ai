@@ -38,6 +38,9 @@ const VIEW_PATH_MAP: Record<ViewKey, string> = {
   deliverables: "/dashboard/deliverables",
   support: "/dashboard/support",
   settings: "/dashboard/settings",
+  // Mission Engine (Agentic AI)
+  missions: "/dashboard/missions",
+  missionDetail: "/dashboard/missions", // actual path includes /:id
   // Admin
   admin: "/admin",
 };
@@ -73,11 +76,16 @@ export function viewToPath(
     base = "/dashboard/projects/" + encodeURIComponent(params.id);
   }
 
+  if (view === "missionDetail" && params?.id) {
+    base = "/dashboard/missions/" + encodeURIComponent(params.id);
+  }
+
   // Append any extra query params
   if (params && Object.keys(params).length > 0) {
     const queryParts: string[] = [];
     for (const [key, val] of Object.entries(params)) {
       if (view === "projectDetail" && key === "id") continue; // already in path
+      if (view === "missionDetail" && key === "id") continue; // already in path
       queryParts.push(
         encodeURIComponent(key) + "=" + encodeURIComponent(val),
       );
@@ -115,6 +123,15 @@ export function pathToView(
     };
   }
 
+  // Special: /dashboard/missions/:id → missionDetail
+  const missionMatch = path.match("^/dashboard/missions/([^/]+)$");
+  if (missionMatch) {
+    return {
+      view: "missionDetail",
+      params: { id: decodeURIComponent(missionMatch[1]) },
+    };
+  }
+
   return null;
 }
 
@@ -149,6 +166,11 @@ export function pushView(
     store.setSelectedProject(params.id);
   }
 
+  // Also sync selectedMissionId for missionDetail
+  if (view === "missionDetail" && params?.id) {
+    store.setSelectedMission(params.id);
+  }
+
   _suppressUrlSync = false;
 }
 
@@ -174,6 +196,10 @@ export function replaceView(
 
   if (view === "projectDetail" && params?.id) {
     store.setSelectedProject(params.id);
+  }
+
+  if (view === "missionDetail" && params?.id) {
+    store.setSelectedMission(params.id);
   }
 
   _suppressUrlSync = false;
@@ -215,6 +241,10 @@ export function initRouter(): void {
         store.setSelectedProject(event.state.params.id);
       }
 
+      if (event.state.view === "missionDetail" && event.state.params?.id) {
+        store.setSelectedMission(event.state.params.id);
+      }
+
       _suppressUrlSync = false;
       return;
     }
@@ -228,6 +258,10 @@ export function initRouter(): void {
 
       if (parsedPath.view === "projectDetail" && parsedPath.params?.id) {
         store.setSelectedProject(parsedPath.params.id);
+      }
+
+      if (parsedPath.view === "missionDetail" && parsedPath.params?.id) {
+        store.setSelectedMission(parsedPath.params.id);
       }
 
       _suppressUrlSync = false;

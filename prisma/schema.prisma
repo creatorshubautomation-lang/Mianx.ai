@@ -34,6 +34,7 @@ model User {
   subscriptions Subscription[]
   activities    Activity[]
   supportTickets SupportTicket[]
+  missions      Mission[]     @relation("MissionOwner")
 }
 
 enum UserRole {
@@ -96,6 +97,7 @@ model Project {
   messages    Message[]
   deliverables Deliverable[]
   activities  Activity[]
+  missions    Mission[]
 
   @@index([clientId])
 }
@@ -532,4 +534,264 @@ model AgentToolCall {
   @@index([projectId])
   @@index([userId, createdAt])
   @@index([toolName])
+}
+
+// ─────────────────────────────────────────────
+//  MISSION ENGINE (Phase 2 — Agentic AI Platform)
+//  First-class Mission concept: a mission is a high-level
+//  objective that the AI system autonomously plans and
+//  executes through a dependency-aware task graph.
+// ─────────────────────────────────────────────
+
+enum MissionStatus {
+  DRAFT           // User created, not yet submitted
+  PLANNING        // AI Planner is generating the execution plan
+  AWAITING_APPROVAL // Plan ready, waiting for human approval
+  APPROVED        // Plan approved, ready to execute
+  EXECUTING       // Agent loop is actively running tasks
+  PAUSED          // Execution paused by user or system
+  VERIFYING       // Verification engine checking task outputs
+  REPAIRING       // Auto-repair loop fixing failed verifications
+  COMPLETED       // All tasks done + verified
+  FAILED          // Unrecoverable failure (max retries exceeded)
+  CANCELLED       // User cancelled the mission
+}
+
+enum MissionTaskStatus {
+  PENDING         // Waiting for dependencies to complete
+  READY           // All dependencies met, ready to execute
+  RUNNING         // Agent is actively working on this task
+  COMPLETED       // Task output verified and accepted
+  FAILED          // Task failed (will be retried or escalated)
+  SKIPPED         // Task skipped (dependency failed or unnecessary)
+  CANCELLED       // Task cancelled
+}
+
+enum MissionEventType {
+  CREATED
+  STATUS_CHANGED
+  PLAN_GENERATED
+  PLAN_APPROVED
+  PLAN_REJECTED
+  TASK_STARTED
+  TASK_COMPLETED
+  TASK_FAILED
+  TASK_RETRIED
+  VERIFICATION_PASSED
+  VERIFICATION_FAILED
+  REPAIR_STARTED
+  REPAIR_COMPLETED
+  BUDGET_WARNING
+  BUDGET_EXCEEDED
+  HUMAN_APPROVAL_REQUESTED
+  HUMAN_APPROVED
+  HUMAN_REJECTED
+  MISSION_COMPLETED
+  MISSION_FAILED
+  MISSION_CANCELLED
+  ERROR
+}
+
+enum ApprovalStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ToolCategory {
+  FILE
+  CODE
+  GIT
+  DATABASE
+  WEB
+  DEPLOY
+  AI
+  SYSTEM
+}
+
+model Mission {
+  id            String          @id @default(cuid())
+  userId        String          // owner / creator
+  projectId     String?         // optional link to existing Project
+  title         String
+  description   String           // user's objective in natural language
+  status        MissionStatus   @default(DRAFT)
+  priority      String          @default("normal") // low | normal | high | critical
+
+  // Planning
+  planJson      String?         // JSON: the structured execution plan
+  planSummary   String?         // human-readable plan summary
+  planReasoning String?         // why this plan was chosen
+  approvedBy    String?         // who approved (userId or "auto")
+  approvedAt    DateTime?
+
+  // Execution metadata
+  totalTasks    Int             @default(0)
+  completedTasks Int            @default(0)
+  failedTasks   Int             @default(0)
+  progress      Int            @default(0) // 0-100 auto-calculated
+
+  // Budget control
+  budgetUsd     Float?          // max allowed spend (null = unlimited)
+  spentUsd      Float           @default(0) // actual AI costs incurred
+
+  // Timing
+  startedAt     DateTime?
+  completedAt   DateTime?
+  deadline      DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  // Relations
+  user          User            @relation("MissionOwner", fields: [userId], references: [id], onDelete: Cascade)
+  project       Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  tasks         MissionTask[]
+  events        MissionEvent[]
+  approvals     HumanApproval[]
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model MissionTask {
+  id            String              @id @default(cuid())
+  missionId     String
+  parentTaskId  String?             // for sub-task hierarchy
+  title         String
+  description   String?             // detailed task description
+  status        MissionTaskStatus   @default(PENDING)
+  priority      Int                 @default(0) // execution priority (higher = first)
+
+  // Dependency graph
+  dependencies  String              @default("[]") // JSON array of MissionTask IDs this depends on
+  dependents    String              @default("[]") // JSON array of MissionTask IDs that depend on this
+
+  // Agent assignment
+  assignedAgent String?            // agent name from AGENT_CATALOG
+  agentTeam     String?
+  agentRole     String?
+
+  // Tool requirements
+  requiredTools String              @default("[]") // JSON array of tool names needed
+  riskLevel     RiskLevel           @default(LOW)
+
+  // Execution
+  input         String?             // JSON — task input/context
+  output        String?             // JSON — task result/output
+  outputType    String?             // code | text | file | url | json
+  verificationStatus String?        // pending | passed | failed
+  verificationResult String?        // JSON — verification details
+  retryCount    Int                 @default(0)
+  maxRetries    Int                 @default(3)
+
+  // Human approval
+  approvalStatus ApprovalStatus     @default(NOT_REQUIRED)
+  approvalReason String?
+
+  // Timing
+  order         Int                 @default(0) // visual order
+  startedAt     DateTime?
+  completedAt   DateTime?
+  durationMs    Int?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  // Relations
+  mission       Mission             @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@index([missionId])
+  @@index([status])
+  @@index([assignedAgent])
+  @@index([parentTaskId])
+}
+
+// Audit log for everything that happens in a Mission
+model MissionEvent {
+  id            String              @id @default(cuid())
+  missionId     String
+  taskId        String?             // related task (if applicable)
+  eventType     MissionEventType
+  title         String              // human-readable event title
+  description   String?             // detailed description
+  metadata      String?             // JSON — any extra data
+  level         String              @default("info") // info | warn | error | success
+  createdAt     DateTime            @default(now())
+
+  mission       Mission             @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@index([missionId, createdAt])
+  @@index([eventType])
+  @@index([taskId])
+}
+
+// Human-in-the-loop approval records
+model HumanApproval {
+  id            String              @id @default(cuid())
+  missionId     String
+  taskId        String?             // task-level approval (null = mission-level)
+  userId        String              // who needs to approve
+  status        ApprovalStatus      @default(PENDING)
+  title         String              // what needs approval
+  description   String?             // details about what's being approved
+  riskLevel     RiskLevel           @default(MEDIUM)
+  metadata      String?             // JSON — action details (tool name, input, etc.)
+  respondedAt   DateTime?
+  responseNote  String?             // approver's note
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  mission       Mission             @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@index([missionId])
+  @@index([userId, status])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────
+//  TOOL REGISTRY (Phase 2 — Secure, permissioned tools)
+// ─────────────────────────────────────────────
+
+model ToolDefinition {
+  id            String              @id @default(cuid())
+  name          String              @unique
+  displayName   String
+  description   String
+  category      ToolCategory
+  riskLevel     RiskLevel           @default(MEDIUM)
+
+  // Schema for structured input/output
+  inputSchema   String              @default("{}") // JSON Schema for input validation
+  outputSchema  String?             // JSON Schema for expected output
+
+  // Execution
+  handler       String              // function name in tool-handlers.ts
+  timeoutMs     Int                 @default(30000)
+  retryable     Boolean             @default(true)
+  maxRetries    Int                 @default(2)
+
+  // Permissions
+  requireApproval Boolean          @default(false) // HIGH/CRITICAL tools need human approval
+  allowedAgents String             @default("[]") // JSON array of agent names (empty = all)
+  allowedPlans  String              @default("[]") // JSON array of plan tiers (empty = all)
+
+  // Cost
+  costPerCall   Float               @default(0)
+
+  enabled       Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([category])
+  @@index([riskLevel])
+  @@index([enabled])
 }

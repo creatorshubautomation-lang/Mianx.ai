@@ -36,6 +36,9 @@ export type ViewKey =
   | "deliverables"
   | "support"
   | "settings"
+  // Mission Engine (Agentic AI)
+  | "missions"
+  | "missionDetail"
   // Admin
   | "admin";
 
@@ -50,6 +53,10 @@ interface AppState {
   // Selected project (for detail view)
   selectedProjectId: string | null;
   setSelectedProject: (id: string | null) => void;
+
+  // Selected mission (for detail view)
+  selectedMissionId: string | null;
+  setSelectedMission: (id: string | null) => void;
 
   // Auth modal
   authModal: "login" | "signup" | null;
@@ -91,6 +98,9 @@ export const useApp = create<AppState>()(
 
       selectedProjectId: null,
       setSelectedProject: (id) => set({ selectedProjectId: id }),
+
+      selectedMissionId: null,
+      setSelectedMission: (id) => set({ selectedMissionId: id }),
 
       authModal: null,
       setAuthModal: (m) => set({ authModal: m }),
