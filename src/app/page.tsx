@@ -32,6 +32,7 @@ import { NewProjectWizard } from "@/components/views/NewProjectWizard";
 import { ProjectDetail } from "@/components/views/ProjectDetail";
 import { MissionsList } from "@/components/views/MissionsList";
 import { MissionDetail } from "@/components/views/MissionDetail";
+import { ToolRegistry } from "@/components/views/ToolRegistry";
 import { DeliverablesList } from "@/components/views/DeliverablesList";
 import { SettingsView } from "@/components/views/SettingsView";
 import { SupportView } from "@/components/views/SupportView";
@@ -238,6 +239,7 @@ function AppContent() {
           {view === "projectDetail" && <ProjectDetail />}
           {view === "missions" && <MissionsList />}
           {view === "missionDetail" && <MissionDetail />}
+          {view === "toolRegistry" && <ToolRegistry />}
           {view === "deliverables" && <DeliverablesList />}
           {view === "support" && <SupportView />}
           {view === "settings" && <SettingsView />}

@@ -3,9 +3,10 @@
 // Executes individual MissionTasks by:
 //   1. Loading the task definition and mission context
 //   2. Building agent context (prior task outputs, memory, tools)
-//   3. Calling the assigned AI agent via callAIWithFallback
-//   4. Capturing the output and updating the task record
-//   5. Tracking cost via the budget system
+//   3. Executing required tools via the Tool Registry (Phase 4)
+//   4. Calling the assigned AI agent via callAIWithFallback
+//   5. Capturing the output and updating the task record
+//   6. Tracking cost via the budget system
 
 import { db } from "@/lib/db";
 import { callAIWithFallback } from "@/lib/ai-service";
@@ -14,6 +15,7 @@ import {
   logMissionEvent,
   trackMissionBudget,
 } from "./mission-engine";
+import { executeTool, executeToolBatch } from "./tool-executor";
 
 // ─────────────────────────────────────────────
 //  Types
@@ -28,6 +30,17 @@ export interface TaskExecutionResult {
   costUsd: number;
   agentName: string;
   error?: string;
+  toolResults?: ToolResultSummary[];
+}
+
+export interface ToolResultSummary {
+  toolName: string;
+  success: boolean;
+  durationMs: number;
+  costUsd: number;
+ error?: string;
+  approvalRequired?: boolean;
+  approvalId?: string;
 }
 
 interface TaskExecutionContext {
@@ -85,6 +98,76 @@ export async function executeTask(
     // Build context from prior task outputs
     const priorContext = buildPriorContext(ctx.priorOutputs, task);
 
+    // ── Phase 4: Execute required tools ──
+    let toolResults: ToolResultSummary[] = [];
+    let toolContext = "";
+    try {
+      const requiredTools: string[] = JSON.parse(task.requiredTools || "[]");
+      if (requiredTools.length > 0) {
+        // Execute tools and collect results
+        const toolExecResults = await executeToolBatch(
+          requiredTools.map((toolName) => ({
+            toolName,
+            input: task.input ? JSON.parse(task.input) : {},
+            agentName,
+            userId: ctx.userId,
+            projectId: mission.projectId || undefined,
+            missionId: ctx.missionId,
+            taskId: ctx.taskId,
+          })),
+          { continueOnError: true, sequential: true },
+        );
+
+        // Build tool context for AI prompt
+        const toolOutputs: string[] = [];
+        for (const tr of toolExecResults.results) {
+          toolResults.push({
+            toolName: tr.toolName,
+            success: tr.success,
+            durationMs: tr.durationMs,
+            costUsd: tr.costUsd,
+            error: tr.error,
+            approvalRequired: tr.approvalRequired,
+            approvalId: tr.approvalId,
+          });
+
+          if (tr.success && tr.output) {
+            const outputStr = typeof tr.output === "string"
+              ? tr.output
+              : JSON.stringify(tr.output, null, 2);
+            toolOutputs.push(`--- Tool: ${tr.toolName} ---\n${outputStr.slice(0, 2000)}`);
+          } else if (tr.approvalRequired) {
+            toolOutputs.push(`--- Tool: ${tr.toolName} --- [PENDING HUMAN APPROVAL — ID: ${tr.approvalId}]`);
+          } else if (!tr.success) {
+            toolOutputs.push(`--- Tool: ${tr.toolName} --- [FAILED: ${tr.error}]`);
+          }
+        }
+
+        // Track tool costs
+        for (const tr of toolExecResults.results) {
+          if (tr.costUsd > 0) {
+            await trackMissionBudget(ctx.missionId, tr.costUsd);
+          }
+        }
+
+        if (toolOutputs.length > 0) {
+          toolContext = `\n\nTOOL EXECUTION RESULTS:\n${toolOutputs.join("\n\n")}\n\nUse the above tool results as additional context for your task. Reference specific tool outputs when relevant.`;
+        }
+
+        await logMissionEvent(ctx.missionId, {
+          eventType: "TASK_COMPLETED",
+          title: `Tools executed for: ${task.title}`,
+          description: `${toolExecResults.results.filter((r) => r.success).length}/${requiredTools.length} tools succeeded`,
+          taskId: ctx.taskId,
+          level: "info",
+          metadata: { toolCount: requiredTools.length, successCount: toolExecResults.results.filter((r) => r.success).length },
+        });
+      }
+    } catch (toolError) {
+      console.warn(`[task-executor] Tool execution error (non-fatal): ${toolError instanceof Error ? toolError.message : String(toolError)}`);
+      // Tool failures are non-fatal — the AI can still work without them
+    }
+
     // Get memory context
     let memoryContext = "";
     try {
@@ -117,7 +200,7 @@ export async function executeTask(
       // ignore parse error
     }
 
-    // Build the system prompt
+    // Build the system prompt (with tool context)
     const systemPrompt = buildTaskSystemPrompt(
       agent,
       task,
@@ -125,6 +208,7 @@ export async function executeTask(
       memoryContext,
       projectContext,
       verificationCriteria,
+      toolContext,
     );
 
     // Call the AI agent
@@ -175,14 +259,18 @@ export async function executeTask(
       metadata: { agentName, durationMs, outputType, estimatedCost },
     });
 
+    // Add tool costs to total cost
+    const totalToolCost = toolResults.reduce((sum, tr) => sum + tr.costUsd, 0);
+
     return {
       taskId: ctx.taskId,
       success: true,
       output,
       outputType,
       durationMs,
-      costUsd: estimatedCost,
+      costUsd: estimatedCost + totalToolCost,
       agentName,
+      toolResults: toolResults.length > 0 ? toolResults : undefined,
     };
   } catch (error) {
     const durationMs = Date.now() - startTime;
@@ -282,6 +370,7 @@ function buildTaskSystemPrompt(
   memoryContext: string,
   projectContext: string,
   verificationCriteria: string,
+  toolContext: string = "",
 ): string {
   const basePrompt = agent?.systemPrompt || `You are ${task.assignedAgent || "an AI assistant"}, a ${task.agentRole || "specialist"} agent.`;
 
@@ -296,6 +385,7 @@ VERIFICATION CRITERIA: Your output will be verified against: "${verificationCrit
 Make sure your output clearly satisfies these criteria.${priorContext}
 ${memoryContext}
 ${projectContext}
+${toolContext}
 
 EXECUTION GUIDELINES:
 1. Focus ONLY on your assigned task: ${task.title}

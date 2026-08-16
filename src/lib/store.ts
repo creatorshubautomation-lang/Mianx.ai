@@ -39,6 +39,8 @@ export type ViewKey =
   // Mission Engine (Agentic AI)
   | "missions"
   | "missionDetail"
+  // Tool Registry (Phase 4)
+  | "toolRegistry"
   // Admin
   | "admin";
 

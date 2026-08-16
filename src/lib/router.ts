@@ -41,6 +41,8 @@ const VIEW_PATH_MAP: Record<ViewKey, string> = {
   // Mission Engine (Agentic AI)
   missions: "/dashboard/missions",
   missionDetail: "/dashboard/missions", // actual path includes /:id
+  // Tool Registry (Phase 4)
+  toolRegistry: "/dashboard/tools",
   // Admin
   admin: "/admin",
 };
