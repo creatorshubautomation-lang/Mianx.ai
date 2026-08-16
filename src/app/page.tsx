@@ -65,8 +65,15 @@ const PUBLIC_VIEWS = new Set([
 // ─────────────────────────────────────────────
 function AppContent() {
   const { view, setAuthModal } = useApp();
-  const { data: session, status } = useSession();
+  const { data: session, status } = useSession({
+    // required: "onAuthentication" — only fetch session when needed,
+    // don't block initial render for unauthenticated users.
+    required: false,
+  });
   const [resetToken, setResetToken] = useState<string | null>(null);
+  // Timeout flag: if next-auth session check takes too long, bypass it
+  // so the user isn't stuck on a loading screen forever (e.g., DB down).
+  const [sessionTimedOut, setSessionTimedOut] = useState(false);
 
   // Initialize SPA router and check for special URL params on mount
   useEffect(() => {
@@ -88,6 +95,17 @@ function AppContent() {
       window.history.replaceState({}, "", "/");
     }
   }, []);
+
+  // Safety timeout: if session is still "loading" after 3 seconds,
+  // assume auth is unavailable and show the app anyway.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (status === "loading") {
+        setSessionTimedOut(true);
+      }
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [status]);
 
   // Scroll to top on view change
   useEffect(() => {
@@ -113,22 +131,18 @@ function AppContent() {
     );
   }
 
-  // Show loading while session is being fetched
-  if (status === "loading") {
+  // Show loading while session is being fetched.
+  // IMPORTANT: No framer-motion opacity:0 initial state here — if React
+  // hydration fails or is slow, the loading screen must still be visible
+  // (otherwise user sees only the CSS background = "blank page").
+  // Also: after 3s timeout, bypass session check entirely.
+  if (status === "loading" && !sessionTimedOut) {
     return (
       <div className="fixed inset-0 mesh-bg flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 via-violet-500 to-cyan-500 glow"
-          >
+        <div className="text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 via-violet-500 to-cyan-500 glow">
             <Sparkles className="h-8 w-8 text-white" />
-          </motion.div>
+          </div>
           <h1 className="text-2xl font-bold mb-2">
             Mianx<span className="gradient-text">.ai</span>
           </h1>
@@ -137,23 +151,11 @@ function AppContent() {
             <p className="text-sm text-muted-foreground">Loading your workspace...</p>
           </div>
           <div className="flex justify-center gap-1 mt-4">
-            <motion.span
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
-              className="h-2 w-2 rounded-full bg-purple-400"
-            />
-            <motion.span
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 0.6, repeat: Infinity, delay: 0.15 }}
-              className="h-2 w-2 rounded-full bg-violet-400"
-            />
-            <motion.span
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 0.6, repeat: Infinity, delay: 0.3 }}
-              className="h-2 w-2 rounded-full bg-cyan-400"
-            />
+            <span className="h-2 w-2 rounded-full bg-purple-400 animate-bounce [animation-delay:0ms]" />
+            <span className="h-2 w-2 rounded-full bg-violet-400 animate-bounce [animation-delay:150ms]" />
+            <span className="h-2 w-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:300ms]" />
           </div>
-        </motion.div>
+        </div>
       </div>
     );
   }
