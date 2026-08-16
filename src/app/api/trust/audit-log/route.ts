@@ -71,7 +71,6 @@ export async function GET(request: NextRequest) {
         level: true,
         createdAt: true,
         mission: { select: { title: true, status: true } },
-        task: { select: { title: true } },
       },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
@@ -140,7 +139,6 @@ export async function GET(request: NextRequest) {
         createdAt: e.createdAt.toISOString(),
         missionTitle: e.mission?.title,
         missionStatus: e.mission?.status,
-        taskTitle: e.task?.title,
       })),
       ...toolAuditLog,
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
