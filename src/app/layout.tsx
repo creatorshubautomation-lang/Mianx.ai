@@ -18,11 +18,19 @@ const jetBrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+function getMetadataBase(): URL {
+  try {
+    const url =
+      process.env.NEXTAUTH_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    return new URL(url);
+  } catch {
+    return new URL("http://localhost:3000");
+  }
+}
+
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXTAUTH_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"),
-  ),
+  metadataBase: getMetadataBase(),
   title: "Mianx.ai — Agentic Software House | AI Agents Build Your Projects",
   description:
     "Mianx.ai is the world's first agentic software house. Every client project is delivered by a dedicated team of AI agents — design, development, content, marketing, QA, and support. 100% autonomous, 24/7.",
@@ -60,22 +68,34 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
+      <head>
+        <noscript>
+          <style dangerouslySetInnerHTML={{ __html: ".no-js-msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0a1a;color:#e2e8f0;font-family:system-ui,sans-serif;font-size:1.25rem;text-align:center;padding:2rem;z-index:9999}.no-js-msg h1{font-size:2rem;margin-bottom:1rem;color:#a855f7}" }} />
+          <div className="no-js-msg">
+            <div>
+              <h1>Mianx.ai</h1>
+              <p>JavaScript is required to run this application.</p>
+              <p style={{ marginTop: "1rem", fontSize: "0.875rem", color: "#94a3b8" }}>Please enable JavaScript in your browser settings and reload.</p>
+            </div>
+          </div>
+        </noscript>
+      </head>
       <body
         className={`${inter.variable} ${jetBrainsMono.variable} antialiased bg-background text-foreground min-h-screen`}
         suppressHydrationWarning
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem={false}
-          disableTransitionOnChange
-        >
-          <ErrorBoundary>
+        <ErrorBoundary>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem={false}
+            disableTransitionOnChange
+          >
             {children}
-          </ErrorBoundary>
-          <Toaster />
-          <SonnerToaster position="top-right" richColors closeButton />
-        </ThemeProvider>
+            <Toaster />
+            <SonnerToaster position="top-right" richColors closeButton />
+          </ThemeProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

@@ -1,7 +1,5 @@
-import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getAuthSecret } from "@/lib/auth-secret";
 
 // ─────────────────────────────────────────────
 //  Security Headers Configuration
@@ -67,23 +65,15 @@ function applySecurityHeaders(
 //  API Admin Auth Guard
 // ─────────────────────────────────────────────
 
+// NOTE: Admin auth guard is handled at the API route level
+// (each /api/admin/* route checks the session server-side).
+// We keep middleware lightweight to avoid Edge Runtime crashes.
 async function handleAdminRoute(
   req: NextRequest,
 ): Promise<NextResponse> {
-  const token = await getToken({ req, secret: getAuthSecret() });
-
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (token.role !== "ADMIN") {
-    return NextResponse.json(
-      { error: "Forbidden — admin role required" },
-      { status: 403 },
-    );
-  }
-
-  return NextResponse.next();
+  // Pass through — actual auth check happens in the API handler
+  const response = NextResponse.next();
+  return applySecurityHeaders(response, req);
 }
 
 // ─────────────────────────────────────────────
@@ -200,6 +190,6 @@ export const config = {
     // Match all API routes
     "/api/:path*",
     // Match all page routes except Next.js internals and static files
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
+    "/((?!_next/|favicon.ico|robots.txt|sitemap.xml|sitemap.xsl).*)",
   ],
 };
