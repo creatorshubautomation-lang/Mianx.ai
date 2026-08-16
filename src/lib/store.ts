@@ -49,6 +49,8 @@ export type ViewKey =
   | "budget"
   // Trust & Audit Center (Phase 9)
   | "trustCenter"
+  // Agent Performance Dashboard
+  | "agentPerformance"
   // Admin
   | "admin";
 
@@ -71,6 +73,10 @@ interface AppState {
   // Selected approval (for detail view)
   selectedApprovalId: string | null;
   setSelectedApproval: (id: string | null) => void;
+
+  // Selected agent name (for agent performance detail)
+  selectedAgentName: string | null;
+  setSelectedAgentName: (name: string | null) => void;
 
   // Auth modal
   authModal: "login" | "signup" | null;
@@ -118,6 +124,9 @@ export const useApp = create<AppState>()(
 
       selectedApprovalId: null,
       setSelectedApproval: (id) => set({ selectedApprovalId: id }),
+
+      selectedAgentName: null,
+      setSelectedAgentName: (name) => set({ selectedAgentName: name }),
 
       authModal: null,
       setAuthModal: (m) => set({ authModal: m }),

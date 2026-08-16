@@ -51,6 +51,8 @@ const VIEW_PATH_MAP: Record<ViewKey, string> = {
   budget: "/dashboard/budget",
   // Trust & Audit Center (Phase 9)
   trustCenter: "/dashboard/trust",
+  // Agent Performance Dashboard
+  agentPerformance: "/dashboard/agent-performance",
   // Admin
   admin: "/admin",
 };
@@ -88,6 +90,10 @@ export function viewToPath(
 
   if (view === "missionDetail" && params?.id) {
     base = "/dashboard/missions/" + encodeURIComponent(params.id);
+  }
+
+  if (view === "agentPerformance" && params?.name) {
+    base = "/dashboard/agent-performance/" + encodeURIComponent(params.name);
   }
 
   // Append any extra query params
@@ -142,6 +148,15 @@ export function pathToView(
     };
   }
 
+  // Special: /dashboard/agent-performance/:name → agentPerformance
+  const agentPerfMatch = path.match("^/dashboard/agent-performance/([^/]+)$");
+  if (agentPerfMatch) {
+    return {
+      view: "agentPerformance",
+      params: { name: decodeURIComponent(agentPerfMatch[1]) },
+    };
+  }
+
   return null;
 }
 
@@ -181,6 +196,11 @@ export function pushView(
     store.setSelectedMission(params.id);
   }
 
+  // Also sync selectedAgentName for agentPerformance
+  if (view === "agentPerformance" && params?.name) {
+    store.setSelectedAgentName(params.name);
+  }
+
   _suppressUrlSync = false;
 }
 
@@ -210,6 +230,10 @@ export function replaceView(
 
   if (view === "missionDetail" && params?.id) {
     store.setSelectedMission(params.id);
+  }
+
+  if (view === "agentPerformance" && params?.name) {
+    store.setSelectedAgentName(params.name);
   }
 
   _suppressUrlSync = false;

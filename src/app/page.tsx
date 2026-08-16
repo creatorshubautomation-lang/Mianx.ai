@@ -37,6 +37,7 @@ import { ApprovalQueue } from "@/components/views/ApprovalQueue";
 import { CommandCenter } from "@/components/views/CommandCenter";
 import { BudgetDashboard } from "@/components/views/BudgetDashboard";
 import { TrustCenter } from "@/components/views/TrustCenter";
+import { AgentPerformanceDashboard } from "@/components/views/AgentPerformanceDashboard";
 import { DeliverablesList } from "@/components/views/DeliverablesList";
 import { SettingsView } from "@/components/views/SettingsView";
 import { SupportView } from "@/components/views/SupportView";
@@ -248,6 +249,7 @@ function AppContent() {
           {view === "commandCenter" && <CommandCenter />}
           {view === "budget" && <BudgetDashboard />}
           {view === "trustCenter" && <TrustCenter />}
+          {view === "agentPerformance" && <AgentPerformanceDashboard />}
           {view === "deliverables" && <DeliverablesList />}
           {view === "support" && <SupportView />}
           {view === "settings" && <SettingsView />}
