@@ -487,6 +487,18 @@ function TaskCard({
                 />
                 <span className={riskCfg.color}>{riskCfg.label}</span>
               </span>
+              {task.approvalStatus === "PENDING" && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500/50 text-amber-400 bg-amber-500/10">
+                  <Clock className="h-2.5 w-2.5 mr-0.5" />
+                  Needs Approval
+                </Badge>
+              )}
+              {task.approvalStatus === "APPROVED" && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-green-500/50 text-green-400 bg-green-500/10">
+                  <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
+                  Approved
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -782,6 +794,114 @@ export function MissionDetail() {
   }, [isLive, fetchMission, fetchEvents]);
 
   // ─────────────────────────────────────────────
+  //  SSE connection for live mission updates
+  // ─────────────────────────────────────────────
+
+  const sseRef = useRef<EventSource | null>(null);
+
+  const connectSSE = useCallback((missionId: string) => {
+    // Close existing connection
+    if (sseRef.current) {
+      sseRef.current.close();
+      sseRef.current = null;
+    }
+
+    const eventSource = new EventSource(`/api/missions/${missionId}/stream`);
+    sseRef.current = eventSource;
+
+    eventSource.addEventListener("connected", () => {
+      console.log("[SSE] Connected to mission stream");
+    });
+
+    eventSource.addEventListener("task_update", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        // Refresh mission to get updated task states
+        fetchMission();
+        fetchEvents();
+      } catch {
+        // ignore parse errors
+      }
+    });
+
+    eventSource.addEventListener("heartbeat", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        // Update mission progress without full refresh
+        setMission((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            status: data.status || prev.status,
+            progress: data.progress ?? prev.progress,
+            completedTasks: data.completedTasks ?? prev.completedTasks,
+            failedTasks: data.failedTasks ?? prev.failedTasks,
+            spentUsd: data.spentUsd ?? prev.spentUsd,
+          };
+        });
+      } catch {
+        // ignore
+      }
+    });
+
+    eventSource.addEventListener("mission_completed", () => {
+      toast.success("Mission completed successfully!");
+      fetchMission();
+      fetchEvents();
+      eventSource.close();
+      sseRef.current = null;
+    });
+
+    eventSource.addEventListener("mission_failed", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        toast.error("Mission failed", {
+          description: `${data.completedTasks}/${data.totalTasks} tasks completed before failure`,
+        });
+      } catch {
+        toast.error("Mission failed");
+      }
+      fetchMission();
+      fetchEvents();
+      eventSource.close();
+      sseRef.current = null;
+    });
+
+    eventSource.addEventListener("mission_cancelled", () => {
+      toast.info("Mission was cancelled");
+      fetchMission();
+      fetchEvents();
+      eventSource.close();
+      sseRef.current = null;
+    });
+
+    eventSource.addEventListener("error", () => {
+      console.log("[SSE] Connection error or closed");
+      eventSource.close();
+      sseRef.current = null;
+    });
+
+    eventSource.onerror = () => {
+      eventSource.close();
+      sseRef.current = null;
+    };
+  }, [fetchMission, fetchEvents]);
+
+  // Connect SSE when mission is in live state
+  useEffect(() => {
+    if (isLive && selectedMissionId && !sseRef.current) {
+      connectSSE(selectedMissionId);
+    }
+
+    return () => {
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
+      }
+    };
+  }, [isLive, selectedMissionId, connectSSE]);
+
+  // ─────────────────────────────────────────────
   //  Action handlers
   // ─────────────────────────────────────────────
 
@@ -791,21 +911,46 @@ export function MissionDetail() {
       setActionLoading(action);
 
       try {
-        const res = await fetch(`/api/missions/${selectedMissionId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action }),
-        });
+        // Route execution to the dedicated /run endpoint
+        if (action === "execute") {
+          const res = await fetch(`/api/missions/${selectedMissionId}/run`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mode: "full" }),
+          });
 
-        const data = await res.json();
+          const data = await res.json();
 
-        if (!res.ok) {
-          throw new Error(data.error || data.details || "Action failed");
+          if (!res.ok) {
+            throw new Error(data.error || data.details || "Execution failed");
+          }
+
+          toast.success("Mission execution started!", {
+            description: "Tasks are being executed. You can see live progress below.",
+          });
+
+          // Connect to SSE stream for live updates
+          connectSSE(selectedMissionId);
+          await fetchMission();
+          await fetchEvents();
+        } else {
+          // All other actions go through the standard missions endpoint
+          const res = await fetch(`/api/missions/${selectedMissionId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action }),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.error || data.details || "Action failed");
+          }
+
+          toast.success(data.message || `Mission ${action} successful`);
+          await fetchMission();
+          await fetchEvents();
         }
-
-        toast.success(data.message || `Mission ${action} successful`);
-        await fetchMission();
-        await fetchEvents();
       } catch (err) {
         const message = err instanceof Error ? err.message : "Action failed";
         toast.error(message);
