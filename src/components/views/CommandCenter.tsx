@@ -29,6 +29,9 @@ import {
   Gauge,
   Timer,
   Sparkles,
+  Square,
+  OctagonX,
+  HeartPulse,
 } from "lucide-react";
 import { useApp } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -98,6 +101,23 @@ interface ActiveMissionSummary {
   agentName?: string;
 }
 
+interface SystemHealth {
+  systemStatus: "healthy" | "degraded" | "critical";
+  queueDepth: Record<string, number>;
+  totalQueueDepth: number;
+  approvalPending: number;
+  approvalOldestMinutes: number | null;
+  errorRate: number;
+  recentErrorCount: number;
+  recentTotalEvents: number;
+  budgetUtilization: number;
+  missionsOverBudget: number;
+  missionsNearBudget: number;
+  avgLoopIterations24h: number;
+  lastActivityAt: string | null;
+  timestamp: string;
+}
+
 // ─────────────────────────────────────────────
 //  Animated number counter
 // ─────────────────────────────────────────────
@@ -139,6 +159,9 @@ export function CommandCenter() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [health, setHealth] = useState<SystemHealth | null>(null);
+  const [controlLoading, setControlLoading] = useState<string | null>(null);
+  const [controlResult, setControlResult] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch platform stats
@@ -176,6 +199,48 @@ export function CommandCenter() {
       }
     };
   }, [autoRefresh, fetchStats]);
+
+  // Fetch health metrics
+  const fetchHealth = useCallback(async () => {
+    try {
+      const res = await fetch("/api/missions/command-center/health");
+      if (!res.ok) return;
+      const data = await res.json();
+      setHealth(data);
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    fetchHealth();
+    const interval = setInterval(fetchHealth, 10000); // Health every 10s
+    return () => clearInterval(interval);
+  }, [fetchHealth]);
+
+  // Global control handler
+  const executeControl = async (action: string) => {
+    setControlLoading(action);
+    setControlResult(null);
+    try {
+      const res = await fetch("/api/missions/command-center/controls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setControlResult(`${action.replace("_", " ")}: ${data.affected} mission(s) affected`);
+        // Refresh stats
+        fetchStats();
+        fetchHealth();
+      } else {
+        setControlResult(`Error: ${data.error}`);
+      }
+    } catch {
+      setControlResult("Failed to execute control action");
+    }
+    setControlLoading(null);
+    setTimeout(() => setControlResult(null), 5000);
+  };
 
   // Navigate to mission detail
   const goToMission = (missionId: string) => {
@@ -243,6 +308,120 @@ export function CommandCenter() {
         <LoadingSkeleton />
       ) : stats ? (
         <div className="space-y-4">
+          {/* ─── Global Controls + System Health ─── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Global Mission Controls */}
+            <Card className="border-red-500/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Zap className="h-3.5 w-3.5 text-red-400" />
+                  Global Mission Controls
+                </CardTitle>
+                <CardDescription className="text-[11px]">
+                  Bulk actions applied across all active missions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" onClick={() => executeControl("pause_all")} disabled={controlLoading === "pause_all"}
+                    className="gap-1.5 text-xs h-9 border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-400">
+                    {controlLoading === "pause_all" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pause className="h-3 w-3" />}
+                    Pause All
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => executeControl("resume_all")} disabled={controlLoading === "resume_all"}
+                    className="gap-1.5 text-xs h-9 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-400">
+                    {controlLoading === "resume_all" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                    Resume All
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => executeControl("cancel_all")} disabled={controlLoading === "cancel_all"}
+                    className="gap-1.5 text-xs h-9 border-red-500/30 hover:bg-red-500/10 hover:text-red-400">
+                    {controlLoading === "cancel_all" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Square className="h-3 w-3" />}
+                    Cancel All
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => executeControl("emergency_stop")} disabled={controlLoading === "emergency_stop"}
+                    className="gap-1.5 text-xs h-9">
+                    {controlLoading === "emergency_stop" ? <Loader2 className="h-3 w-3 animate-spin" /> : <OctagonX className="h-3 w-3" />}
+                    Emergency Stop
+                  </Button>
+                </div>
+                <AnimatePresence>
+                  {controlResult && (
+                    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+                      className="text-[11px] text-muted-foreground mt-2 px-2 py-1 rounded bg-muted/50">
+                      {controlResult}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </CardContent>
+            </Card>
+
+            {/* System Health Panel */}
+            <Card className={`border-purple-500/20 ${health?.systemStatus === "critical" ? "ring-1 ring-red-500/30" : health?.systemStatus === "degraded" ? "ring-1 ring-amber-500/20" : ""}`}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <HeartPulse className={`h-3.5 w-3.5 ${health?.systemStatus === "critical" ? "text-red-400" : health?.systemStatus === "degraded" ? "text-amber-400" : "text-emerald-400"}`} />
+                    System Health
+                  </CardTitle>
+                  {health && (
+                    <Badge variant="secondary"
+                      className={`text-[10px] ${health.systemStatus === "critical" ? "bg-red-500/20 text-red-400" : health.systemStatus === "degraded" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400"}`}>
+                      {health.systemStatus.toUpperCase()}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {health ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Queue Depth</span>
+                        <span className="font-mono font-bold">{health.totalQueueDepth}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Error Rate</span>
+                        <span className={`font-mono font-bold ${health.errorRate > 10 ? "text-red-400" : health.errorRate > 5 ? "text-amber-400" : "text-emerald-400"}`}>
+                          {health.errorRate}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Budget Used</span>
+                        <span className={`font-mono font-bold ${health.budgetUtilization > 80 ? "text-red-400" : "text-foreground"}`}>
+                          {health.budgetUtilization}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Over Budget</span>
+                        <span className={`font-mono font-bold ${health.missionsOverBudget > 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                          {health.missionsOverBudget}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Pending Approvals</span>
+                        <span className="font-mono font-bold">{health.approvalPending}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Avg Loop Iters</span>
+                        <span className="font-mono font-bold text-cyan-400">{health.avgLoopIterations24h}</span>
+                      </div>
+                    </div>
+                    {health.approvalOldestMinutes !== null && health.approvalOldestMinutes > 60 && (
+                      <div className="flex items-center gap-1.5 mt-1 px-2 py-1 rounded bg-amber-500/10">
+                        <AlertTriangle className="h-3 w-3 text-amber-400" />
+                        <span className="text-[10px] text-amber-400">Oldest approval: {health.approvalOldestMinutes}m ago</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
           {/* ─── Top KPI Cards ─── */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             <KPICard

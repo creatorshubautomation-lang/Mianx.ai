@@ -1,284 +1,328 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Bell,
+  Check,
+  CheckCheck,
+  AlertTriangle,
+  Info,
+  AlertCircle,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Bell, Clock } from "lucide-react";
-import { toast } from "sonner";
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+// ─────────────────────────────────────────────
+//  Types
+// ─────────────────────────────────────────────
 
 interface Notification {
   id: string;
   type: string;
   title: string;
-  message: string;
-  priority: string;
+  message: string | null;
+  priority?: string;
   isRead: boolean;
-  actionUrl: string | null;
   createdAt: string;
 }
 
+// ─────────────────────────────────────────────
+//  Priority icon mapping
+// ─────────────────────────────────────────────
+
+function getNotifIcon(type: string) {
+  switch (type) {
+    case "mission_completed":
+    case "task_completed":
+      return <CheckCheck className="h-4 w-4 text-emerald-400" />;
+    case "mission_failed":
+    case "task_failed":
+    case "error":
+      return <AlertCircle className="h-4 w-4 text-red-400" />;
+    case "approval_required":
+    case "human_approval_requested":
+      return <AlertTriangle className="h-4 w-4 text-amber-400" />;
+    case "budget_warning":
+    case "budget_exceeded":
+      return <AlertTriangle className="h-4 w-4 text-red-400" />;
+    default:
+      return <Info className="h-4 w-4 text-blue-400" />;
+  }
+}
+
+function getPriorityColor(priority?: string) {
+  switch (priority) {
+    case "high":
+    case "critical":
+      return "border-red-500/30 bg-red-500/5";
+    case "medium":
+      return "border-amber-500/30 bg-amber-500/5";
+    default:
+      return "border-transparent";
+  }
+}
+
+function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `${diffDay}d ago`;
+}
+
+// ─────────────────────────────────────────────
+//  NotificationBell Component
+// ─────────────────────────────────────────────
+
 export function NotificationBell() {
+  const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-
-  // Ref to hold the EventSource so we can close it on unmount / reconnect.
+  const [loading, setLoading] = useState(false);
+  const [markingAll, setMarkingAll] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
-  // Ref for reconnect timer
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Exponential backoff delay (starts at 1 s, caps at 30 s)
-  const reconnectDelayRef = useRef(1000);
-  // Keep a ref to current notification ids so the SSE handler can avoid
-  // duplicates without depending on stale state closures.
-  const notifIdsRef = useRef<Set<string>>(new Set());
 
-  // ── Fetch existing notifications (initial load) ──────────────────
-  const loadNotifications = useCallback(() => {
-    fetch("/api/notifications")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.notifications) {
-          setNotifications(data.notifications);
-          setUnreadCount(data.unreadCount || 0);
-          // Sync the id set so SSE can deduplicate.
-          notifIdsRef.current = new Set(data.notifications.map((n: Notification) => n.id));
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  // Ref that holds the connect function so the error handler can
-  // call it for reconnection without triggering the "accessed before
-  // declaration" lint rule.
-  const connectSSERef = useRef<() => void>(() => {});
-
-  // ── Connect to the SSE stream ────────────────────────────────────
-  const connectSSE = useCallback(() => {
-    // Close any existing connection first.
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
+  // Fetch notifications
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications?unreadOnly=false");
+      if (!res.ok) return;
+      const data = await res.json();
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.unreadCount || 0);
+    } catch {
+      // Silently fail
     }
-
-    const es = new EventSource("/api/notifications/stream");
-    eventSourceRef.current = es;
-
-    // ── Handle incoming notification events ────────────────────────
-    es.addEventListener("notification", (e) => {
-      try {
-        const parsed: Notification | Notification[] = JSON.parse(e.data);
-        const currentIds = notifIdsRef.current;
-
-        if (Array.isArray(parsed)) {
-          // Initial batch from server — merge avoiding duplicates.
-          const fresh = parsed.filter((n) => !currentIds.has(n.id));
-          if (fresh.length === 0) return;
-
-          // Update the id set.
-          fresh.forEach((n) => currentIds.add(n.id));
-          notifIdsRef.current = currentIds;
-
-          setNotifications((prev) => [...fresh, ...prev]);
-          setUnreadCount((prev) => prev + fresh.length);
-        } else {
-          // Single new notification — prepend if not already known.
-          if (currentIds.has(parsed.id)) return;
-          currentIds.add(parsed.id);
-          notifIdsRef.current = currentIds;
-
-          setNotifications((prev) => [parsed, ...prev]);
-          setUnreadCount((prev) => prev + 1);
-        }
-      } catch {
-        // ignore malformed data
-      }
-    });
-
-    // ── Heartbeat — confirms connection is alive ───────────────────
-    es.addEventListener("heartbeat", () => {
-      // Connection is healthy — reset backoff delay.
-      reconnectDelayRef.current = 1000;
-    });
-
-    // ── Error handling — reconnect with exponential backoff ────────
-    es.onerror = () => {
-      es.close();
-      eventSourceRef.current = null;
-
-      const delay = reconnectDelayRef.current;
-      reconnectDelayRef.current = Math.min(delay * 2, 30_000);
-
-      reconnectTimerRef.current = setTimeout(() => {
-        connectSSERef.current();
-      }, delay);
-    };
   }, []);
 
-  // Keep the ref in sync so the error handler always calls the latest.
-  connectSSERef.current = connectSSE;
-
-  // ── Lifecycle: mount / unmount ────────────────────────────────────
+  // Initial fetch + polling
   useEffect(() => {
-    // Fetch existing notifications on mount.
-    loadNotifications();
-    // Open the SSE stream for real-time updates.
-    connectSSE();
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000); // Poll every 30s
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  // SSE stream for real-time notifications
+  useEffect(() => {
+    try {
+      const es = new EventSource("/api/notifications/stream");
+      eventSourceRef.current = es;
+
+      es.addEventListener("notification", (event) => {
+        try {
+          const notif = JSON.parse(event.data);
+          // Add to list and increment unread
+          setNotifications((prev) => [notif, ...prev].slice(0, 50));
+          setUnreadCount((prev) => prev + 1);
+        } catch { /* skip */ }
+      });
+
+      es.onerror = () => {
+        es.close();
+      };
+    } catch {
+      // SSE not available
+    }
 
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
+      eventSourceRef.current?.close();
     };
-  }, [loadNotifications, connectSSE]);
+  }, []);
 
-  const handleMarkAllRead = async () => {
-    try {
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markAllRead: true }),
-      });
-      setUnreadCount(0);
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, isRead: true })),
-      );
-    } catch {
-      toast.error("Failed to mark notifications");
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
     }
-  };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
-  const handleMarkRead = async (id: string) => {
+  // Mark single as read
+  const markAsRead = async (id: string) => {
     try {
       await fetch("/api/notifications", {
-        method: "PATCH",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, isRead: true }),
       });
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch {
-      // silent
-    }
+    } catch { /* skip */ }
   };
 
-  const formatTime = (date: string) => {
-    const diff = Date.now() - new Date(date).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+  // Mark all as read
+  const markAllAsRead = async () => {
+    setMarkingAll(true);
+    try {
+      await fetch("/api/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markAllRead: true }),
+      });
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch { /* skip */ }
+    setMarkingAll(false);
   };
 
-  const priorityColors: Record<string, string> = {
-    high: "bg-red-500/20 text-red-300",
-    urgent: "bg-red-500/20 text-red-300",
-    normal: "bg-purple-500/20 text-purple-300",
-    low: "bg-gray-500/20 text-gray-300",
+  // Refresh
+  const handleRefresh = () => {
+    setLoading(true);
+    fetchNotifications().finally(() => setLoading(false));
   };
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white pulse-dot">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        className="w-80 sm:w-96 p-0 glass-strong border-purple-500/20"
-      >
-        <div className="flex items-center justify-between p-3 border-b border-purple-500/10">
-          <h3 className="font-semibold text-sm flex items-center gap-2">
-            <Bell className="h-4 w-4 text-purple-400" />
-            Notifications
+    <div className="relative" ref={dropdownRef}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsOpen(!isOpen)}
+            className="relative h-9 w-9 p-0 hover:bg-accent"
+          >
+            <Bell className="h-4 w-4" />
             {unreadCount > 0 && (
-              <Badge className="bg-red-500/20 text-red-300 text-xs">
-                {unreadCount} new
-              </Badge>
-            )}
-          </h3>
-          {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllRead}
-              className="text-xs text-purple-300 hover:text-purple-200"
-            >
-              Mark all read
-            </button>
-          )}
-        </div>
-
-        <div className="max-h-96 overflow-y-auto">
-          {notifications.length === 0 ? (
-            <div className="p-6 text-center">
-              <Bell className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
-              <p className="text-sm text-muted-foreground">
-                No notifications yet
-              </p>
-            </div>
-          ) : (
-            notifications.slice(0, 10).map((notif) => (
-              <div
-                key={notif.id}
-                className={`p-3 border-b border-purple-500/5 hover:bg-purple-500/5 cursor-pointer ${
-                  !notif.isRead ? "bg-purple-500/5" : ""
-                }`}
-                onClick={() => handleMarkRead(notif.id)}
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-gradient-to-r from-purple-500 to-cyan-500 px-1 text-[10px] font-bold text-white"
               >
-                <div className="flex items-start gap-2">
-                  {!notif.isRead && (
-                    <span className="mt-1.5 h-2 w-2 rounded-full bg-purple-400 flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{notif.title}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-                      {notif.message}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                        <Clock className="h-2.5 w-2.5" />
-                        {formatTime(notif.createdAt)}
-                      </span>
-                      {notif.priority !== "normal" && (
-                        <Badge
-                          className={`text-xs ${priorityColors[notif.priority] || priorityColors.normal}`}
-                        >
-                          {notif.priority}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </motion.span>
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Notifications</TooltipContent>
+      </Tooltip>
 
-        {notifications.length > 0 && (
-          <div className="p-2 border-t border-purple-500/10 text-center">
-            <button className="text-xs text-purple-300 hover:text-purple-200">
-              View all
-            </button>
-          </div>
+      {/* Dropdown */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-full mt-2 w-80 sm:w-96 z-50 rounded-xl border border-purple-500/20 glass-strong shadow-2xl overflow-hidden"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-purple-500/10">
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4 text-purple-400" />
+                <span className="text-sm font-semibold">Notifications</span>
+                {unreadCount > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] bg-purple-500/20 text-purple-300"
+                  >
+                    {unreadCount} new
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {unreadCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={markAllAsRead}
+                    disabled={markingAll}
+                    className="h-7 text-[10px] text-muted-foreground hover:text-foreground gap-1"
+                  >
+                    <Check className="h-3 w-3" />
+                    {markingAll ? "..." : "All read"}
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={loading}
+                  className="h-7 text-[10px] text-muted-foreground hover:text-foreground"
+                >
+                  <Sparkles className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+                </Button>
+              </div>
+            </div>
+
+            {/* Notification List */}
+            <ScrollArea className="max-h-80">
+              {loading && notifications.length === 0 ? (
+                <div className="p-4 space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex gap-3">
+                      <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
+                      <div className="flex-1 space-y-1.5">
+                        <Skeleton className="h-3 w-3/4" />
+                        <Skeleton className="h-2.5 w-1/2" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className="flex flex-col items-center py-10 text-center">
+                  <Bell className="h-8 w-8 text-muted-foreground/20 mb-2" />
+                  <p className="text-sm text-muted-foreground">No notifications yet</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">
+                    We&apos;ll notify you about mission updates
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-purple-500/5">
+                  {notifications.map((notif) => (
+                    <button
+                      key={notif.id}
+                      onClick={() => !notif.isRead && markAsRead(notif.id)}
+                      className={`flex items-start gap-3 w-full px-4 py-3 text-left transition-colors hover:bg-purple-500/5 ${getPriorityColor(notif.priority)} ${!notif.isRead ? "bg-purple-500/3" : ""}`}
+                    >
+                      <div className="flex-shrink-0 mt-0.5">
+                        {getNotifIcon(notif.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs ${!notif.isRead ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                          {notif.title}
+                        </p>
+                        {notif.message && (
+                          <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+                            {notif.message}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-muted-foreground/50 mt-1">
+                          {timeAgo(notif.createdAt)}
+                        </p>
+                      </div>
+                      {!notif.isRead && (
+                        <div className="flex-shrink-0 w-2 h-2 rounded-full bg-purple-400 mt-1.5" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </motion.div>
         )}
-      </PopoverContent>
-    </Popover>
+      </AnimatePresence>
+    </div>
   );
 }

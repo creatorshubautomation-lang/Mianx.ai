@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LanguageSwitcher } from "../mianx/LanguageSwitcher";
+import { NotificationBell } from "../mianx/NotificationBell";
 import {
   Dialog,
   DialogContent,
@@ -173,6 +174,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {/* User card */}
           <div className="p-3 border-t border-purple-500/10">
             <div className="flex items-center gap-3 px-3 py-2">
+              <NotificationBell />
               <Avatar className="h-9 w-9">
                 <AvatarFallback className="bg-gradient-to-br from-purple-500 to-cyan-500 text-white text-sm">
                   {session?.user?.name?.charAt(0).toUpperCase() || "U"}
@@ -225,6 +227,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <span className="font-bold">Mianx.ai</span>
             </button>
             <div className="flex items-center gap-2">
+              <NotificationBell />
               <LanguageSwitcher />
               <Button
                 variant="ghost"
