@@ -17,23 +17,26 @@ const SECURITY_HEADERS = {
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 } as const;
 
-// Content Security Policy for production security.
-// NOTE: We do NOT use nonce-based CSP because Next.js generates nonces
-// during SSR independently, and middleware would inject a DIFFERENT nonce,
-// causing ALL scripts to be blocked → blank page.
-// Instead, we use 'self' + hash-based approach (Next.js handles this).
+// Content Security Policy — relaxed for Next.js SPA compatibility.
+// Next.js + next-themes + RSC all generate inline <script> tags, so we
+// MUST allow 'unsafe-inline' in script-src. Without it, ALL React
+// hydration is blocked → blank page with only CSS background visible.
+// Other security headers (X-Frame-Options, HSTS, etc.) still protect
+// against XSS, clickjacking, and transport-layer attacks.
 function getCSPHeader(req: NextRequest): string {
   const isDev = process.env.NODE_ENV === "development";
 
   const base = [
     `default-src 'self'`,
-    // Allow scripts from self (Next.js bundles) and unsafe-eval in dev (HMR)
-    `script-src 'self'${isDev ? " 'unsafe-eval' 'unsafe-inline'" : ""}`,
-    // Allow inline styles (required by Tailwind CSS runtime + Radix UI)
+    // 'unsafe-inline' REQUIRED — Next.js RSC, next-themes, and framer-motion
+    // all inject inline scripts. 'unsafe-eval' needed in dev for Turbopack HMR.
+    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+    // 'unsafe-inline' REQUIRED — Tailwind CSS runtime + Radix UI components
+    // inject dynamic styles. Google Fonts for Inter + JetBrains Mono.
     `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
     `font-src 'self' https://fonts.gstatic.com`,
     `img-src 'self' data: blob: https:`,
-    // Allow API calls, WebSocket connections, and external resources
+    // API calls, WebSocket (SSE), external resources
     `connect-src 'self' https: wss:${isDev ? " ws:" : ""}`,
     `frame-ancestors 'none'`,
     `base-uri 'self'`,
