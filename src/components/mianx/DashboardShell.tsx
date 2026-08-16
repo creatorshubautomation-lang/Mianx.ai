@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   Activity,
   Wallet,
+  Store,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -70,6 +71,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     { key: "approvals" as const, icon: ShieldCheck, label: "Approvals" },
     { key: "budget" as const, icon: Wallet, label: "Budget" },
     { key: "trustCenter" as const, icon: Shield, label: "Trust Center" },
+    { key: "marketplace" as const, icon: Store, label: "Marketplace" },
     { key: "support" as const, icon: LifeBuoy, label: "Support" },
     { key: "settings" as const, icon: Settings, label: t("dash.settings") },
   ];
@@ -85,7 +87,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     : allNavItems;
 
   const handleNavClick = (key: string) => {
-    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "commandCenter" | "toolRegistry" | "approvals" | "budget" | "trustCenter" | "support" | "settings" | "admin");
+    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "commandCenter" | "toolRegistry" | "approvals" | "budget" | "trustCenter" | "marketplace" | "support" | "settings" | "admin");
     setSearchOpen(false);
     setSearchQuery("");
   };

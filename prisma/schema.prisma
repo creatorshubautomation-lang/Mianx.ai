@@ -799,3 +799,35 @@ model ToolDefinition {
   @@index([riskLevel])
   @@index([enabled])
 }
+
+// ─────────────────────────────────────────────
+//  MARKETPLACE ENHANCEMENT (Phase 10)
+//  Reviews, installs, and discovery for agents
+// ─────────────────────────────────────────────
+
+model AgentReview {
+  id            String   @id @default(cuid())
+  agentId       String
+  userId        String
+  rating        Int      // 1-5 stars
+  title         String?  // optional review title
+  body          String?  // optional review body
+  isPublished   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([agentId, userId]) // one review per user per agent
+  @@index([agentId])
+  @@index([userId])
+}
+
+model AgentInstall {
+  id            String   @id @default(cuid())
+  agentId       String
+  userId        String
+  installedAt   DateTime @default(now())
+
+  @@unique([agentId, userId]) // can only install once
+  @@index([agentId])
+  @@index([userId])
+}
