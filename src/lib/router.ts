@@ -49,6 +49,8 @@ const VIEW_PATH_MAP: Record<ViewKey, string> = {
   commandCenter: "/dashboard/command-center",
   // Budget Control (Phase 8)
   budget: "/dashboard/budget",
+  // Trust & Audit Center (Phase 9)
+  trustCenter: "/dashboard/trust",
   // Admin
   admin: "/admin",
 };

@@ -69,6 +69,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     { key: "toolRegistry" as const, icon: Wrench, label: "Tools" },
     { key: "approvals" as const, icon: ShieldCheck, label: "Approvals" },
     { key: "budget" as const, icon: Wallet, label: "Budget" },
+    { key: "trustCenter" as const, icon: Shield, label: "Trust Center" },
     { key: "support" as const, icon: LifeBuoy, label: "Support" },
     { key: "settings" as const, icon: Settings, label: t("dash.settings") },
   ];
@@ -84,7 +85,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     : allNavItems;
 
   const handleNavClick = (key: string) => {
-    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "commandCenter" | "toolRegistry" | "approvals" | "budget" | "support" | "settings" | "admin");
+    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "commandCenter" | "toolRegistry" | "approvals" | "budget" | "trustCenter" | "support" | "settings" | "admin");
     setSearchOpen(false);
     setSearchQuery("");
   };

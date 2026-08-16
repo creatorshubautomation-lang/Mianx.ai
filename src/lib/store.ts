@@ -47,6 +47,8 @@ export type ViewKey =
   | "commandCenter"
   // Budget Control (Phase 8)
   | "budget"
+  // Trust & Audit Center (Phase 9)
+  | "trustCenter"
   // Admin
   | "admin";
 
