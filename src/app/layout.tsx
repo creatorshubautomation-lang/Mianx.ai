@@ -45,6 +45,14 @@ export const metadata: Metadata = {
     "AI content agents",
   ],
   authors: [{ name: "Mianx.ai" }],
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
   openGraph: {
     title: "Mianx.ai — Agentic Software House",
     description:
@@ -52,12 +60,16 @@ export const metadata: Metadata = {
     url: "https://mianx.ai",
     siteName: "Mianx.ai",
     type: "website",
+    images: [
+      { url: "/og-image.png", width: 1200, height: 630, alt: "Mianx.ai — Agentic Software House" },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Mianx.ai — Agentic Software House",
     description:
       "The first software house run by AI agents. Design, dev, content, marketing, QA, support — all autonomous.",
+    images: ["/og-image.png"],
   },
 };
 
