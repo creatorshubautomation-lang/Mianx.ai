@@ -41,6 +41,8 @@ export type ViewKey =
   | "missionDetail"
   // Tool Registry (Phase 4)
   | "toolRegistry"
+  // Approval Queue (Phase 5)
+  | "approvals"
   // Admin
   | "admin";
 

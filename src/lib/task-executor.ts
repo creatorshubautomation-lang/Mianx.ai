@@ -95,6 +95,44 @@ export async function executeTask(
   });
 
   try {
+    // ── Phase 5: Budget check before execution ──
+    try {
+      const { checkBudgetAllowance } = await import("./approval-engine");
+      const budgetCheck = await checkBudgetAllowance(ctx.missionId, 0.005, ctx.userId);
+      if (!budgetCheck.allowed) {
+        // Budget exceeded — pause the mission
+        const { autoPauseOnBudgetExceeded } = await import("./approval-engine");
+        await autoPauseOnBudgetExceeded(ctx.missionId);
+
+        await db.missionTask.update({
+          where: { id: ctx.taskId },
+          data: { status: "PENDING" },
+        });
+
+        await logMissionEvent(ctx.missionId, {
+          eventType: "BUDGET_EXCEEDED",
+          title: `Task Blocked: ${task.title}`,
+          description: `Cannot execute task — mission budget exceeded. ${budgetCheck.reason}`,
+          taskId: ctx.taskId,
+          level: "error",
+          metadata: { budgetCheck },
+        });
+
+        return {
+          taskId: ctx.taskId,
+          success: false,
+          output: "",
+          outputType: "text",
+          durationMs: Date.now() - startTime,
+          costUsd: 0,
+          agentName,
+          error: `Budget exceeded: ${budgetCheck.reason}`,
+        };
+      }
+    } catch {
+      // Budget check failure is non-fatal
+    }
+
     // Build context from prior task outputs
     const priorContext = buildPriorContext(ctx.priorOutputs, task);
 
@@ -120,6 +158,9 @@ export async function executeTask(
 
         // Build tool context for AI prompt
         const toolOutputs: string[] = [];
+        let approvalRequired = false;
+        let approvalId: string | null = null;
+
         for (const tr of toolExecResults.results) {
           toolResults.push({
             toolName: tr.toolName,
@@ -130,6 +171,11 @@ export async function executeTask(
             approvalRequired: tr.approvalRequired,
             approvalId: tr.approvalId,
           });
+
+          if (tr.approvalRequired) {
+            approvalRequired = true;
+            approvalId = tr.approvalId || null;
+          }
 
           if (tr.success && tr.output) {
             const outputStr = typeof tr.output === "string"
@@ -162,6 +208,39 @@ export async function executeTask(
           level: "info",
           metadata: { toolCount: requiredTools.length, successCount: toolExecResults.results.filter((r) => r.success).length },
         });
+
+        // ── Phase 5: Pause task if approval is required ──
+        if (approvalRequired) {
+          await db.missionTask.update({
+            where: { id: ctx.taskId },
+            data: {
+              status: "PENDING",
+              approvalStatus: "PENDING",
+              approvalReason: `Tool execution requires human approval. Approval ID: ${approvalId}`,
+            },
+          });
+
+          await logMissionEvent(ctx.missionId, {
+            eventType: "HUMAN_APPROVAL_REQUESTED",
+            title: `Task Paused: ${task.title}`,
+            description: `Task is waiting for human approval (Approval ID: ${approvalId})`,
+            taskId: ctx.taskId,
+            level: "warn",
+            metadata: { approvalId, toolCount: requiredTools.length },
+          });
+
+          // Return early — task will resume after approval
+          return {
+            taskId: ctx.taskId,
+            success: false,
+            output: "",
+            outputType: "text",
+            durationMs: Date.now() - startTime,
+            costUsd: 0,
+            agentName,
+            error: `Task paused: waiting for human approval (ID: ${approvalId})`,
+          };
+        }
       }
     } catch (toolError) {
       console.warn(`[task-executor] Tool execution error (non-fatal): ${toolError instanceof Error ? toolError.message : String(toolError)}`);

@@ -43,6 +43,8 @@ const VIEW_PATH_MAP: Record<ViewKey, string> = {
   missionDetail: "/dashboard/missions", // actual path includes /:id
   // Tool Registry (Phase 4)
   toolRegistry: "/dashboard/tools",
+  // Approval Queue (Phase 5)
+  approvals: "/dashboard/approvals",
   // Admin
   admin: "/admin",
 };

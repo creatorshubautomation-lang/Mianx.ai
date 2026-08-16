@@ -33,6 +33,7 @@ import { ProjectDetail } from "@/components/views/ProjectDetail";
 import { MissionsList } from "@/components/views/MissionsList";
 import { MissionDetail } from "@/components/views/MissionDetail";
 import { ToolRegistry } from "@/components/views/ToolRegistry";
+import { ApprovalQueue } from "@/components/views/ApprovalQueue";
 import { DeliverablesList } from "@/components/views/DeliverablesList";
 import { SettingsView } from "@/components/views/SettingsView";
 import { SupportView } from "@/components/views/SupportView";
@@ -240,6 +241,7 @@ function AppContent() {
           {view === "missions" && <MissionsList />}
           {view === "missionDetail" && <MissionDetail />}
           {view === "toolRegistry" && <ToolRegistry />}
+          {view === "approvals" && <ApprovalQueue />}
           {view === "deliverables" && <DeliverablesList />}
           {view === "support" && <SupportView />}
           {view === "settings" && <SettingsView />}
