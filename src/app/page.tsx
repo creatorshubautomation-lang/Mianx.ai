@@ -42,6 +42,9 @@ import { DeliverablesList } from "@/components/views/DeliverablesList";
 import { SettingsView } from "@/components/views/SettingsView";
 import { SupportView } from "@/components/views/SupportView";
 import { AdminPanel } from "@/components/views/AdminPanel";
+import { OrganizationsView } from "@/components/views/OrganizationsView";
+import { OrgSettingsView } from "@/components/views/OrgSettingsView";
+import { BillingView } from "@/components/views/BillingView";
 
 // ─────────────────────────────────────────────
 //  Public views (no auth required)
@@ -255,6 +258,9 @@ function AppContent() {
           {view === "deliverables" && <DeliverablesList />}
           {view === "support" && <SupportView />}
           {view === "settings" && <SettingsView />}
+          {view === "organizations" && <OrganizationsView />}
+          {view === "orgSettings" && <OrgSettingsView />}
+          {view === "billing" && <BillingView />}
           {view === "admin" && <AdminPanel />}
         </motion.div>
       </AnimatePresence>

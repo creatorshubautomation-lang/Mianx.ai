@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LanguageSwitcher } from "../mianx/LanguageSwitcher";
 import { NotificationBell } from "../mianx/NotificationBell";
+import { OrgSwitcher } from "../mianx/OrgSwitcher";
+import { DomainNav } from "../mianx/DomainNav";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +36,8 @@ import {
   Wallet,
   Store,
   ChartBar,
+  Building2,
+  CreditCard,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -41,7 +45,7 @@ import { useState, useEffect, useRef } from "react";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const t = useT();
-  const { view, navigate } = useApp();
+  const { view, navigate, activeOrgId } = useApp();
   const { data: session } = useSession();
 
   const [searchOpen, setSearchOpen] = useState(false);
@@ -77,6 +81,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     { key: "marketplace" as const, icon: Store, label: "Marketplace" },
     { key: "support" as const, icon: LifeBuoy, label: "Support" },
     { key: "settings" as const, icon: Settings, label: t("dash.settings") },
+    { key: "organizations" as const, icon: Building2, label: "Organizations" },
+    { key: "billing" as const, icon: CreditCard, label: "Billing" },
   ];
 
   const allNavItems = session?.user?.role === "ADMIN"
@@ -90,7 +96,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     : allNavItems;
 
   const handleNavClick = (key: string) => {
-    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "commandCenter" | "toolRegistry" | "approvals" | "budget" | "trustCenter" | "agentPerformance" | "marketplace" | "support" | "settings" | "admin");
+    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "commandCenter" | "toolRegistry" | "approvals" | "budget" | "trustCenter" | "agentPerformance" | "marketplace" | "support" | "settings" | "organizations" | "billing" | "admin");
     setSearchOpen(false);
     setSearchQuery("");
   };
@@ -114,6 +120,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </span>
           </button>
 
+          {/* Org Switcher */}
+          <OrgSwitcher />
+
           {/* Search / Command Palette Button */}
           <div className="px-3 pt-3 pb-1">
             <button
@@ -131,7 +140,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
           {/* Nav */}
           <nav className="flex-1 p-3 pt-1 space-y-1 overflow-y-auto">
-            {navItems.map((item) => (
+            {navItems.map((item) => {
+              // Hide org-dependent items if no org is selected
+              if (!activeOrgId && item.key === "billing") return null;
+
+              return (
               <button
                 key={item.key}
                 onClick={() => navigate(item.key)}
@@ -151,7 +164,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   </span>
                 )}
               </button>
-            ))}
+            );
+            })}
+
+            {/* Domain Navigation (shows below main nav if org is active) */}
+            <DomainNav />
 
             {session?.user?.role === "ADMIN" && (
               <>
@@ -174,7 +191,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           {/* User card */}
-          <div className="p-3 border-t border-purple-500/10">
+          <div className="p-3 border-t border-purple-500/10 flex-shrink-0">
             <div className="flex items-center gap-3 px-3 py-2">
               <NotificationBell />
               <Avatar className="h-9 w-9">

@@ -53,6 +53,10 @@ const VIEW_PATH_MAP: Record<ViewKey, string> = {
   trustCenter: "/dashboard/trust",
   // Agent Performance Dashboard
   agentPerformance: "/dashboard/agent-performance",
+  // Multi-tenancy
+  organizations: "/dashboard/organizations",
+  orgSettings: "/dashboard/organizations", // actual path includes /:id/settings
+  billing: "/dashboard/billing",
   // Admin
   admin: "/admin",
 };
@@ -96,12 +100,17 @@ export function viewToPath(
     base = "/dashboard/agent-performance/" + encodeURIComponent(params.name);
   }
 
+  if (view === "orgSettings" && params?.id) {
+    base = "/dashboard/organizations/" + encodeURIComponent(params.id) + "/settings";
+  }
+
   // Append any extra query params
   if (params && Object.keys(params).length > 0) {
     const queryParts: string[] = [];
     for (const [key, val] of Object.entries(params)) {
       if (view === "projectDetail" && key === "id") continue; // already in path
       if (view === "missionDetail" && key === "id") continue; // already in path
+      if (view === "orgSettings" && key === "id") continue; // already in path
       queryParts.push(
         encodeURIComponent(key) + "=" + encodeURIComponent(val),
       );
@@ -157,6 +166,15 @@ export function pathToView(
     };
   }
 
+  // Special: /dashboard/organizations/:id/settings → orgSettings
+  const orgSettingsMatch = path.match("^/dashboard/organizations/([^/]+)/settings$");
+  if (orgSettingsMatch) {
+    return {
+      view: "orgSettings",
+      params: { id: decodeURIComponent(orgSettingsMatch[1]) },
+    };
+  }
+
   return null;
 }
 
@@ -201,6 +219,11 @@ export function pushView(
     store.setSelectedAgentName(params.name);
   }
 
+  // Also sync activeOrgId for orgSettings
+  if (view === "orgSettings" && params?.id) {
+    store.setActiveOrgId(params.id);
+  }
+
   _suppressUrlSync = false;
 }
 
@@ -234,6 +257,11 @@ export function replaceView(
 
   if (view === "agentPerformance" && params?.name) {
     store.setSelectedAgentName(params.name);
+  }
+
+  // Also sync activeOrgId for orgSettings
+  if (view === "orgSettings" && params?.id) {
+    store.setActiveOrgId(params.id);
   }
 
   _suppressUrlSync = false;
@@ -279,6 +307,10 @@ export function initRouter(): void {
         store.setSelectedMission(event.state.params.id);
       }
 
+      if (event.state.view === "orgSettings" && event.state.params?.id) {
+        store.setActiveOrgId(event.state.params.id);
+      }
+
       _suppressUrlSync = false;
       return;
     }
@@ -296,6 +328,10 @@ export function initRouter(): void {
 
       if (parsedPath.view === "missionDetail" && parsedPath.params?.id) {
         store.setSelectedMission(parsedPath.params.id);
+      }
+
+      if (parsedPath.view === "orgSettings" && parsedPath.params?.id) {
+        store.setActiveOrgId(parsedPath.params.id);
       }
 
       _suppressUrlSync = false;

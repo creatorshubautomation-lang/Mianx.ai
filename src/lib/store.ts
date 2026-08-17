@@ -51,8 +51,22 @@ export type ViewKey =
   | "trustCenter"
   // Agent Performance Dashboard
   | "agentPerformance"
+  // Multi-tenancy
+  | "organizations"
+  | "orgSettings"
+  | "billing"
   // Admin
   | "admin";
+
+export interface OrgSummary {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  memberCount: number;
+  domainCount: number;
+  userRole: string;
+}
 
 interface AppState {
   // Navigation
@@ -89,6 +103,16 @@ interface AppState {
   // Theme
   theme: "dark" | "light";
   toggleTheme: () => void;
+
+  // Multi-tenancy
+  activeOrgId: string | null;
+  setActiveOrgId: (id: string | null) => void;
+  activeDomainSlug: string | null;
+  setActiveDomainSlug: (slug: string | null) => void;
+  organizations: OrgSummary[];
+  setOrganizations: (orgs: OrgSummary[]) => void;
+  activeOrgPermissions: string[];
+  setActiveOrgPermissions: (perms: string[]) => void;
 }
 
 export const useApp = create<AppState>()(
@@ -136,6 +160,16 @@ export const useApp = create<AppState>()(
 
       theme: "dark",
       toggleTheme: () => set({ theme: get().theme === "dark" ? "light" : "dark" }),
+
+      // Multi-tenancy
+      activeOrgId: null,
+      setActiveOrgId: (id) => set({ activeOrgId: id }),
+      activeDomainSlug: null,
+      setActiveDomainSlug: (slug) => set({ activeDomainSlug: slug }),
+      organizations: [],
+      setOrganizations: (orgs) => set({ organizations: orgs }),
+      activeOrgPermissions: [],
+      setActiveOrgPermissions: (perms) => set({ activeOrgPermissions: perms }),
     }),
     {
       name: "mianx-app-state",

@@ -131,6 +131,9 @@ const SPA_REWRITE_PATHS = [
   "/dashboard/budget",
   "/dashboard/trust",
   "/dashboard/agent-performance",
+  // Multi-tenancy
+  "/dashboard/organizations",
+  "/dashboard/billing",
   "/admin",
 ];
 
@@ -150,7 +153,8 @@ function handlePageRoute(req: NextRequest): NextResponse {
   const isDynamicRoute =
     /^\/dashboard\/projects\/[^/]+$/.test(pathname) ||
     /^\/dashboard\/missions\/[^/]+$/.test(pathname) ||
-    /^\/dashboard\/agent-performance\/[^/]+$/.test(pathname);
+    /^\/dashboard\/agent-performance\/[^/]+$/.test(pathname) ||
+    /^\/dashboard\/organizations\/[^/]+\/settings$/.test(pathname);
 
   if (isKnownPath || isDynamicRoute) {
     // Rewrite to `/` so Next.js serves our SPA shell (page.tsx)
