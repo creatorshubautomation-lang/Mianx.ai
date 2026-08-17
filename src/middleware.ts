@@ -134,6 +134,11 @@ const SPA_REWRITE_PATHS = [
   // Multi-tenancy
   "/dashboard/organizations",
   "/dashboard/billing",
+  // Organization extensions
+  "/dashboard/workflows",
+  "/dashboard/integrations",
+  "/dashboard/ai-agents",
+  "/dashboard/audit-log",
   "/admin",
 ];
 

@@ -57,6 +57,11 @@ const VIEW_PATH_MAP: Record<ViewKey, string> = {
   organizations: "/dashboard/organizations",
   orgSettings: "/dashboard/organizations", // actual path includes /:id/settings
   billing: "/dashboard/billing",
+  // Organization extensions
+  workflows: "/dashboard/workflows",
+  integrations: "/dashboard/integrations",
+  aiAgents: "/dashboard/ai-agents",
+  auditLog: "/dashboard/audit-log",
   // Admin
   admin: "/admin",
 };

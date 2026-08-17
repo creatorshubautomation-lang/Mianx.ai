@@ -38,6 +38,10 @@ import {
   ChartBar,
   Building2,
   CreditCard,
+  Workflow,
+  Plug,
+  Bot,
+  ScrollText,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -73,6 +77,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     { key: "deliverables" as const, icon: FileBox, label: t("dash.deliverables") },
     { key: "missions" as const, icon: Rocket, label: "Missions" },
     { key: "commandCenter" as const, icon: Activity, label: "Command Center" },
+    { key: "workflows" as const, icon: Workflow, label: "Automations", orgOnly: true },
+    { key: "integrations" as const, icon: Plug, label: "Integrations", orgOnly: true },
+    { key: "aiAgents" as const, icon: Bot, label: "AI Agents", orgOnly: true },
     { key: "toolRegistry" as const, icon: Wrench, label: "Tools" },
     { key: "approvals" as const, icon: ShieldCheck, label: "Approvals" },
     { key: "budget" as const, icon: Wallet, label: "Budget" },
@@ -83,6 +90,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     { key: "settings" as const, icon: Settings, label: t("dash.settings") },
     { key: "organizations" as const, icon: Building2, label: "Organizations" },
     { key: "billing" as const, icon: CreditCard, label: "Billing" },
+    { key: "auditLog" as const, icon: ScrollText, label: "Audit Log", orgOnly: true },
   ];
 
   const allNavItems = session?.user?.role === "ADMIN"
@@ -96,7 +104,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     : allNavItems;
 
   const handleNavClick = (key: string) => {
-    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "commandCenter" | "toolRegistry" | "approvals" | "budget" | "trustCenter" | "agentPerformance" | "marketplace" | "support" | "settings" | "organizations" | "billing" | "admin");
+    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "commandCenter" | "workflows" | "integrations" | "aiAgents" | "toolRegistry" | "approvals" | "budget" | "trustCenter" | "agentPerformance" | "marketplace" | "support" | "settings" | "organizations" | "billing" | "auditLog" | "admin");
     setSearchOpen(false);
     setSearchQuery("");
   };
@@ -142,6 +150,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <nav className="flex-1 p-3 pt-1 space-y-1 overflow-y-auto">
             {navItems.map((item) => {
               // Hide org-dependent items if no org is selected
+              if (!activeOrgId && item.orgOnly) return null;
               if (!activeOrgId && item.key === "billing") return null;
 
               return (
@@ -270,7 +279,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
           {/* Mobile nav scroll */}
           <div className="flex gap-2 px-3 pb-3 overflow-x-auto no-scrollbar">
-            {navItems.map((item) => (
+            {navItems.filter((item) => activeOrgId || !item.orgOnly).map((item) => (
               <button
                 key={item.key}
                 onClick={() => navigate(item.key)}
@@ -310,7 +319,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         {/* Mobile sticky bottom nav */}
         <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 backdrop-blur-xl bg-background/80 border-t border-purple-500/10 pb-[env(safe-area-inset-bottom)]">
           <div className="flex items-center justify-around px-2 py-2">
-            {navItems.slice(0, 5).map((item) => (
+            {navItems.filter((item) => activeOrgId || !item.orgOnly).slice(0, 5).map((item) => (
               <button
                 key={item.key}
                 onClick={() => navigate(item.key)}

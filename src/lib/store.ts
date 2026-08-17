@@ -55,6 +55,11 @@ export type ViewKey =
   | "organizations"
   | "orgSettings"
   | "billing"
+  // Organization extensions
+  | "workflows"
+  | "integrations"
+  | "aiAgents"
+  | "auditLog"
   // Admin
   | "admin";
 
