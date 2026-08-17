@@ -27,18 +27,21 @@ import {
   Bot,
   Workflow,
   Rocket,
-  Play,
-  PlayCircle,
   Star,
   Quote,
   HelpCircle,
   Users,
   Award,
-  MessageSquare,
-  FileDown,
-  Eye,
-  UserPlus,
-  ChevronRight,
+  Building2,
+  CreditCard,
+  Plug,
+  ShieldCheck,
+  Layers,
+  Lock,
+  Server,
+  Headphones,
+  FileCheck,
+  Activity,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -100,7 +103,8 @@ function AnimatedStat({
     >
       <Icon className="mx-auto h-6 w-6 text-purple-400 mb-2" />
       <div className="text-2xl sm:text-3xl font-bold gradient-text">
-        {count.toLocaleString()}{label.includes("%") ? "" : "+"}
+        {label.includes("%") ? count.toFixed(1) : count.toLocaleString()}
+        {label.includes("%") ? "%" : "+"}
       </div>
       <div className="text-xs text-muted-foreground mt-1">{label}</div>
     </Card>
@@ -134,89 +138,126 @@ function PulsingButton({
 
 export function HomeView() {
   const t = useT();
-  const { navigate, setAuthModal } = useApp();
+  const { navigate, setAuthModal, activeOrgId } = useApp();
   const { data: session } = useSession();
 
   const teams = Object.keys(TEAM_INFO) as AgentTeamType[];
 
   const platformStats = getPlatformStats();
 
+  /* ---------- Data ---------- */
+
   const stats = [
-    { value: 1247, label: t("hero.stat.projects"), icon: Rocket },
-    { value: 8420, label: t("hero.stat.agents"), icon: Bot },
-    { value: 99.9, label: t("hero.stat.uptime"), icon: Clock },
-    { value: 98, label: t("hero.stat.satisfaction"), icon: CheckCircle2 },
+    { value: 1500, label: "Projects Delivered", icon: Rocket },
+    { value: 500, label: "Active Organizations", icon: Building2 },
+    { value: 50, label: "AI Agents Deployed", icon: Bot },
+    { value: 99.9, label: "Platform Uptime", icon: Clock },
   ];
 
   const features = [
     {
-      icon: Workflow,
-      title: "Autonomous Agent Teams",
-      desc: "Each project gets a dedicated team of 3-8 AI agents that plan, build, review, and deliver — without human bottlenecks.",
+      icon: Building2,
+      title: "Multi-Tenant Architecture",
+      desc: "Isolated workspaces with granular permissions, custom domains, and modular capabilities per organization.",
       color: "from-purple-500 to-violet-500",
     },
     {
-      icon: Cpu,
-      title: "Real AI, Not Templates",
-      desc: "Every line of code, every word of copy, every design decision — generated fresh by our specialized LLM agents for your specific brief.",
-      color: "from-cyan-500 to-blue-500",
+      icon: Bot,
+      title: "Autonomous AI Agents",
+      desc: "Deploy specialized AI agents with configurable autonomy levels (L0\u2013L5), skills, and governance policies.",
+      color: "from-cyan-500 to-teal-500",
     },
     {
-      icon: Shield,
-      title: "QA Built-In",
-      desc: "Dedicated QA agents review every deliverable — code is tested, security is audited, performance is profiled before it reaches you.",
+      icon: Workflow,
+      title: "Workflow Automation",
+      desc: "Design complex multi-step workflows with approvals, branching, dead-letter queues, and real-time monitoring.",
       color: "from-emerald-500 to-green-500",
     },
     {
-      icon: Globe,
-      title: "24/7 Multi-Language",
-      desc: "Agents work around the clock and communicate in English, Urdu, or Roman Urdu — whatever you prefer.",
+      icon: CreditCard,
+      title: "Enterprise Billing",
+      desc: "Flexible plans with entitlements, usage metering, and real-time budget controls for every organization.",
       color: "from-pink-500 to-rose-500",
     },
     {
-      icon: Zap,
-      title: "Lightning Fast",
-      desc: "From brief to first deliverable in under 10 minutes. What took weeks now takes hours — without sacrificing quality.",
+      icon: Plug,
+      title: "Integration Marketplace",
+      desc: "Connect 50+ tools via a secure adapter pattern. Build custom integrations with our provider SDK.",
       color: "from-amber-500 to-orange-500",
     },
     {
-      icon: Clock,
-      title: "Always Available",
-      desc: "Your agent team never sleeps, never gets sick, never goes on vacation. They're ready whenever you have an idea.",
+      icon: ShieldCheck,
+      title: "Observability & Security",
+      desc: "Full audit trails, OpenTelemetry metrics, MFA, policy engine, and SOC2-ready compliance.",
       color: "from-violet-500 to-purple-500",
     },
   ];
 
-  const workflow = [
+  const architectureLayers = [
     {
-      step: "01",
-      emoji: "📝",
-      title: "Submit Your Brief",
-      desc: "Describe your project — what you're building, who it's for, what success looks like. No technical jargon required.",
+      title: "AI Agent Runtime",
+      icon: Bot,
+      borderColor: "border-purple-500/40",
+      glowColor: "shadow-[0_0_30px_rgba(168,85,247,0.15)]",
+      accentBg: "bg-purple-500/10",
+      accentText: "text-purple-400",
+      bullets: [
+        "L0\u2013L5 autonomy levels with human-in-the-loop controls",
+        "Skill registry, tool binding, and context injection",
+        "Agent-to-agent communication and delegation protocols",
+        "Real-time conversation memory and session management",
+      ],
     },
     {
-      step: "02",
-      emoji: "🤖",
-      title: "AI Analyzes & Assigns",
-      desc: "Our system reads your brief and assembles the perfect agent team — designer, developer, content writer, whoever's needed.",
+      title: "Workflow Engine + Event Bus",
+      icon: Workflow,
+      borderColor: "border-cyan-500/40",
+      glowColor: "shadow-[0_0_30px_rgba(6,182,212,0.15)]",
+      accentBg: "bg-cyan-500/10",
+      accentText: "text-cyan-400",
+      bullets: [
+        "DAG-based workflow orchestration with branching & merging",
+        "Approval gates, dead-letter queues, and retry policies",
+        "Async event bus with pub/sub and webhook delivery",
+        "Real-time workflow monitoring and execution traces",
+      ],
     },
     {
-      step: "03",
-      emoji: "⚙️",
-      title: "Agents Start Working",
-      desc: "Your team gets to work immediately — planning, building, reviewing. You watch progress in real-time via the dashboard.",
+      title: "Multi-Tenant Data Platform",
+      icon: Layers,
+      borderColor: "border-pink-500/40",
+      glowColor: "shadow-[0_0_30px_rgba(236,72,153,0.15)]",
+      accentBg: "bg-pink-500/10",
+      accentText: "text-pink-400",
+      bullets: [
+        "Isolated org data with row-level security and RBAC",
+        "Encrypted storage, audit logging, and data retention policies",
+        "Usage metering, quota management, and billing integration",
+        "Custom domains, branding, and per-org configuration",
+      ],
+    },
+  ];
+
+  const trustBadges = [
+    {
+      icon: FileCheck,
+      title: "SOC2 Ready",
+      desc: "Enterprise-grade compliance framework",
     },
     {
-      step: "04",
-      emoji: "💬",
-      title: "Chat & Iterate",
-      desc: "Message any agent directly. Ask questions, request changes, provide feedback. They respond and adjust instantly.",
+      icon: Shield,
+      title: "GDPR Compliant",
+      desc: "Full data protection regulation adherence",
     },
     {
-      step: "05",
-      emoji: "📦",
-      title: "Receive Deliverables",
-      desc: "Download production-ready code, finalized designs, polished copy — all quality-checked by our QA agents.",
+      icon: Activity,
+      title: "Enterprise SLA",
+      desc: "99.9% uptime with dedicated support",
+    },
+    {
+      icon: Headphones,
+      title: "24/7 Support",
+      desc: "Round-the-clock expert assistance",
     },
   ];
 
@@ -250,25 +291,48 @@ export function HomeView() {
   const faqs = [
     {
       q: "What is Mianx.ai?",
-      a: "Mianx.ai is an AI-powered software development platform where autonomous agent teams build your projects from start to finish. You describe what you need, and our AI agents — designers, developers, QA engineers, and more — work together to deliver production-ready results.",
+      a: "Mianx.ai is an enterprise-grade Agentic AI Operating Platform that enables organizations to deploy, manage, and govern autonomous AI agents at scale. It provides multi-tenant workspaces, workflow automation, an integration marketplace, and full observability \u2014 all designed for modern teams that need reliable, secure AI infrastructure.",
     },
     {
-      q: "How much does it cost?",
-      a: "Your first project is completely free — no credit card required. After that, we offer flexible plans starting from affordable monthly subscriptions. Visit our pricing page to see all options.",
+      q: "How does multi-tenancy work?",
+      a: "Each organization gets a fully isolated workspace with its own data, permissions, custom domains, and billing configuration. Role-based access control (RBAC) ensures that only authorized members can access resources. Organizations can modularly enable capabilities, manage their own agent fleet, and customize branding independently.",
     },
     {
-      q: "Do I need any technical knowledge?",
-      a: "Not at all! Mianx.ai is designed for everyone. You just describe your project in plain language — like you'd explain it to a friend. Our AI agents handle all the technical work.",
+      q: "What autonomy levels do agents support?",
+      a: "Mianx.ai agents operate on a six-level autonomy scale (L0\u2013L5). L0 requires human approval for every action. L1 can suggest actions. L2 can execute with human review. L3 operates independently within defined guardrails. L4 handles complex multi-step tasks autonomously. L5 is fully autonomous with self-healing capabilities. Organizations can configure the maximum autonomy level per agent and per workflow.",
     },
     {
-      q: "How fast will I get my project?",
-      a: "Most projects see their first deliverables within 10 minutes of submitting a brief. Simple projects can be completed in hours, while complex ones typically finish within 1-3 days.",
+      q: "Can I integrate with existing tools?",
+      a: "Absolutely. Mianx.ai uses a secure adapter pattern that supports 50+ out-of-the-box integrations including Slack, GitHub, Jira, Notion, and more. For custom integrations, our Provider SDK lets you build adapters for any internal tool or third-party service. All integrations run through the platform's event bus for real-time data flow.",
     },
     {
-      q: "Can I make changes after receiving the deliverables?",
-      a: "Absolutely! You can chat directly with any agent on your team to request changes, ask questions, or provide feedback. They'll iterate instantly until you're 100% satisfied.",
+      q: "Is my data secure?",
+      a: "Security is foundational to Mianx.ai. All data is encrypted at rest and in transit. We provide full audit trails for every action, OpenTelemetry-based observability, multi-factor authentication (MFA), a configurable policy engine, and are SOC2-ready. Organizations maintain complete data isolation with row-level security and configurable retention policies.",
+    },
+    {
+      q: "How does billing work?",
+      a: "Mianx.ai offers flexible enterprise plans with per-organization entitlements. Each plan includes usage metering, real-time budget controls, and transparent cost allocation. Organizations can set spending limits, monitor usage across agents and workflows, and scale their plans as they grow. Contact our sales team for custom enterprise arrangements.",
     },
   ];
+
+  /* ---------- Hero CTA handler ---------- */
+  const handlePrimaryCta = () => {
+    if (activeOrgId) {
+      navigate("dashboard");
+    } else if (session?.user) {
+      navigate("organizations");
+    } else {
+      setAuthModal("signup");
+    }
+  };
+
+  const handleBottomCta = () => {
+    if (session?.user) {
+      handlePrimaryCta();
+    } else {
+      setAuthModal("signup");
+    }
+  };
 
   return (
     <div className="relative">
@@ -308,7 +372,7 @@ export function HomeView() {
         />
       </div>
 
-      {/* HERO */}
+      {/* ===== HERO ===== */}
       <section className="relative pt-32 pb-20 px-4 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <motion.div
@@ -319,46 +383,40 @@ export function HomeView() {
           >
             <div className="inline-flex items-center gap-2 rounded-full glass px-4 py-1.5 mb-6 text-sm">
               <Sparkles className="h-4 w-4 text-purple-400" />
-              <span className="text-muted-foreground">{t("hero.badge")}</span>
+              <span className="text-muted-foreground">
+                Agentic AI Operating Platform
+              </span>
             </div>
 
-            <h1 className="mx-auto max-w-4xl text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-tight">
-              {t("hero.title").split("AI agents").map((part, i) =>
-                i === 0 ? (
-                  part
-                ) : (
-                  <span key={i} className="gradient-text">
-                    AI agents
-                    {part}
-                  </span>
-                ),
-              )}
+            <h1 className="mx-auto max-w-5xl text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-tight">
+              The AI Operating System{" "}
+              <br className="hidden sm:block" />
+              for <span className="gradient-text">Modern Teams</span>
             </h1>
 
             <p className="mx-auto mt-6 max-w-2xl text-base sm:text-lg text-muted-foreground leading-relaxed">
-              {t("hero.subtitle")}
+              Deploy autonomous AI agents, automate complex workflows, and govern
+              your entire AI infrastructure from a single multi-tenant platform.
+              Built for enterprises that demand security, scalability, and control.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <PulsingButton
-                onClick={() => {
-                  if (session?.user) {
-                    navigate("newProject");
-                  } else {
-                    setAuthModal("signup");
-                  }
-                }}
-              >
-                {session?.user ? "Start New Project" : t("hero.cta.primary")}
+              <PulsingButton onClick={handlePrimaryCta}>
+                {activeOrgId
+                  ? "Go to Dashboard"
+                  : session?.user
+                    ? "My Organizations"
+                    : "Start Free Trial"}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </PulsingButton>
               <Button
                 size="lg"
                 variant="outline"
-                onClick={() => navigate("agents")}
+                onClick={() => navigate("services")}
                 className="px-8 py-6 text-base glass border-dashed border-muted-foreground/30 text-muted-foreground hover:text-foreground hover:border-solid"
               >
-                {t("hero.cta.secondary")}
+                Explore Platform
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
 
@@ -370,7 +428,7 @@ export function HomeView() {
               className="mt-16 flex flex-wrap items-center justify-center gap-3"
             >
               <span className="text-xs text-muted-foreground mr-2">
-                Your team:
+                Your AI workforce:
               </span>
               {AGENT_CATALOG.slice(0, 12).map((agent, i) => (
                 <motion.div
@@ -378,7 +436,7 @@ export function HomeView() {
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ delay: 0.5 + i * 0.05, type: "spring" }}
-                  title={`${agent.name} — ${agent.role}`}
+                  title={`${agent.name} \u2014 ${agent.role}`}
                 >
                   <AgentAvatar
                     name={agent.name}
@@ -389,7 +447,7 @@ export function HomeView() {
                 </motion.div>
               ))}
               <span className="text-xs text-muted-foreground ml-2">
-                +12 more
+                +{Math.max(0, parseInt(platformStats.agentsDeployed, 10) - 12)} more
               </span>
             </motion.div>
           </motion.div>
@@ -413,11 +471,11 @@ export function HomeView() {
         </div>
       </section>
 
-      {/* TRUST BAR */}
+      {/* ===== TRUST BAR ===== */}
       <section className="py-12 px-4 sm:px-6 border-y border-purple-500/10">
         <div className="mx-auto max-w-5xl text-center">
           <p className="text-xs text-muted-foreground uppercase tracking-widest mb-6">
-            Trusted by 500+ teams worldwide
+            Trusted by 500+ organizations worldwide
           </p>
           <div className="flex items-center justify-center gap-8 flex-wrap opacity-50">
             {["TechCorp", "StartupX", "DesignHub", "CloudBase", "DataFlow"].map(
@@ -434,17 +492,17 @@ export function HomeView() {
         </div>
       </section>
 
-      {/* FEATURES */}
+      {/* ===== V2 PLATFORM FEATURES ===== */}
       <section className="relative py-20 px-4 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold">
-              Why teams choose{" "}
-              <span className="gradient-text">Mianx.ai</span>
+              Enterprise-grade{" "}
+              <span className="gradient-text">platform capabilities</span>
             </h2>
             <p className="mt-3 text-muted-foreground max-w-2xl mx-auto">
-              Not another AI wrapper. A full software house — autonomous,
-              specialized, accountable.
+              Not another AI wrapper. A complete operating system for deploying,
+              managing, and governing autonomous AI at enterprise scale.
             </p>
           </div>
 
@@ -474,78 +532,82 @@ export function HomeView() {
         </div>
       </section>
 
-      {/* VIDEO DEMO */}
+      {/* ===== PLATFORM ARCHITECTURE SHOWCASE ===== */}
       <section className="relative py-20 px-4 sm:px-6">
         <div className="mx-auto max-w-5xl">
-          <div className="text-center mb-10">
+          <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold">
-              See it in{" "}
-              <span className="gradient-text">action</span>
+              Platform{" "}
+              <span className="gradient-text">architecture</span>
             </h2>
             <p className="mt-3 text-muted-foreground max-w-2xl mx-auto">
-              Watch how Mianx.ai turns a simple idea into a full project in
-              minutes.
+              A layered, modular stack designed for reliability, extensibility,
+              and enterprise-grade isolation.
             </p>
           </div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <a
-              href="#"
-              className="block group"
-              onClick={(e) => e.preventDefault()}
-            >
-              <Card className="glass border-purple-500/20 p-1 overflow-hidden relative">
-                <div className="relative aspect-video bg-gradient-to-br from-purple-900/40 via-background to-cyan-900/30 rounded-lg flex items-center justify-center">
-                  {/* Fake grid pattern to look like a dashboard */}
-                  <div className="absolute inset-0 opacity-10">
-                    <div className="grid grid-cols-4 h-full">
-                      {[...Array(8)].map((_, i) => (
-                        <div
-                          key={i}
-                          className="border border-purple-500/30 rounded m-1"
-                        />
-                      ))}
+
+          <div className="space-y-5">
+            {architectureLayers.map((layer, i) => (
+              <motion.div
+                key={layer.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <Card
+                  className={`glass ${layer.borderColor} p-6 sm:p-8 h-full ${layer.glowColor}`}
+                >
+                  <div className="flex items-center gap-3 mb-5">
+                    <div
+                      className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${layer.accentBg}`}
+                    >
+                      <layer.icon className={`h-5 w-5 ${layer.accentText}`} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold">{layer.title}</h3>
+                      <p className={`text-xs ${layer.accentText} font-medium`}>
+                        Layer {i + 1}
+                      </p>
                     </div>
                   </div>
-                  {/* Center play button */}
-                  <div className="relative z-10 flex flex-col items-center gap-3">
-                    <motion.div
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="h-20 w-20 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center shadow-[0_0_40px_rgba(168,85,247,0.5)] group-hover:shadow-[0_0_60px_rgba(168,85,247,0.7)] transition-shadow duration-300"
-                    >
-                      <Play className="h-8 w-8 text-white ml-1" fill="white" />
-                    </motion.div>
-                    <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                      Watch 2-min demo
-                    </span>
-                  </div>
-                  {/* Duration badge */}
-                  <Badge
-                    variant="secondary"
-                    className="absolute bottom-3 right-3 bg-black/60 text-white border-0 text-xs"
-                  >
-                    2:14
-                  </Badge>
-                </div>
-              </Card>
-            </a>
-          </motion.div>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {layer.bullets.map((bullet, j) => (
+                      <li
+                        key={j}
+                        className="flex items-start gap-2.5 text-sm text-muted-foreground"
+                      >
+                        <CheckCircle2
+                          className={`h-4 w-4 mt-0.5 flex-shrink-0 ${layer.accentText}`}
+                        />
+                        <span>{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Connecting line between layers */}
+          <div className="hidden lg:flex justify-center py-2">
+            <div className="flex flex-col items-center gap-0">
+              <div className="w-px h-4 bg-gradient-to-b from-purple-500/50 to-cyan-500/50" />
+              <div className="w-px h-4 bg-gradient-to-b from-cyan-500/50 to-pink-500/50" />
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* AGENT TEAMS PREVIEW */}
+      {/* ===== AGENT TEAMS PREVIEW ===== */}
       <section className="relative py-20 px-4 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full glass px-3 py-1 mb-4 text-xs">
               <Bot className="h-3.5 w-3.5 text-purple-400" />
               <span className="text-muted-foreground">
-                {platformStats.teamsCount} teams · {platformStats.agentsDeployed}{" "}
-                agents
+                {platformStats.teamsCount} specialized teams \u00b7{" "}
+                {platformStats.agentsDeployed}+ deployable agents
               </span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold">
@@ -619,81 +681,50 @@ export function HomeView() {
         </div>
       </section>
 
-      {/* WORKFLOW */}
-      <section className="relative py-20 px-4 sm:px-6">
-        <div className="mx-auto max-w-5xl">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold">
-              From brief to{" "}
-              <span className="gradient-text">deliverable</span> in 5 steps
-            </h2>
-            <p className="mt-3 text-muted-foreground max-w-2xl mx-auto">
-              No meetings. No back-and-forth. No missed deadlines. Just describe
-              what you want and watch it get built.
-            </p>
-          </div>
-
-          <div className="relative">
-            {/* Vertical line */}
-            <div className="absolute left-4 sm:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-purple-500/50 via-cyan-500/30 to-transparent sm:-translate-x-1/2" />
-
-            <div className="space-y-8">
-              {workflow.map((w, i) => (
-                <motion.div
-                  key={w.step}
-                  initial={{ opacity: 0, x: i % 2 === 0 ? -20 : 20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  className={`relative flex items-start gap-6 ${
-                    i % 2 === 0 ? "sm:flex-row" : "sm:flex-row-reverse"
-                  }`}
-                >
-                  <div className="flex-shrink-0 ml-4 sm:ml-0 sm:w-1/2 sm:px-8">
-                    <Card className="glass border-purple-500/10 p-6 card-hover">
-                      {/* Step label with emoji */}
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-2xl" role="img" aria-label={w.title}>
-                          {w.emoji}
-                        </span>
-                        <div>
-                          <span className="text-xs text-purple-400 font-semibold uppercase tracking-wider">
-                            Step {w.step}
-                          </span>
-                          <h3 className="text-lg font-semibold">{w.title}</h3>
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{w.desc}</p>
-                    </Card>
-                  </div>
-                  <div className="absolute left-4 sm:left-1/2 top-6 -translate-x-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 glow-sm">
-                    <span className="text-xs font-bold text-white">{i + 1}</span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* TESTIMONIALS */}
+      {/* ===== ENTERPRISE TRUST ===== */}
       <section className="relative py-20 px-4 sm:px-6">
         <div className="mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full glass px-3 py-1 mb-4 text-xs">
-              <Award className="h-3.5 w-3.5 text-purple-400" />
+              <ShieldCheck className="h-3.5 w-3.5 text-purple-400" />
               <span className="text-muted-foreground">
-                Loved by teams everywhere
+                Enterprise-grade trust & compliance
               </span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold">
-              What our <span className="gradient-text">users say</span>
+              Built for{" "}
+              <span className="gradient-text">enterprise trust</span>
             </h2>
+            <p className="mt-3 text-muted-foreground max-w-2xl mx-auto">
+              Security, compliance, and reliability are not afterthoughts \u2014
+              they're baked into every layer of the platform.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {testimonials.map((t, i) => (
+          {/* Trust badges row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">
+            {trustBadges.map((badge, i) => (
               <motion.div
-                key={t.name}
+                key={badge.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }}
+              >
+                <Card className="glass border-purple-500/10 p-5 text-center card-hover h-full">
+                  <badge.icon className="mx-auto h-7 w-7 text-purple-400 mb-3" />
+                  <h3 className="text-sm font-semibold mb-1">{badge.title}</h3>
+                  <p className="text-xs text-muted-foreground">{badge.desc}</p>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Testimonials */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {testimonials.map((tm, i) => (
+              <motion.div
+                key={tm.name}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -702,17 +733,17 @@ export function HomeView() {
                 <Card className="glass border-purple-500/10 p-6 h-full card-hover flex flex-col">
                   <Quote className="h-8 w-8 text-purple-500/30 mb-4" />
                   <p className="text-sm text-muted-foreground leading-relaxed flex-1">
-                    &ldquo;{t.quote}&rdquo;
+                    &ldquo;{tm.quote}&rdquo;
                   </p>
                   <div className="mt-6 pt-4 border-t border-purple-500/10">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center text-xs font-bold text-white">
-                        {t.initials}
+                        {tm.initials}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold">{t.name}</p>
+                        <p className="text-sm font-semibold">{tm.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {t.role} at {t.company}
+                          {tm.role} at {tm.company}
                         </p>
                       </div>
                     </div>
@@ -732,15 +763,13 @@ export function HomeView() {
         </div>
       </section>
 
-      {/* FAQ */}
+      {/* ===== FAQ ===== */}
       <section className="relative py-20 px-4 sm:px-6">
         <div className="mx-auto max-w-3xl">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 rounded-full glass px-3 py-1 mb-4 text-xs">
               <HelpCircle className="h-3.5 w-3.5 text-purple-400" />
-              <span className="text-muted-foreground">
-                Got questions?
-              </span>
+              <span className="text-muted-foreground">Got questions?</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold">
               Frequently asked{" "}
@@ -773,7 +802,7 @@ export function HomeView() {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* ===== BOTTOM CTA ===== */}
       <section className="relative py-20 px-4 sm:px-6">
         <div className="mx-auto max-w-4xl">
           <Card className="glass-strong border-purple-500/20 p-10 sm:p-16 text-center relative overflow-hidden">
@@ -781,26 +810,16 @@ export function HomeView() {
             <div className="relative">
               <Sparkles className="mx-auto h-10 w-10 text-purple-400 mb-4" />
               <h2 className="text-3xl sm:text-4xl font-bold mb-3">
-                Ready to build with{" "}
-                <span className="gradient-text">AI agents?</span>
+                Ready to deploy your{" "}
+                <span className="gradient-text">AI workforce?</span>
               </h2>
               <p className="text-muted-foreground max-w-xl mx-auto mb-8">
-                Join {platformStats.totalProjectsLabel} teams who ship faster with
-                Mianx.ai. Your first project is on us — no credit card required.
+                Join 500+ organizations already running autonomous AI agents on
+                Mianx.ai. Start your free trial today \u2014 no credit card required.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <PulsingButton
-                  onClick={() => {
-                    if (session?.user) {
-                      navigate("newProject");
-                    } else {
-                      setAuthModal("signup");
-                    }
-                  }}
-                >
-                  {session?.user
-                    ? "Start New Project"
-                    : t("hero.cta.primary")}
+                <PulsingButton onClick={handleBottomCta}>
+                  Start Free Trial
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </PulsingButton>
                 <Button
@@ -809,7 +828,7 @@ export function HomeView() {
                   onClick={() => navigate("pricing")}
                   className="px-8 py-6 text-base glass border-dashed border-muted-foreground/30 text-muted-foreground hover:text-foreground hover:border-solid"
                 >
-                  {t("nav.pricing")}
+                  View Pricing
                 </Button>
               </div>
             </div>
