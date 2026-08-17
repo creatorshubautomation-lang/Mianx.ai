@@ -139,6 +139,9 @@ const SPA_REWRITE_PATHS = [
   "/dashboard/integrations",
   "/dashboard/ai-agents",
   "/dashboard/audit-log",
+  // V2 Platform
+  "/dashboard/monitoring",
+  "/dashboard/security",
   "/admin",
 ];
 

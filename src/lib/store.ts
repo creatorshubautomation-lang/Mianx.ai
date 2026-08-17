@@ -60,6 +60,9 @@ export type ViewKey =
   | "integrations"
   | "aiAgents"
   | "auditLog"
+  // V2 Platform
+  | "monitoring"
+  | "securitySettings"
   // Admin
   | "admin";
 

@@ -62,6 +62,9 @@ const VIEW_PATH_MAP: Record<ViewKey, string> = {
   integrations: "/dashboard/integrations",
   aiAgents: "/dashboard/ai-agents",
   auditLog: "/dashboard/audit-log",
+  // V2 Platform
+  monitoring: "/dashboard/monitoring",
+  securitySettings: "/dashboard/security",
   // Admin
   admin: "/admin",
 };

@@ -91,6 +91,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     { key: "organizations" as const, icon: Building2, label: "Organizations" },
     { key: "billing" as const, icon: CreditCard, label: "Billing" },
     { key: "auditLog" as const, icon: ScrollText, label: "Audit Log", orgOnly: true },
+    { key: "monitoring" as const, icon: Activity, label: "Monitoring", orgOnly: true },
+    { key: "securitySettings" as const, icon: ShieldCheck, label: "Security", orgOnly: true },
   ];
 
   const allNavItems = session?.user?.role === "ADMIN"
@@ -104,7 +106,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     : allNavItems;
 
   const handleNavClick = (key: string) => {
-    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "commandCenter" | "workflows" | "integrations" | "aiAgents" | "toolRegistry" | "approvals" | "budget" | "trustCenter" | "agentPerformance" | "marketplace" | "support" | "settings" | "organizations" | "billing" | "auditLog" | "admin");
+    navigate(key as "dashboard" | "projects" | "newProject" | "deliverables" | "missions" | "missionDetail" | "commandCenter" | "workflows" | "integrations" | "aiAgents" | "toolRegistry" | "approvals" | "budget" | "trustCenter" | "agentPerformance" | "marketplace" | "support" | "settings" | "organizations" | "billing" | "auditLog" | "monitoring" | "securitySettings" | "admin");
     setSearchOpen(false);
     setSearchQuery("");
   };

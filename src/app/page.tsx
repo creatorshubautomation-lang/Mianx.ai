@@ -49,6 +49,8 @@ import { WorkflowsView } from "@/components/views/WorkflowsView";
 import { IntegrationsView } from "@/components/views/IntegrationsView";
 import { AiAgentsView } from "@/components/views/AiAgentsView";
 import { AuditLogView } from "@/components/views/AuditLogView";
+import { MonitoringView } from "@/components/views/MonitoringView";
+import { SecuritySettingsView } from "@/components/views/SecuritySettingsView";
 
 // ─────────────────────────────────────────────
 //  Public views (no auth required)
@@ -269,6 +271,8 @@ function AppContent() {
           {view === "integrations" && <IntegrationsView />}
           {view === "aiAgents" && <AiAgentsView />}
           {view === "auditLog" && <AuditLogView />}
+          {view === "monitoring" && <MonitoringView />}
+          {view === "securitySettings" && <SecuritySettingsView />}
           {view === "admin" && <AdminPanel />}
         </motion.div>
       </AnimatePresence>

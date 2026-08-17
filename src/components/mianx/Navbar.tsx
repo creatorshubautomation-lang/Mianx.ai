@@ -19,6 +19,7 @@ import {
   Settings,
   LogOut,
   Shield,
+  Building2,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import {
@@ -48,9 +49,6 @@ export function Navbar() {
     { key: "home", label: t("nav.home") },
     { key: "services", label: t("nav.services") },
     { key: "agents", label: t("nav.agents") },
-    { key: "templates", label: "Templates" },
-    { key: "academy", label: "Academy" },
-    { key: "marketplace", label: "Marketplace" },
     { key: "pricing", label: t("nav.pricing") },
     { key: "useCases", label: t("nav.useCases") },
     { key: "about", label: t("nav.about") },
@@ -140,6 +138,10 @@ export function Navbar() {
                 <DropdownMenuItem onClick={() => navigate("dashboard")}>
                   <LayoutDashboard className="mr-2 h-4 w-4" />
                   Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("organizations")}>
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Organizations
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("settings")}>
                   <Settings className="mr-2 h-4 w-4" />
