@@ -1,0 +1,990 @@
+     1→'use client'
+     2→
+     3→import { useEffect, useState, useCallback, useRef } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  Rocket,
+     7→  Send,
+     8→  Plus,
+     9→  Clock,
+    10→  CheckCircle2,
+    11→  Circle,
+    12→  Loader2,
+    13→  XCircle,
+    14→  AlertCircle,
+    15→  DollarSign,
+    16→  Users,
+    17→  ArrowRight,
+    18→  Eye,
+    19→  Code2,
+    20→  ChevronDown,
+    21→  ChevronRight,
+    22→  Zap,
+    23→  Activity,
+    24→  Bot,
+    25→  Wrench,
+    26→  ShieldCheck,
+    27→  RotateCcw,
+    28→  Tag,
+    29→  CalendarDays,
+    30→  Briefcase,
+    31→  Sparkles,
+    32→} from 'lucide-react'
+    33→import { Button } from '@/components/ui/button'
+    34→import { Badge } from '@/components/ui/badge'
+    35→import { Skeleton } from '@/components/ui/skeleton'
+    36→import { Progress } from '@/components/ui/progress'
+    37→import { Textarea } from '@/components/ui/textarea'
+    38→import { Input } from '@/components/ui/input'
+    39→import { Label } from '@/components/ui/label'
+    40→import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+    41→import { ScrollArea } from '@/components/ui/scroll-area'
+    42→import { Separator } from '@/components/ui/separator'
+    43→import {
+    44→  Tooltip,
+    45→  TooltipTrigger,
+    46→  TooltipContent,
+    47→} from '@/components/ui/tooltip'
+    48→import { useActiveOrg, useStore, useUserMode, useMissions } from "@/lib/store"
+    49→import { navigate } from '@/lib/router'
+    50→import { cn } from '@/lib/utils'
+    51→import type { UserMode, MissionStatus } from '@prisma/client'
+    52→import { parseJsonField } from '@/lib/types'
+    53→
+    54→// ============================================================
+    55→// Types
+    56→// ============================================================
+    57→
+    58→interface MissionWithMeta {
+    59→  id: string
+    60→  title: string
+    61→  goal: string
+    62→  status: MissionStatus
+    63→  budget: number
+    64→  estimatedCost: number
+    65→  actualCost: number
+    66→  deadline: string | null
+    67→  userMode: UserMode
+    68→  createdAt: string
+    69→  updatedAt: string
+    70→  _count: { tasks: number; outcomes: number; verifications: number }
+    71→  _completedTasks: number
+    72→  agents?: Array<{ id: string; agent: { id: string; name: string; slug: string } }>
+    73→  tasks?: MissionTaskItem[]
+    74→}
+    75→
+    76→interface MissionTaskItem {
+    77→  id: string
+    78→  missionId: string
+    79→  title: string
+    80→  status: string
+    81→  agentId: string | null
+    82→  assignedTools: string
+    83→  dependencies: string
+    84→  verificationConfig: string
+    85→  retryCount: number
+    86→  maxRetries: number
+    87→  error: string | null
+    88→  output: string
+    89→  createdAt: string
+    90→  startedAt: string | null
+    91→  completedAt: string | null
+    92→  agent?: { id: string; name: string }
+    93→}
+    94→
+    95→interface EventItem {
+    96→  id: string
+    97→  eventType: string
+    98→  actorType: string
+    99→  actorId: string | null
+   100→  missionId: string | null
+   101→  payload: string
+   102→  occurredAt: string
+   103→}
+   104→
+   105→interface AgentOption {
+   106→  id: string
+   107→  name: string
+   108→  slug: string
+   109→  status: string
+   110→}
+   111→
+   112→// ============================================================
+   113→// Animation Variants
+   114→// ============================================================
+   115→
+   116→const containerVariants = {
+   117→  hidden: { opacity: 0 },
+   118→  visible: {
+   119→    opacity: 1,
+   120→    transition: { staggerChildren: 0.07, delayChildren: 0.04 },
+   121→  },
+   122→}
+   123→
+   124→const itemVariants = {
+   125→  hidden: { opacity: 0, y: 16 },
+   126→  visible: {
+   127→    opacity: 1,
+   128→    y: 0,
+   129→    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number,number,number,number] },
+   130→  },
+   131→}
+   132→
+   133→// ============================================================
+   134→// Helpers
+   135→// ============================================================
+   136→
+   137→const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+   138→  draft: { label: 'Draft', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+   139→  planning: { label: 'Planning', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+   140→  approved: { label: 'Approved', color: '#22d3ee', bg: 'rgba(34,211,238,0.12)' },
+   141→  executing: { label: 'Executing', color: '#22d3ee', bg: 'rgba(34,211,238,0.12)' },
+   142→  verifying: { label: 'Verifying', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+   143→  completed: { label: 'Completed', color: '#34d399', bg: 'rgba(52,211,153,0.12)' },
+   144→  failed: { label: 'Failed', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+   145→  cancelled: { label: 'Cancelled', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+   146→}
+   147→
+   148→function getStatusBadge(status: string) {
+   149→  const c = STATUS_CONFIG[status] ?? { label: status, color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' }
+   150→  return (
+   151→    <Badge variant="secondary" className="text-[10px] font-medium border-0" style={{ color: c.color, backgroundColor: c.bg }}>
+   152→      {c.label}
+   153→    </Badge>
+   154→  )
+   155→}
+   156→
+   157→function getTaskStatusIcon(status: string) {
+   158→  switch (status) {
+   159→    case 'completed':
+   160→      return <CheckCircle2 className="w-3.5 h-3.5 text-[#34d399]" />
+   161→    case 'running':
+   162→    case 'waiting_tool':
+   163→    case 'waiting_approval':
+   164→    case 'verifying':
+   165→    case 'retrying':
+   166→      return <Loader2 className="w-3.5 h-3.5 text-[#22d3ee] animate-spin" />
+   167→    case 'failed':
+   168→      return <XCircle className="w-3.5 h-3.5 text-[#ef4444]" />
+   169→    case 'blocked':
+   170→      return <AlertCircle className="w-3.5 h-3.5 text-[#f59e0b]" />
+   171→    default:
+   172→      return <Circle className="w-3.5 h-3.5 text-[#64748b]" />
+   173→  }
+   174→}
+   175→
+   176→function getMissionProgress(mission: MissionWithMeta): number {
+   177→  const total = mission._count.tasks
+   178→  if (total === 0) {
+   179→    if (mission.status === 'completed') return 100
+   180→    if (mission.status === 'executing') return 10
+   181→    return 0
+   182→  }
+   183→  return Math.round((mission._completedTasks / total) * 100)
+   184→}
+   185→
+   186→function formatRelativeTime(dateStr: string): string {
+   187→  const date = new Date(dateStr)
+   188→  const now = new Date()
+   189→  const diffMs = now.getTime() - date.getTime()
+   190→  const diffMins = Math.floor(diffMs / 60000)
+   191→  const diffHours = Math.floor(diffMs / 3600000)
+   192→  const diffDays = Math.floor(diffMs / 86400000)
+   193→  if (diffMins < 1) return 'Just now'
+   194→  if (diffMins < 60) return `${diffMins}m ago`
+   195→  if (diffHours < 24) return `${diffHours}h ago`
+   196→  if (diffDays < 7) return `${diffDays}d ago`
+   197→  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+   198→}
+   199→
+   200→function formatCurrency(cents: number): string {
+   201→  return `$${(cents / 100).toFixed(2)}`
+   202→}
+   203→
+   204→// ============================================================
+   205→// Mode Indicator
+   206→// ============================================================
+   207→
+   208→function ModeIndicator() {
+   209→  const userMode = useUserMode()
+   210→  const modeConfig = {
+   211→    simple: { label: 'Simple', color: '#34d399', bg: 'rgba(52,211,153,0.12)', icon: Sparkles },
+   212→    pro: { label: 'Pro', color: '#6366f1', bg: 'rgba(99,102,241,0.12)', icon: Zap },
+   213→    expert: { label: 'Expert', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: Code2 },
+   214→  }
+   215→  const config = modeConfig[userMode]
+   216→  const Icon = config.icon
+   217→  return (
+   218→    <Badge
+   219→      variant="secondary"
+   220→      className="text-[10px] font-medium border-0 gap-1"
+   221→      style={{ color: config.color, backgroundColor: config.bg }}
+   222→    >
+   223→      <Icon className="w-3 h-3" />
+   224→      {config.label} Mode
+   225→    </Badge>
+   226→  )
+   227→}
+   228→
+   229→// ============================================================
+   230→// Mission Input (Simple / Pro)
+   231→// ============================================================
+   232→
+   233→function MissionInput({
+   234→  onSubmit,
+   235→  submitting,
+   236→}: {
+   237→  onSubmit: (data: { goal: string; budget?: string; deadline?: string; agentIds?: string[] }) => void
+   238→  submitting: boolean
+   239→}) {
+   240→  const userMode = useUserMode()
+   241→  const [goal, setGoal] = useState('')
+   242→  const [budget, setBudget] = useState('')
+   243→  const [deadline, setDeadline] = useState('')
+   244→  const [selectedAgents, setSelectedAgents] = useState<string[]>([])
+   245→  const [agents, setAgents] = useState<AgentOption[]>([])
+   246→  const [agentsLoaded, setAgentsLoaded] = useState(false)
+   247→  const activeOrg = useActiveOrg()
+   248→
+   249→  useEffect(() => {
+   250→    if (!activeOrg?.id) return
+   251→    fetch(`/api/agents?organizationId=${activeOrg.id}&limit=50`)
+   252→      .then((r) => r.ok ? r.json() : null)
+   253→      .then((json) => {
+   254→        if (json?.data) {
+   255→          setAgents(json.data.filter((a: AgentOption) => a.status === 'active').slice(0, 12))
+   256→          setAgentsLoaded(true)
+   257→        }
+   258→      })
+   259→      .catch(() => {})
+   260→  }, [activeOrg?.id])
+   261→
+   262→  const handleSubmit = () => {
+   263→    if (!goal.trim()) return
+   264→    onSubmit({
+   265→      goal: goal.trim(),
+   266→      budget: budget || undefined,
+   267→      deadline: deadline || undefined,
+   268→      agentIds: selectedAgents.length > 0 ? selectedAgents : undefined,
+   269→    })
+   270→    setGoal('')
+   271→    setBudget('')
+   272→    setDeadline('')
+   273→    setSelectedAgents([])
+   274→  }
+   275→
+   276→  const toggleAgent = (id: string) => {
+   277→    setSelectedAgents((prev) =>
+   278→      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
+   279→    )
+   280→  }
+   281→
+   282→  return (
+   283→    <motion.div variants={itemVariants} className="glass-card p-6 sm:p-8 rounded-xl">
+   284→      <div className="flex items-center gap-3 mb-5">
+   285→        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#22d3ee] flex items-center justify-center">
+   286→          <Rocket className="w-5 h-5 text-white" />
+   287→        </div>
+   288→        <div>
+   289→          <h2 className="text-lg font-semibold text-[#e2e8f0]">Start a New Mission</h2>
+   290→          <p className="text-xs text-[#94a3b8]">Describe what you want to accomplish</p>
+   291→        </div>
+   292→      </div>
+   293→
+   294→      <Textarea
+   295→        placeholder="What do you want to accomplish?"
+   296→        value={goal}
+   297→        onChange={(e) => setGoal(e.target.value)}
+   298→        className={cn(
+   299→          'min-h-[100px] sm:min-h-[120px] resize-none text-[#e2e8f0] placeholder:text-[#64748b]',
+   300→          'bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.12)] focus:border-[#6366f1]',
+   301→          userMode === 'simple' ? 'text-base' : 'text-sm',
+   302→        )}
+   303→        onKeyDown={(e) => {
+   304→          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit()
+   305→        }}
+   306→      />
+   307→
+   308→      {/* Pro options */}
+   309→      {userMode !== 'simple' && (
+   310→        <motion.div
+   311→          initial={{ opacity: 0, height: 0 }}
+   312→          animate={{ opacity: 1, height: 'auto' }}
+   313→          exit={{ opacity: 0, height: 0 }}
+   314→          className="mt-4 space-y-4"
+   315→        >
+   316→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   317→            <div className="space-y-1.5">
+   318→              <Label className="text-xs text-[#94a3b8] flex items-center gap-1.5">
+   319→                <DollarSign className="w-3 h-3" /> Budget (USD)
+   320→              </Label>
+   321→              <Input
+   322→                type="number"
+   323→                placeholder="e.g. 10.00"
+   324→                value={budget}
+   325→                onChange={(e) => setBudget(e.target.value)}
+   326→                className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.12)] text-[#e2e8f0] placeholder:text-[#64748b]"
+   327→              />
+   328→            </div>
+   329→            <div className="space-y-1.5">
+   330→              <Label className="text-xs text-[#94a3b8] flex items-center gap-1.5">
+   331→                <CalendarDays className="w-3 h-3" /> Deadline
+   332→              </Label>
+   333→              <Input
+   334→                type="date"
+   335→                value={deadline}
+   336→                onChange={(e) => setDeadline(e.target.value)}
+   337→                className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.12)] text-[#e2e8f0] placeholder:text-[#64748b]"
+   338→              />
+   339→            </div>
+   340→          </div>
+   341→
+   342→          {/* Agent Selection */}
+   343→          {agentsLoaded && agents.length > 0 && (
+   344→            <div className="space-y-2">
+   345→              <Label className="text-xs text-[#94a3b8] flex items-center gap-1.5">
+   346→                <Bot className="w-3 h-3" /> Agent Selection
+   347→              </Label>
+   348→              <div className="flex flex-wrap gap-2">
+   349→                {agents.map((agent) => {
+   350→                  const isSelected = selectedAgents.includes(agent.id)
+   351→                  return (
+   352→                    <button
+   353→                      key={agent.id}
+   354→                      type="button"
+   355→                      onClick={() => toggleAgent(agent.id)}
+   356→                      className={cn(
+   357→                        'px-3 py-1.5 rounded-lg text-xs font-medium transition-all border',
+   358→                        isSelected
+   359→                          ? 'bg-[rgba(99,102,241,0.2)] border-[#6366f1] text-[#e2e8f0]'
+   360→                          : 'bg-[rgba(15,16,28,0.4)] border-[rgba(99,102,241,0.1)] text-[#94a3b8] hover:border-[rgba(99,102,241,0.25)] hover:text-[#e2e8f0]',
+   361→                      )}
+   362→                    >
+   363→                      <Bot className="w-3 h-3 inline mr-1" />
+   364→                      {agent.name}
+   365→                    </button>
+   366→                  )
+   367→                })}
+   368→              </div>
+   369→            </div>
+   370→          )}
+   371→        </motion.div>
+   372→      )}
+   373→
+   374→      <div className="flex items-center justify-between mt-5">
+   375→        <p className="text-[10px] text-[#64748b]">
+   376→          {userMode === 'simple' ? '' : 'Ctrl+Enter to submit'}
+   377→        </p>
+   378→        <Button
+   379→          className={cn(
+   380→            'btn-gradient text-white gap-2',
+   381→            userMode === 'simple' ? 'px-8 py-5 text-base' : 'px-6 py-2.5 text-sm',
+   382→          )}
+   383→          disabled={!goal.trim() || submitting}
+   384→          onClick={handleSubmit}
+   385→        >
+   386→          {submitting ? (
+   387→            <Loader2 className="w-4 h-4 animate-spin" />
+   388→          ) : (
+   389→            <Send className="w-4 h-4" />
+   390→          )}
+   391→          {userMode === 'simple' ? 'Start Mission' : 'Create & Start'}
+   392→        </Button>
+   393→      </div>
+   394→    </motion.div>
+   395→  )
+   396→}
+   397→
+   398→// ============================================================
+   399→// Simple Mode Mission Card
+   400→// ============================================================
+   401→
+   402→function SimpleMissionCard({ mission }: { mission: MissionWithMeta }) {
+   403→  const progress = getMissionProgress(mission)
+   404→  return (
+   405→    <motion.div
+   406→      className="glass-card card-hover p-5 rounded-xl cursor-pointer"
+   407→      onClick={() => navigate('mission-detail', { missionId: mission.id })}
+   408→      variants={itemVariants}
+   409→      whileHover={{ scale: 1.005 }}
+   410→    >
+   411→      <div className="flex items-start justify-between mb-3">
+   412→        <div className="flex-1 min-w-0">
+   413→          <h3 className="text-sm font-semibold text-[#e2e8f0] truncate">{mission.title}</h3>
+   414→          <p className="text-xs text-[#94a3b8] mt-0.5 line-clamp-1">{mission.goal}</p>
+   415→        </div>
+   416→        {getStatusBadge(mission.status)}
+   417→      </div>
+   418→
+   419→      <div className="space-y-2 mb-3">
+   420→        <div className="flex items-center justify-between">
+   421→          <span className="text-[10px] text-[#94a3b8]">Progress</span>
+   422→          <span className="text-[10px] font-medium text-[#e2e8f0]">{progress}%</span>
+   423→        </div>
+   424→        <Progress value={progress} className="h-2" />
+   425→      </div>
+   426→
+   427→      <div className="flex items-center justify-between">
+   428→        <span className="text-[10px] text-[#64748b]">
+   429→          {mission._completedTasks}/{mission._count.tasks} tasks
+   430→        </span>
+   431→        <span className="text-[10px] text-[#6366f1] font-medium flex items-center gap-1 hover:underline">
+   432→          View Details <ArrowRight className="w-3 h-3" />
+   433→        </span>
+   434→      </div>
+   435→    </motion.div>
+   436→  )
+   437→}
+   438→
+   439→// ============================================================
+   440→// Pro Mode Mission Card
+   441→// ============================================================
+   442→
+   443→function ProMissionCard({ mission }: { mission: MissionWithMeta }) {
+   444→  const progress = getMissionProgress(mission)
+   445→  return (
+   446→    <motion.div
+   447→      className="glass-card card-hover p-5 rounded-xl cursor-pointer"
+   448→      onClick={() => navigate('mission-detail', { missionId: mission.id })}
+   449→      variants={itemVariants}
+   450→      whileHover={{ scale: 1.005 }}
+   451→    >
+   452→      <div className="flex items-start justify-between mb-3">
+   453→        <div className="flex-1 min-w-0">
+   454→          <h3 className="text-sm font-semibold text-[#e2e8f0] truncate">{mission.title}</h3>
+   455→          <p className="text-xs text-[#94a3b8] mt-0.5 line-clamp-1">{mission.goal}</p>
+   456→        </div>
+   457→        {getStatusBadge(mission.status)}
+   458→      </div>
+   459→
+   460→      <div className="space-y-2 mb-3">
+   461→        <div className="flex items-center justify-between">
+   462→          <span className="text-[10px] text-[#94a3b8]">Progress</span>
+   463→          <span className="text-[10px] font-medium text-[#e2e8f0]">{progress}%</span>
+   464→        </div>
+   465→        <Progress value={progress} className="h-2" />
+   466→      </div>
+   467→
+   468→      <div className="flex items-center gap-4 flex-wrap">
+   469→        {mission.agents && mission.agents.length > 0 && (
+   470→          <div className="flex items-center gap-1.5">
+   471→            <Bot className="w-3 h-3 text-[#6366f1]" />
+   472→            <span className="text-[10px] text-[#94a3b8]">
+   473→              {mission.agents.map((a) => a.agent.name).join(', ')}
+   474→            </span>
+   475→          </div>
+   476→        )}
+   477→        <div className="flex items-center gap-1.5">
+   478→          <DollarSign className="w-3 h-3 text-[#f59e0b]" />
+   479→          <span className="text-[10px] text-[#94a3b8]">
+   480→            Est: {formatCurrency(mission.estimatedCost)}
+   481→            {mission.actualCost > 0 && ` · Actual: ${formatCurrency(mission.actualCost)}`}
+   482→          </span>
+   483→        </div>
+   484→        <div className="flex items-center gap-1.5">
+   485→          <Clock className="w-3 h-3 text-[#94a3b8]" />
+   486→          <span className="text-[10px] text-[#64748b]">{formatRelativeTime(mission.updatedAt)}</span>
+   487→        </div>
+   488→      </div>
+   489→
+   490→      <div className="flex items-center justify-between mt-3 pt-3 border-t border-[rgba(99,102,241,0.06)]">
+   491→        <span className="text-[10px] text-[#64748b]">
+   492→          {mission._completedTasks}/{mission._count.tasks} tasks
+   493→        </span>
+   494→        <span className="text-[10px] text-[#6366f1] font-medium flex items-center gap-1 hover:underline">
+   495→          View Details <ArrowRight className="w-3 h-3" />
+   496→        </span>
+   497→      </div>
+   498→    </motion.div>
+   499→  )
+   500→}
+   501→
+   502→// ============================================================
+   503→// Expert Mode — Task Graph
+   504→// ============================================================
+   505→
+   506→function ExpertTaskGraph({
+   507→  mission,
+   508→  loading,
+   509→}: {
+   510→  mission: MissionWithMeta
+   511→  loading: boolean
+   512→}) {
+   513→  const [tasks, setTasks] = useState<MissionTaskItem[]>([])
+   514→  const [tasksLoading, setTasksLoading] = useState(loading)
+   515→  const [showJson, setShowJson] = useState(false)
+   516→
+   517→  useEffect(() => {
+   518→    fetch(`/api/missions/${mission.id}/tasks?organizationId=${mission.id.includes('_') ? '' : ''}`)
+   519→      .then((r) => r.ok ? r.json() : null)
+   520→      .then((json) => {
+   521→        if (json?.data) {
+   522→          setTasks(json.data)
+   523→        }
+   524→        setTasksLoading(false)
+   525→      })
+   526→      .catch(() => setTasksLoading(false))
+   527→  }, [mission.id])
+   528→
+   529→  // If tasks are passed in via mission prop, use those
+   530→  const displayTasks = mission.tasks && mission.tasks.length > 0 ? mission.tasks : tasks
+   531→
+   532→  return (
+   533→    <motion.div className="glass-card p-6 rounded-xl" variants={itemVariants}>
+   534→      <div className="flex items-center justify-between mb-5">
+   535→        <div className="flex items-center gap-2">
+   536→          <Code2 className="w-4 h-4 text-[#f59e0b]" />
+   537→          <h3 className="text-base font-semibold text-[#e2e8f0]">Task Graph</h3>
+   538→          <span className="text-[10px] text-[#64748b]">{displayTasks.length} tasks</span>
+   539→        </div>
+   540→        <button
+   541→          onClick={() => setShowJson(!showJson)}
+   542→          className="flex items-center gap-1 text-xs text-[#94a3b8] hover:text-[#e2e8f0] transition-colors"
+   543→        >
+   544→          {showJson ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+   545→          Raw Plan
+   546→        </button>
+   547→      </div>
+   548→
+   549→      <AnimatePresence>
+   550→        {showJson && (
+   551→          <motion.div
+   552→            initial={{ height: 0, opacity: 0 }}
+   553→            animate={{ height: 'auto', opacity: 1 }}
+   554→            exit={{ height: 0, opacity: 0 }}
+   555→            className="overflow-hidden"
+   556→          >
+   557→            <pre className="text-[10px] text-[#94a3b8] bg-[rgba(0,0,0,0.3)] rounded-lg p-4 mb-4 overflow-x-auto max-h-48">
+   558→              {JSON.stringify({
+   559→                title: mission.title,
+   560→                goal: mission.goal,
+   561→                status: mission.status,
+   562→                tasks: displayTasks.map((t) => ({
+   563→                  id: t.id,
+   564→                  title: t.title,
+   565→                  status: t.status,
+   566→                  dependencies: parseJsonField<string[]>(t.dependencies, []),
+   567→                })),
+   568→              }, null, 2)}
+   569→            </pre>
+   570→          </motion.div>
+   571→        )}
+   572→      </AnimatePresence>
+   573→
+   574→      {tasksLoading ? (
+   575→        <div className="space-y-3">
+   576→          {Array.from({ length: 4 }).map((_, i) => (
+   577→            <div key={i} className="flex items-center gap-3">
+   578→              <Skeleton className="w-5 h-5 rounded" />
+   579→              <Skeleton className="h-4 flex-1" />
+   580→              <Skeleton className="h-4 w-20" />
+   581→            </div>
+   582→          ))}
+   583→        </div>
+   584→      ) : displayTasks.length === 0 ? (
+   585→        <div className="flex flex-col items-center justify-center py-8">
+   586→          <Code2 className="w-8 h-8 text-[#f59e0b] mb-2 opacity-40" />
+   587→          <p className="text-sm text-[#94a3b8]">No tasks yet</p>
+   588→        </div>
+   589→      ) : (
+   590→        <ScrollArea className="max-h-[420px]">
+   591→          <div className="space-y-1">
+   592→            {displayTasks.map((task, idx) => {
+   593→              const deps = parseJsonField<string[]>(task.dependencies, [])
+   594→              const tools = parseJsonField<string[]>(task.assignedTools, [])
+   595→              return (
+   596→                <motion.div
+   597→                  key={task.id}
+   598→                  initial={{ opacity: 0, x: -8 }}
+   599→                  animate={{ opacity: 1, x: 0 }}
+   600→                  transition={{ delay: idx * 0.05 }}
+   601→                  className="py-2.5 px-3 rounded-lg hover:bg-[rgba(99,102,241,0.04)] transition-colors"
+   602→                >
+   603→                  <div className="flex items-start gap-3">
+   604→                    {/* Dependency indicator */}
+   605→                    <div className="flex flex-col items-center pt-0.5 w-5">
+   606→                      {idx > 0 && <div className="w-px h-2 bg-[rgba(99,102,241,0.2)]" />}
+   607→                      {getTaskStatusIcon(task.status)}
+   608→                      {idx < displayTasks.length - 1 && <div className="w-px h-2 bg-[rgba(99,102,241,0.2)]" />}
+   609→                    </div>
+   610→
+   611→                    <div className="flex-1 min-w-0">
+   612→                      <div className="flex items-center gap-2 flex-wrap">
+   613→                        <span className="text-sm text-[#e2e8f0] font-medium">{task.title}</span>
+   614→                        {getStatusBadge(task.status)}
+   615→                      </div>
+   616→                      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+   617→                        {task.agent && (
+   618→                          <span className="text-[10px] text-[#94a3b8] flex items-center gap-1">
+   619→                            <Bot className="w-3 h-3" /> {task.agent.name}
+   620→                          </span>
+   621→                        )}
+   622→                        {tools.length > 0 && (
+   623→                          <Tooltip>
+   624→                            <TooltipTrigger>
+   625→                              <span className="text-[10px] text-[#a78bfa] flex items-center gap-1">
+   626→                                <Wrench className="w-3 h-3" /> {tools.length} tools
+   627→                              </span>
+   628→                            </TooltipTrigger>
+   629→                            <TooltipContent side="top" className="glass-strong">
+   630→                              <p className="text-xs text-[#e2e8f0]">{tools.join(', ')}</p>
+   631→                            </TooltipContent>
+   632→                          </Tooltip>
+   633→                        )}
+   634→                        {task.retryCount > 0 && (
+   635→                          <span className="text-[10px] text-[#f59e0b] flex items-center gap-1">
+   636→                            <RotateCcw className="w-3 h-3" /> {task.retryCount}/{task.maxRetries} retries
+   637→                          </span>
+   638→                        )}
+   639→                        {task.error && (
+   640→                          <span className="text-[10px] text-[#ef4444] flex items-center gap-1 max-w-[200px] truncate">
+   641→                            <XCircle className="w-3 h-3 flex-shrink-0" /> {task.error}
+   642→                          </span>
+   643→                        )}
+   644→                      </div>
+   645→                      {deps.length > 0 && (
+   646→                        <div className="flex items-center gap-1 mt-1">
+   647→                          <span className="text-[9px] text-[#64748b]">deps:</span>
+   648→                          {deps.slice(0, 3).map((d) => (
+   649→                            <Badge key={d} variant="outline" className="text-[9px] h-4 px-1.5 border-[rgba(99,102,241,0.15)] text-[#94a3b8]">
+   650→                              {d.slice(0, 8)}
+   651→                            </Badge>
+   652→                          ))}
+   653→                          {deps.length > 3 && (
+   654→                            <span className="text-[9px] text-[#64748b]">+{deps.length - 3}</span>
+   655→                          )}
+   656→                        </div>
+   657→                      )}
+   658→                    </div>
+   659→                  </div>
+   660→                </motion.div>
+   661→              )
+   662→            })}
+   663→          </div>
+   664→        </ScrollArea>
+   665→      )}
+   666→    </motion.div>
+   667→  )
+   668→}
+   669→
+   670→// ============================================================
+   671→// Expert Mode — Event Log
+   672→// ============================================================
+   673→
+   674→function ExpertEventLog({
+   675→  events,
+   676→  loading,
+   677→}: {
+   678→  events: EventItem[]
+   679→  loading: boolean
+   680→}) {
+   681→  return (
+   682→    <motion.div className="glass-card p-6 rounded-xl" variants={itemVariants}>
+   683→      <div className="flex items-center gap-2 mb-5">
+   684→        <Activity className="w-4 h-4 text-[#22d3ee]" />
+   685→        <h3 className="text-base font-semibold text-[#e2e8f0]">Event Log</h3>
+   686→        <span className="text-[10px] text-[#64748b]">real-time</span>
+   687→      </div>
+   688→      {loading ? (
+   689→        <div className="space-y-3">
+   690→          {Array.from({ length: 6 }).map((_, i) => (
+   691→            <div key={i} className="flex items-center gap-3">
+   692→              <Skeleton className="h-5 w-5 rounded-full" />
+   693→              <Skeleton className="h-4 flex-1" />
+   694→              <Skeleton className="h-4 w-16" />
+   695→            </div>
+   696→          ))}
+   697→        </div>
+   698→      ) : events.length === 0 ? (
+   699→        <div className="flex flex-col items-center justify-center py-8">
+   700→          <Activity className="w-8 h-8 text-[#22d3ee] mb-2 opacity-40" />
+   701→          <p className="text-sm text-[#94a3b8]">No events yet</p>
+   702→        </div>
+   703→      ) : (
+   704→        <ScrollArea className="max-h-[320px]">
+   705→          <div className="space-y-1.5">
+   706→            {events.map((event) => (
+   707→              <div key={event.id} className="flex items-start gap-3 py-1.5 px-2 rounded hover:bg-[rgba(99,102,241,0.03)]">
+   708→                <div className="w-1.5 h-1.5 rounded-full bg-[#22d3ee] mt-1.5 flex-shrink-0" />
+   709→                <div className="flex-1 min-w-0">
+   710→                  <p className="text-xs text-[#e2e8f0]">
+   711→                    <span className="text-[#94a3b8] font-medium">{event.actorType}</span>{' '}
+   712→                    <span className="text-[#64748b]">{event.eventType}</span>
+   713→                  </p>
+   714→                </div>
+   715→                <span className="text-[10px] text-[#64748b] whitespace-nowrap">
+   716→                  {formatRelativeTime(event.occurredAt)}
+   717→                </span>
+   718→              </div>
+   719→            ))}
+   720→          </div>
+   721→        </ScrollArea>
+   722→      )}
+   723→    </motion.div>
+   724→  )
+   725→}
+   726→
+   727→// ============================================================
+   728→// Expert Mode Mission Card
+   729→// ============================================================
+   730→
+   731→function ExpertMissionCard({ mission }: { mission: MissionWithMeta }) {
+   732→  const [events, setEvents] = useState<EventItem[]>([])
+   733→  const [eventsLoading, setEventsLoading] = useState(true)
+   734→  const activeOrg = useActiveOrg()
+   735→
+   736→  useEffect(() => {
+   737→    if (!activeOrg?.id) return
+   738→    fetch(`/api/events?organizationId=${activeOrg.id}&missionId=${mission.id}&limit=20`)
+   739→      .then((r) => r.ok ? r.json() : null)
+   740→      .then((json) => {
+   741→        if (json?.data) setEvents(json.data)
+   742→        setEventsLoading(false)
+   743→      })
+   744→      .catch(() => setEventsLoading(false))
+   745→  }, [activeOrg?.id, mission.id])
+   746→
+   747→  return (
+   748→    <motion.div className="glass-card p-6 rounded-xl" variants={itemVariants}>
+   749→      <div className="flex items-start justify-between mb-4">
+   750→        <div>
+   751→          <div className="flex items-center gap-2">
+   752→            <h3 className="text-sm font-semibold text-[#e2e8f0]">{mission.title}</h3>
+   753→            {getStatusBadge(mission.status)}
+   754→          </div>
+   755→          <p className="text-xs text-[#94a3b8] mt-0.5">{mission.goal}</p>
+   756→        </div>
+   757→        <Button
+   758→          variant="ghost"
+   759→          size="sm"
+   760→          className="text-xs text-[#6366f1] hover:text-[#e2e8f0]"
+   761→          onClick={() => navigate('mission-detail', { missionId: mission.id })}
+   762→        >
+   763→          <Eye className="w-3 h-3 mr-1" /> Details
+   764→        </Button>
+   765→      </div>
+   766→
+   767→      <ExpertTaskGraph mission={mission} loading={false} />
+   768→      <div className="mt-4">
+   769→        <ExpertEventLog events={events} loading={eventsLoading} />
+   770→      </div>
+   771→    </motion.div>
+   772→  )
+   773→}
+   774→
+   775→// ============================================================
+   776→// Active Missions Section
+   777→// ============================================================
+   778→
+   779→function ActiveMissions({
+   780→  missions,
+   781→  loading,
+   782→}: {
+   783→  missions: MissionWithMeta[]
+   784→  loading: boolean
+   785→}) {
+   786→  const userMode = useUserMode()
+   787→
+   788→  if (loading) {
+   789→    return (
+   790→      <div className="space-y-4">
+   791→        <Skeleton className="h-5 w-36" />
+   792→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   793→          {Array.from({ length: 4 }).map((_, i) => (
+   794→            <Skeleton key={i} className="h-44 rounded-xl" />
+   795→          ))}
+   796→        </div>
+   797→      </div>
+   798→    )
+   799→  }
+   800→
+   801→  const activeMissions = missions.filter(
+   802→    (m) => m.status !== 'cancelled' && m.status !== 'draft',
+   803→  )
+   804→
+   805→  if (activeMissions.length === 0) {
+   806→    return null
+   807→  }
+   808→
+   809→  return (
+   810→    <div className="space-y-4">
+   811→      <div className="flex items-center gap-2">
+   812→        <Rocket className="w-4 h-4 text-[#6366f1]" />
+   813→        <h3 className="text-base font-semibold text-[#e2e8f0]">Active Missions</h3>
+   814→        <Badge
+   815→          variant="secondary"
+   816→          className="text-[10px] font-medium border-0"
+   817→          style={{ color: '#6366f1', backgroundColor: 'rgba(99,102,241,0.12)' }}
+   818→        >
+   819→          {activeMissions.length}
+   820→        </Badge>
+   821→      </div>
+   822→
+   823→      {userMode === 'simple' ? (
+   824→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   825→          {activeMissions.map((m) => (
+   826→            <SimpleMissionCard key={m.id} mission={m} />
+   827→          ))}
+   828→        </div>
+   829→      ) : userMode === 'pro' ? (
+   830→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   831→          {activeMissions.map((m) => (
+   832→            <ProMissionCard key={m.id} mission={m} />
+   833→          ))}
+   834→        </div>
+   835→      ) : (
+   836→        <div className="space-y-4">
+   837→          {activeMissions.map((m) => (
+   838→            <ExpertMissionCard key={m.id} mission={m} />
+   839→          ))}
+   840→        </div>
+   841→      )}
+   842→    </div>
+   843→  )
+   844→}
+   845→
+   846→// ============================================================
+   847→// Main Component
+   848→// ============================================================
+   849→
+   850→export default function CommandCenterView() {
+   851→  const activeOrg = useActiveOrg()
+   852→  const isAuthenticated = useStore((s) => s.isAuthenticated)
+   853→  const userMode = useUserMode()
+   854→  const [missions, setMissions] = useState<MissionWithMeta[]>([])
+   855→  const [loading, setLoading] = useState(true)
+   856→  const [submitting, setSubmitting] = useState(false)
+   857→
+   858→  const fetchMissions = useCallback(async () => {
+   859→    if (!activeOrg?.id) return
+   860→    setLoading(true)
+   861→    try {
+   862→      const res = await fetch(`/api/missions?organizationId=${activeOrg.id}&limit=20`)
+   863→      if (res.ok) {
+   864→        const json = await res.json()
+   865→        setMissions(json.data ?? [])
+   866→      }
+   867→    } catch {
+   868→      // silently handle
+   869→    } finally {
+   870→      setLoading(false)
+   871→    }
+   872→  }, [activeOrg?.id])
+   873→
+   874→  useEffect(() => {
+   875→    if (!activeOrg?.id) return
+   876→    fetchMissions()
+   877→  }, [activeOrg?.id, fetchMissions])
+   878→
+   879→  const handleMissionSubmit = async (data: {
+   880→    goal: string
+   881→    budget?: string
+   882→    deadline?: string
+   883→    agentIds?: string[]
+   884→  }) => {
+   885→    if (!activeOrg?.id) return
+   886→    setSubmitting(true)
+   887→    try {
+   888→      const title = data.goal.length > 80 ? data.goal.slice(0, 80) + '…' : data.goal
+   889→      const res = await fetch(`/api/missions?organizationId=${activeOrg.id}`, {
+   890→        method: 'POST',
+   891→        headers: { 'Content-Type': 'application/json' },
+   892→        body: JSON.stringify({
+   893→          title,
+   894→          goal: data.goal,
+   895→          budget: data.budget ? parseFloat(data.budget) * 100 : undefined,
+   896→          deadline: data.deadline || undefined,
+   897→          agentIds: data.agentIds,
+   898→          userMode,
+   899→        }),
+   900→      })
+   901→      if (res.ok) {
+   902→        const json = await res.json()
+   903→        const newMission = json.data
+   904→        if (newMission?.id) {
+   905→          navigate('mission-detail', { missionId: newMission.id })
+   906→        }
+   907→        fetchMissions()
+   908→      }
+   909→    } catch {
+   910→      // silently handle
+   911→    } finally {
+   912→      setSubmitting(false)
+   913→    }
+   914→  }
+   915→
+   916→  if (!isAuthenticated) {
+   917→    return (
+   918→      <div className="space-y-6 animate-fade-in">
+   919→        <h1 className="text-2xl font-bold gradient-text">Command Center</h1>
+   920→        <motion.div
+   921→          initial={{ opacity: 0, y: 20 }}
+   922→          animate={{ opacity: 1, y: 0 }}
+   923→          className="glass-card p-8 rounded-xl flex flex-col items-center justify-center min-h-[40vh]"
+   924→        >
+   925→          <AlertCircle className="w-10 h-10 text-[#f59e0b] mb-3 opacity-60" />
+   926→          <p className="text-sm font-medium text-[#94a3b8]">Sign in to access the Command Center</p>
+   927→        </motion.div>
+   928→      </div>
+   929→    )
+   930→  }
+   931→
+   932→  if (!activeOrg) {
+   933→    return (
+   934→      <div className="space-y-6 animate-fade-in">
+   935→        <h1 className="text-2xl font-bold gradient-text">Command Center</h1>
+   936→        <motion.div
+   937→          initial={{ opacity: 0, y: 20 }}
+   938→          animate={{ opacity: 1, y: 0 }}
+   939→          className="glass-card p-8 rounded-xl flex flex-col items-center justify-center min-h-[40vh]"
+   940→        >
+   941→          <Briefcase className="w-10 h-10 text-[#6366f1] mb-3 opacity-40" />
+   942→          <p className="text-sm font-medium text-[#94a3b8]">Select an organization to start</p>
+   943→        </motion.div>
+   944→      </div>
+   945→    )
+   946→  }
+   947→
+   948→  return (
+   949→    <motion.div
+   950→      className="space-y-6 animate-fade-in"
+   951→      variants={containerVariants}
+   952→      initial="hidden"
+   953→      animate="visible"
+   954→    >
+   955→      {/* Header */}
+   956→      <motion.div variants={itemVariants} className="flex items-center justify-between">
+   957→        <div>
+   958→          <h1 className="text-2xl font-bold gradient-text">Command Center</h1>
+   959→          <p className="text-sm text-[#94a3b8] mt-1">Plan, launch, and monitor missions</p>
+   960→        </div>
+   961→        <ModeIndicator />
+   962→      </motion.div>
+   963→
+   964→      {/* Mission Input */}
+   965→      <MissionInput onSubmit={handleMissionSubmit} submitting={submitting} />
+   966→
+   967→      {/* Active Missions */}
+   968→      <ActiveMissions missions={missions} loading={loading} />
+   969→
+   970→      {/* Empty state for no missions */}
+   971→      {!loading && missions.length === 0 && (
+   972→        <motion.div
+   973→          initial={{ opacity: 0, y: 20 }}
+   974→          animate={{ opacity: 1, y: 0 }}
+   975→          className="glass-card p-12 rounded-xl flex flex-col items-center justify-center"
+   976→        >
+   977→          <div className="w-16 h-16 rounded-2xl bg-[rgba(99,102,241,0.1)] flex items-center justify-center mb-4">
+   978→            <Rocket className="w-8 h-8 text-[#6366f1] opacity-50" />
+   979→          </div>
+   980→          <h3 className="text-lg font-semibold text-[#e2e8f0]">No Missions Yet</h3>
+   981→          <p className="text-sm text-[#94a3b8] mt-2 max-w-md text-center">
+   982→            Describe your goal above and hit Start Mission. Mianx will plan the tasks,
+   983→            assign agents, and execute — all tracked transparently.
+   984→          </p>
+   985→        </motion.div>
+   986→      )}
+   987→    </motion.div>
+   988→  )
+   989→}
+   990→

@@ -7,6 +7,7 @@ import {
   buildPaginationMeta,
   requireBody,
   ValidationError,
+  ForbiddenError,
 } from '@/lib/api-response'
 import { getUserIdFromRequest, requirePermission, Permissions } from '@/lib/authorization'
 import { toJsonField, slugify } from '@/lib/types'
@@ -44,12 +45,18 @@ export async function GET(request: Request) {
   })
 }
 
-// POST /api/domains — admin: create domain
+// POST /api/domains — admin: create domain (platform-level, requires any org membership as guard)
 export async function POST(request: Request) {
   return withErrorHandler(async () => {
     const userId = getUserIdFromRequest(request)
-    // Domain creation is an admin-level action
-    // In production, check admin status; for now use org:settings permission
+    // SECURITY: Require at least one active org membership to create domains
+    // In production this should be restricted to platform admins only
+    const memberCount = await db.organizationMembership.count({
+      where: { userId, status: 'active' },
+    })
+    if (memberCount === 0) {
+      throw new ForbiddenError('Only authenticated members can create domains')
+    }
 
     const body = await requireBody<{
       name: string

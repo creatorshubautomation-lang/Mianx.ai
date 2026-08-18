@@ -1,0 +1,668 @@
+   100→
+   101→const containerVariants = {
+   102→  hidden: { opacity: 0 },
+   103→  visible: {
+   104→    opacity: 1,
+   105→    transition: { staggerChildren: 0.07, delayChildren: 0.04 },
+   106→  },
+   107→}
+   108→
+   109→const itemVariants = {
+   110→  hidden: { opacity: 0, y: 16 },
+   111→  visible: {
+   112→    opacity: 1,
+   113→    y: 0,
+   114→    transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number,number,number,number] },
+   115→  },
+   116→}
+   117→
+   118→// ============================================================
+   119→// Helpers
+   120→// ============================================================
+   121→
+   122→function formatRelativeTime(dateStr: string): string {
+   123→  const date = new Date(dateStr)
+   124→  const now = new Date()
+   125→  const diffMs = now.getTime() - date.getTime()
+   126→  const diffMins = Math.floor(diffMs / 60000)
+   127→  const diffHours = Math.floor(diffMs / 3600000)
+   128→  const diffDays = Math.floor(diffMs / 86400000)
+   129→  if (diffMins < 1) return 'Just now'
+   130→  if (diffMins < 60) return `${diffMins}m ago`
+   131→  if (diffHours < 24) return `${diffHours}h ago`
+   132→  if (diffDays < 7) return `${diffDays}d ago`
+   133→  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+   134→}
+   135→
+   136→function formatCost(cents: number): string {
+   137→  if (cents < 100) return `$${cents.toFixed(2)}`
+   138→  return `$${(cents / 100).toFixed(2)}`
+   139→}
+   140→
+   141→function formatTokens(n: number): string {
+   142→  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+   143→  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+   144→  return String(n)
+   145→}
+   146→
+   147→function getExecutionStatusBadge(status: string) {
+   148→  const config: Record<string, { label: string; color: string; bg: string }> = {
+   149→    completed: { label: 'Completed', color: '#34d399', bg: 'rgba(52,211,153,0.12)' },
+   150→    running: { label: 'Running', color: '#22d3ee', bg: 'rgba(34,211,238,0.12)' },
+   151→    failed: { label: 'Failed', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+   152→    queued: { label: 'Queued', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+   153→    cancelled: { label: 'Cancelled', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+   154→    paused: { label: 'Paused', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+   155→  pending: { label: 'Pending', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+   156→  succeeded: { label: 'Succeeded', color: '#34d399', bg: 'rgba(52,211,153,0.12)' },
+   157→  error: { label: 'Error', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+   158→  timeout: { label: 'Timeout', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+   159→  partial_failure: { label: 'Partial', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+   160→  approval_required: { label: 'Needs Approval', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+   161→  approval_timeout: { label: 'Approval Timeout', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+   162→  policy_violation: { label: 'Policy Violation', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+   163→  verification_failed: { label: 'Verification Failed', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+   164→  budget_exceeded: { label: 'Budget Exceeded', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+   165→  rate_limited: { label: 'Rate Limited', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+   166→  transient_external_error: { label: 'Transient Error', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+   167→  permanent_external_error: { label: 'Ext. Error', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+   168→  ai_error: { label: 'AI Error', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+   169→  unknown: { label: 'Unknown', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+   170→  }
+   171→  const c = config[status] ?? { label: status, color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' }
+   172→  return (
+   173→    <Badge variant="secondary" className="text-[10px] font-medium border-0" style={{ color: c.color, backgroundColor: c.bg }}>
+   174→      {c.label}
+   175→    </Badge>
+   176→  )
+   177→}
+   178→
+   179→function getRiskBadge(level: string) {
+   180→  const config: Record<string, { label: string; color: string; bg: string; glow?: boolean }> = {
+   181→    low: { label: 'Low', color: '#34d399', bg: 'rgba(52,211,153,0.12)' },
+   182→    medium: { label: 'Medium', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+   183→    high: { label: 'High', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+   184→    critical: { label: 'Critical', color: '#ef4444', bg: 'rgba(239,68,68,0.2)', glow: true },
+   185→  }
+   186→  const c = config[level] ?? config.medium
+   187→  return (
+   188→    <Badge
+   189→      variant="secondary"
+   190→      className="text-[10px] font-medium border-0"
+   191→      style={{
+   192→        color: c.color,
+   193→        backgroundColor: c.bg,
+   194→        boxShadow: c.glow ? '0 0 12px rgba(239,68,68,0.3)' : undefined,
+   195→      }}
+   196→    >
+   197→      {c.label}
+   198→    </Badge>
+   199→  )
+   200→}
+   201→
+   202→function getDecisionBadge(decision: string | null) {
+   203→  if (!decision) {
+   204→    return (
+   205→      <Badge variant="secondary" className="text-[10px] font-medium border-0" style={{ color: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.12)' }}>
+   206→        Pending
+   207→      </Badge>
+   208→    )
+   209→  }
+   210→  if (decision === 'approved') {
+   211→    return (
+   212→      <Badge variant="secondary" className="text-[10px] font-medium border-0" style={{ color: '#34d399', backgroundColor: 'rgba(52,211,153,0.12)' }}>
+   213→        Approved
+   214→      </Badge>
+   215→    )
+   216→  }
+   217→  return (
+   218→    <Badge variant="secondary" className="text-[10px] font-medium border-0" style={{ color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.12)' }}>
+   219→      Rejected
+   220→    </Badge>
+   221→  )
+   222→}
+   223→
+   224→function getVerificationTypeLabel(type: string): string {
+   225→  const map: Record<string, string> = {
+   226→    automated_test: 'Auto Test',
+   227→    manual_review: 'Manual',
+   228→    output_check: 'Output',
+   229→    constraint_check: 'Constraint',
+   230→    agent_result: 'Agent',
+   231→    task_result: 'Task',
+   232→    milestone: 'Milestone',
+   233→    final: 'Final',
+   234→    budget: 'Budget',
+   235→  }
+   236→  return map[type] ?? type
+   237→}
+   238→
+   239→// ============================================================
+   240→// Sub-Components
+   241→// ============================================================
+   242→
+   243→function StatsRow({ data, loading }: { data: TrustData | null; loading: boolean }) {
+   244→  const cards = [
+   245→    {
+   246→      icon: Bot,
+   247→      label: 'Total Executions',
+   248→      value: data?.agentActionSummary?.totalRuns ?? 0,
+   249→      color: '#6366f1',
+   250→      bg: 'rgba(99,102,241,0.12)',
+   251→    },
+   252→    {
+   253→      icon: ShieldCheck,
+   254→      label: 'Verifications Passed',
+   255→      value: data?.recentVerifications?.filter((v) => v.passed === true).length ?? 0,
+   256→      sub: `of ${data?.recentVerifications?.length ?? 0} recent`,
+   257→      color: '#34d399',
+   258→      bg: 'rgba(52,211,153,0.12)',
+   259→    },
+   260→    {
+   261→      icon: CheckCircle,
+   262→      label: 'Approvals Decided',
+   263→      value: data?.recentApprovals?.filter((a) => a.decision !== null).length ?? 0,
+   264→      sub: `of ${data?.recentApprovals?.length ?? 0} recent`,
+   265→      color: '#a78bfa',
+   266→      bg: 'rgba(167,139,250,0.12)',
+   267→    },
+   268→    {
+   269→      icon: DollarSign,
+   270→      label: 'Total AI Cost',
+   271→      value: formatCost(data?.agentActionSummary?.totalEstimatedCost ?? 0),
+   272→      sub: `${formatTokens(data?.agentActionSummary?.totalTokens ?? 0)} tokens`,
+   273→      color: '#f59e0b',
+   274→      bg: 'rgba(245,158,11,0.12)',
+   275→    },
+   276→  ]
+   277→
+   278→  if (loading) {
+   279→    return (
+   280→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   281→        {Array.from({ length: 4 }).map((_, i) => (
+   282→          <Skeleton key={i} className="h-28 rounded-xl" />
+   283→        ))}
+   284→      </div>
+   285→    )
+   286→  }
+   287→
+   288→  return (
+   289→    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   290→      {cards.map((card) => {
+   291→        const Icon = card.icon
+   292→        return (
+   293→          <motion.div
+   294→            key={card.label}
+   295→            variants={itemVariants}
+   296→            className="glass-card card-hover p-5 rounded-xl"
+   297→          >
+   298→            <div className="flex items-center gap-3 mb-3">
+   299→              <div
+   300→                className="w-9 h-9 rounded-lg flex items-center justify-center"
+   301→                style={{ backgroundColor: card.bg }}
+   302→              >
+   303→                <Icon className="w-4.5 h-4.5" style={{ color: card.color }} />
+   304→              </div>
+   305→              <span className="text-xs text-[#94a3b8] font-medium">{card.label}</span>
+   306→            </div>
+   307→            <p className="text-2xl font-bold text-[#e2e8f0]">{card.value}</p>
+   308→            {card.sub && <p className="text-[10px] text-[#64748b] mt-1">{card.sub}</p>}
+   309→          </motion.div>
+   310→        )
+   311→      })}
+   312→    </div>
+   313→  )
+   314→}
+   315→
+   316→function ExecutionsTable({ executions, loading }: { executions: ExecutionItem[]; loading: boolean }) {
+   317→  if (loading) {
+   318→    return (
+   319→      <div className="glass-card p-6 rounded-xl">
+   320→        <Skeleton className="h-5 w-48 mb-5" />
+   321→        <div className="space-y-3">
+   322→          {Array.from({ length: 6 }).map((_, i) => (
+   323→            <div key={i} className="flex items-center gap-4">
+   324→              <Skeleton className="h-4 w-32" />
+   325→              <Skeleton className="h-5 w-20 rounded-full" />
+   326→              <Skeleton className="h-4 w-24" />
+   327→              <Skeleton className="h-4 w-16" />
+   328→              <Skeleton className="h-4 w-20" />
+   329→            </div>
+   330→          ))}
+   331→        </div>
+   332→      </div>
+   333→    )
+   334→  }
+   335→
+   336→  return (
+   337→    <div className="glass-card p-6 rounded-xl">
+   338→      <div className="flex items-center gap-2 mb-5">
+   339→        <Activity className="w-4 h-4 text-[#6366f1]" />
+   340→        <h3 className="text-base font-semibold text-[#e2e8f0]">Recent Executions</h3>
+   341→      </div>
+   342→      {executions.length === 0 ? (
+   343→        <div className="flex flex-col items-center justify-center py-10">
+   344→          <Bot className="w-10 h-10 text-[#6366f1] mb-3 opacity-40" />
+   345→          <p className="text-sm font-medium text-[#94a3b8]">No executions yet</p>
+   346→          <p className="text-xs text-[#64748b] mt-1">Workflow runs will appear here.</p>
+   347→        </div>
+   348→      ) : (
+   349→        <ScrollArea className="max-h-96">
+   350→          <Table>
+   351→            <TableHeader>
+   352→              <TableRow className="border-b border-[rgba(99,102,241,0.08)] hover:bg-transparent">
+   353→                <TableHead className="text-[11px] text-[#94a3b8] font-medium">Workflow</TableHead>
+   354→                <TableHead className="text-[11px] text-[#94a3b8] font-medium">Status</TableHead>
+   355→                <TableHead className="text-[11px] text-[#94a3b8] font-medium hidden md:table-cell">Steps</TableHead>
+   356→                <TableHead className="text-[11px] text-[#94a3b8] font-medium hidden lg:table-cell">Approvals</TableHead>
+   357→                <TableHead className="text-[11px] text-[#94a3b8] font-medium hidden xl:table-cell">Error</TableHead>
+   358→                <TableHead className="text-[11px] text-[#94a3b8] font-medium text-right">Time</TableHead>
+   359→              </TableRow>
+   360→            </TableHeader>
+   361→            <TableBody>
+   362→              {executions.map((exec) => {
+   363→                const duration =
+   364→                  exec.startedAt && exec.completedAt
+   365→                    ? `${Math.round((new Date(exec.completedAt).getTime() - new Date(exec.startedAt).getTime()) / 1000)}s`
+   366→                    : exec.startedAt
+   367→                      ? 'Running…'
+   368→                      : '—'
+   369→                return (
+   370→                  <TableRow
+   371→                    key={exec.id}
+   372→                    className="border-b border-[rgba(99,102,241,0.05)] hover:bg-[rgba(99,102,241,0.04)]"
+   373→                  >
+   374→                    <TableCell className="text-sm text-[#e2e8f0] font-medium">{exec.workflowName}</TableCell>
+   375→                    <TableCell>{getExecutionStatusBadge(exec.status)}</TableCell>
+   376→                    <TableCell className="text-sm text-[#94a3b8] hidden md:table-cell">{exec.stepCount}</TableCell>
+   377→                    <TableCell className="text-sm text-[#94a3b8] hidden lg:table-cell">{exec.approvalCount}</TableCell>
+   378→                    <TableCell className="text-sm text-[#94a3b8] hidden xl:table-cell max-w-[160px] truncate">
+   379→                      {exec.error ?? '—'}
+   380→                    </TableCell>
+   381→                    <TableCell className="text-sm text-[#64748b] text-right whitespace-nowrap">
+   382→                      {duration !== '—' ? `${duration} · ` : ''}{formatRelativeTime(exec.createdAt)}
+   383→                    </TableCell>
+   384→                  </TableRow>
+   385→                )
+   386→              })}
+   387→            </TableBody>
+   388→          </Table>
+   389→        </ScrollArea>
+   390→      )}
+   391→    </div>
+   392→  )
+   393→}
+   394→
+   395→function VerificationList({ verifications, loading }: { verifications: VerificationItem[]; loading: boolean }) {
+   396→  if (loading) {
+   397→    return (
+   398→      <div className="glass-card p-6 rounded-xl">
+   399→        <Skeleton className="h-5 w-48 mb-5" />
+   400→        <div className="space-y-3">
+   401→          {Array.from({ length: 5 }).map((_, i) => (
+   402→            <div key={i} className="flex items-center gap-3">
+   403→              <Skeleton className="h-5 w-5 rounded-full" />
+   404→              <Skeleton className="h-4 w-24" />
+   405→              <Skeleton className="h-4 flex-1" />
+   406→              <Skeleton className="h-4 w-16" />
+   407→            </div>
+   408→          ))}
+   409→        </div>
+   410→      </div>
+   411→    )
+   412→  }
+   413→
+   414→  return (
+   415→    <div className="glass-card p-6 rounded-xl">
+   416→      <div className="flex items-center gap-2 mb-5">
+   417→        <ShieldCheck className="w-4 h-4 text-[#34d399]" />
+   418→        <h3 className="text-base font-semibold text-[#e2e8f0]">Verification Results</h3>
+   419→      </div>
+   420→      {verifications.length === 0 ? (
+   421→        <div className="flex flex-col items-center justify-center py-10">
+   422→          <ShieldCheck className="w-10 h-10 text-[#34d399] mb-3 opacity-40" />
+   423→          <p className="text-sm font-medium text-[#94a3b8]">No verifications yet</p>
+   424→          <p className="text-xs text-[#64748b] mt-1">Verification results will appear as missions progress.</p>
+   425→        </div>
+   426→      ) : (
+   427→        <ScrollArea className="max-h-96">
+   428→          <div className="space-y-2">
+   429→            {verifications.map((v) => (
+   430→              <div
+   431→                key={v.id}
+   432→                className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-[rgba(99,102,241,0.04)] transition-colors"
+   433→              >
+   434→                {v.passed === true ? (
+   435→                  <CheckCircle2 className="w-4.5 h-4.5 text-[#34d399] flex-shrink-0" />
+   436→                ) : v.passed === false ? (
+   437→                  <XCircle className="w-4.5 h-4.5 text-[#ef4444] flex-shrink-0" />
+   438→                ) : (
+   439→                  <Clock className="w-4.5 h-4.5 text-[#a78bfa] flex-shrink-0" />
+   440→                )}
+   441→                <Badge
+   442→                  variant="secondary"
+   443→                  className="text-[10px] font-medium border-0 flex-shrink-0"
+   444→                  style={{ color: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.12)' }}
+   445→                >
+   446→                  {getVerificationTypeLabel(v.type)}
+   447→                </Badge>
+   448→                <div className="flex-1 min-w-0">
+   449→                  <p className="text-sm text-[#e2e8f0] truncate">
+   450→                    {v.taskTitle ?? v.missionTitle}
+   451→                  </p>
+   452→                </div>
+   453→                <span className="text-[10px] text-[#64748b] whitespace-nowrap">
+   454→                  {formatRelativeTime(v.verifiedAt ?? v.createdAt)}
+   455→                </span>
+   456→              </div>
+   457→            ))}
+   458→          </div>
+   459→        </ScrollArea>
+   460→      )}
+   461→    </div>
+   462→  )
+   463→}
+   464→
+   465→function ApprovalHistory({ approvals, loading }: { approvals: ApprovalItem[]; loading: boolean }) {
+   466→  if (loading) {
+   467→    return (
+   468→      <div className="glass-card p-6 rounded-xl">
+   469→        <Skeleton className="h-5 w-40 mb-5" />
+   470→        <div className="space-y-3">
+   471→          {Array.from({ length: 5 }).map((_, i) => (
+   472→            <div key={i} className="flex items-center gap-3">
+   473→              <Skeleton className="h-5 w-5 rounded" />
+   474→              <Skeleton className="h-4 flex-1" />
+   475→              <Skeleton className="h-5 w-16 rounded-full" />
+   476→              <Skeleton className="h-5 w-16 rounded-full" />
+   477→            </div>
+   478→          ))}
+   479→        </div>
+   480→      </div>
+   481→    )
+   482→  }
+   483→
+   484→  return (
+   485→    <div className="glass-card p-6 rounded-xl">
+   486→      <div className="flex items-center gap-2 mb-5">
+   487→        <FileText className="w-4 h-4 text-[#a78bfa]" />
+   488→        <h3 className="text-base font-semibold text-[#e2e8f0]">Approval History</h3>
+   489→      </div>
+   490→      {approvals.length === 0 ? (
+   491→        <div className="flex flex-col items-center justify-center py-10">
+   492→          <FileText className="w-10 h-10 text-[#a78bfa] mb-3 opacity-40" />
+   493→          <p className="text-sm font-medium text-[#94a3b8]">No approvals yet</p>
+   494→          <p className="text-xs text-[#64748b] mt-1">Approval requests will be tracked here.</p>
+   495→        </div>
+   496→      ) : (
+   497→        <ScrollArea className="max-h-96">
+   498→          <div className="space-y-2">
+   499→            {approvals.map((a) => (
+   500→              <div
+   501→                key={a.id}
+   502→                className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-[rgba(99,102,241,0.04)] transition-colors"
+   503→              >
+   504→                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+   505→                  {getRiskBadge(a.riskLevel)}
+   506→                  <p className="text-sm text-[#e2e8f0] truncate max-w-[320px]">
+   507→                    {a.requestedAction.length > 80
+   508→                      ? a.requestedAction.slice(0, 80) + '…'
+   509→                      : a.requestedAction}
+   510→                  </p>
+   511→                </div>
+   512→                <div className="flex items-center gap-2 flex-shrink-0">
+   513→                  {getDecisionBadge(a.decision)}
+   514→                  <span className="text-[10px] text-[#64748b] whitespace-nowrap">
+   515→                    {formatRelativeTime(a.decidedAt ?? a.createdAt)}
+   516→                  </span>
+   517→                </div>
+   518→              </div>
+   519→            ))}
+   520→          </div>
+   521→        </ScrollArea>
+   522→      )}
+   523→    </div>
+   524→  )
+   525→}
+   526→
+   527→function CostBreakdown({ data, loading }: { data: TrustData | null; loading: boolean }) {
+   528→  if (loading) {
+   529→    return (
+   530→      <div className="glass-card p-6 rounded-xl">
+   531→        <Skeleton className="h-5 w-40 mb-5" />
+   532→        <div className="space-y-4">
+   533→          {Array.from({ length: 3 }).map((_, i) => (
+   534→            <div key={i}>
+   535→              <div className="flex justify-between mb-1">
+   536→                <Skeleton className="h-4 w-24" />
+   537→                <Skeleton className="h-4 w-16" />
+   538→              </div>
+   539→              <Skeleton className="h-2 w-full rounded-full" />
+   540→            </div>
+   541→          ))}
+   542→        </div>
+   543→      </div>
+   544→    )
+   545→  }
+   546→
+   547→  const summary = data?.agentActionSummary
+   548→  if (!summary || summary.totalEstimatedCost === 0) {
+   549→    return null
+   550→  }
+   551→
+   552→  const inputPct = summary.totalTokens > 0 ? Math.round((summary.totalInputTokens / summary.totalTokens) * 100) : 0
+   553→  const outputPct = 100 - inputPct
+   554→
+   555→  return (
+   556→    <motion.div className="glass-card p-6 rounded-xl" variants={itemVariants}>
+   557→      <div className="flex items-center gap-2 mb-5">
+   558→        <BarChart3 className="w-4 h-4 text-[#f59e0b]" />
+   559→        <h3 className="text-base font-semibold text-[#e2e8f0]">Cost Breakdown</h3>
+   560→      </div>
+   561→      <div className="mb-6">
+   562→        <p className="text-3xl font-bold text-[#e2e8f0]">{formatCost(summary.totalEstimatedCost)}</p>
+   563→        <p className="text-xs text-[#94a3b8] mt-1">Total estimated AI spend</p>
+   564→      </div>
+   565→      <Separator className="bg-[rgba(99,102,241,0.08)] mb-5" />
+   566→      <div className="space-y-4">
+   567→        <div>
+   568→          <div className="flex items-center justify-between mb-1.5">
+   569→            <span className="text-sm text-[#e2e8f0]">Input Tokens</span>
+   570→            <span className="text-xs text-[#94a3b8]">{formatTokens(summary.totalInputTokens)} ({inputPct}%)</span>
+   571→          </div>
+   572→          <div className="h-2 bg-[rgba(99,102,241,0.08)] rounded-full overflow-hidden">
+   573→            <motion.div
+   574→              className="h-full rounded-full"
+   575→              style={{ backgroundColor: '#6366f1' }}
+   576→              initial={{ width: 0 }}
+   577→              animate={{ width: `${inputPct}%` }}
+   578→              transition={{ duration: 0.8, ease: 'easeOut' }}
+   579→            />
+   580→          </div>
+   581→        </div>
+   582→        <div>
+   583→          <div className="flex items-center justify-between mb-1.5">
+   584→            <span className="text-sm text-[#e2e8f0]">Output Tokens</span>
+   585→            <span className="text-xs text-[#94a3b8]">{formatTokens(summary.totalOutputTokens)} ({outputPct}%)</span>
+   586→          </div>
+   587→          <div className="h-2 bg-[rgba(99,102,241,0.08)] rounded-full overflow-hidden">
+   588→            <motion.div
+   589→              className="h-full rounded-full"
+   590→              style={{ backgroundColor: '#22d3ee' }}
+   591→              initial={{ width: 0 }}
+   592→              animate={{ width: `${outputPct}%` }}
+   593→              transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
+   594→            />
+   595→          </div>
+   596→        </div>
+   597→        <div>
+   598→          <div className="flex items-center justify-between mb-1.5">
+   599→            <span className="text-sm text-[#e2e8f0]">Total Tokens</span>
+   600→            <span className="text-xs text-[#94a3b8]">{formatTokens(summary.totalTokens)}</span>
+   601→          </div>
+   602→          <div className="h-2 bg-[rgba(99,102,241,0.08)] rounded-full overflow-hidden">
+   603→            <motion.div
+   604→              className="h-full rounded-full"
+   605→              style={{ backgroundColor: '#a78bfa' }}
+   606→              initial={{ width: 0 }}
+   607→              animate={{ width: '100%' }}
+   608→              transition={{ duration: 1, ease: 'easeOut', delay: 0.4 }}
+   609→            />
+   610→          </div>
+   611→        </div>
+   612→      </div>
+   613→    </motion.div>
+   614→  )
+   615→}
+   616→
+   617→function EmptyState() {
+   618→  return (
+   619→    <motion.div
+   620→      initial={{ opacity: 0, y: 20 }}
+   621→      animate={{ opacity: 1, y: 0 }}
+   622→      className="glass-card p-12 rounded-xl flex flex-col items-center justify-center min-h-[40vh]"
+   623→    >
+   624→      <div className="w-16 h-16 rounded-2xl bg-[rgba(52,211,153,0.1)] flex items-center justify-center mb-4">
+   625→        <ShieldCheck className="w-8 h-8 text-[#34d399] opacity-60" />
+   626→      </div>
+   627→      <h3 className="text-lg font-semibold text-[#e2e8f0]">No Trust Data Yet</h3>
+   628→      <p className="text-sm text-[#94a3b8] mt-2 max-w-md text-center">
+   629→        Once your team runs missions, executes workflows, and verifies outcomes, all activity
+   630→        will be tracked transparently here.
+   631→      </p>
+   632→    </motion.div>
+   633→  )
+   634→}
+   635→
+   636→// ============================================================
+   637→// Main Component
+   638→// ============================================================
+   639→
+   640→export default function TrustCenterView() {
+   641→  const activeOrg = useActiveOrg()
+   642→  const isAuthenticated = useStore((s) => s.isAuthenticated)
+   643→  const [trustData, setTrustData] = useState<TrustData | null>(null)
+   644→  const [loading, setLoading] = useState(true)
+   645→  const [activeTab, setActiveTab] = useState('all')
+   646→
+   647→  const fetchTrustData = useCallback(async () => {
+   648→    if (!activeOrg?.id) return
+   649→    setLoading(true)
+   650→    try {
+   651→      const res = await fetch(`/api/trust?organizationId=${activeOrg.id}`)
+   652→      if (res.ok) {
+   653→        const json = await res.json()
+   654→        setTrustData(json.data ?? null)
+   655→      }
+   656→    } catch {
+   657→      // Silently handle
+   658→    } finally {
+   659→      setLoading(false)
+   660→    }
+   661→  }, [activeOrg?.id])
+   662→
+   663→  useEffect(() => {
+   664→    if (!activeOrg?.id) return
+   665→    fetchTrustData()
+   666→  }, [activeOrg?.id, fetchTrustData])
+   667→
+   668→  if (!isAuthenticated) {
+   669→    return (
+   670→      <div className="space-y-6 animate-fade-in">
+   671→        <h1 className="text-2xl font-bold gradient-text">Trust Center</h1>
+   672→        <motion.div
+   673→          initial={{ opacity: 0, y: 20 }}
+   674→          animate={{ opacity: 1, y: 0 }}
+   675→          className="glass-card p-8 rounded-xl flex flex-col items-center justify-center min-h-[40vh]"
+   676→        >
+   677→          <AlertTriangle className="w-10 h-10 text-[#f59e0b] mb-3 opacity-60" />
+   678→          <p className="text-sm font-medium text-[#94a3b8]">Sign in to access the Trust Center</p>
+   679→        </motion.div>
+   680→      </div>
+   681→    )
+   682→  }
+   683→
+   684→  if (!activeOrg) {
+   685→    return (
+   686→      <div className="space-y-6 animate-fade-in">
+   687→        <h1 className="text-2xl font-bold gradient-text">Trust Center</h1>
+   688→        <EmptyState />
+   689→      </div>
+   690→    )
+   691→  }
+   692→
+   693→  const hasData = trustData && (
+   694→    (trustData.recentExecutions?.length ?? 0) > 0 ||
+   695→    (trustData.recentVerifications?.length ?? 0) > 0 ||
+   696→    (trustData.recentApprovals?.length ?? 0) > 0 ||
+   697→    (trustData.agentActionSummary?.totalRuns ?? 0) > 0
+   698→  )
+   699→
+   700→  return (
+   701→    <motion.div
+   702→      className="space-y-6 animate-fade-in"
+   703→      variants={containerVariants}
+   704→      initial="hidden"
+   705→      animate="visible"
+   706→    >
+   707→      {/* Header */}
+   708→      <motion.div variants={itemVariants}>
+   709→        <h1 className="text-2xl font-bold gradient-text">Trust Center</h1>
+   710→        <p className="text-sm text-[#94a3b8] mt-1.5 max-w-2xl">
+   711→          See exactly what Mianx did, which agents acted, and what was verified.
+   712→        </p>
+   713→      </motion.div>
+   714→
+   715→      {/* Stats Row */}
+   716→      <StatsRow data={trustData} loading={loading} />
+   717→
+   718→      {/* Tab Filters */}
+   719→      <motion.div variants={itemVariants}>
+   720→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+   721→          <TabsList className="bg-[rgba(15,16,28,0.6)] border border-[rgba(99,102,241,0.1)]">
+   722→            <TabsTrigger value="all" className="text-xs data-[state=active]:bg-[rgba(99,102,241,0.15)] data-[state=active]:text-[#e2e8f0]">
+   723→              All
+   724→            </TabsTrigger>
+   725→            <TabsTrigger value="executions" className="text-xs data-[state=active]:bg-[rgba(99,102,241,0.15)] data-[state=active]:text-[#e2e8f0]">
+   726→              Executions
+   727→            </TabsTrigger>
+   728→            <TabsTrigger value="verifications" className="text-xs data-[state=active]:bg-[rgba(99,102,241,0.15)] data-[state=active]:text-[#e2e8f0]">
+   729→              Verifications
+   730→            </TabsTrigger>
+   731→            <TabsTrigger value="approvals" className="text-xs data-[state=active]:bg-[rgba(99,102,241,0.15)] data-[state=active]:text-[#e2e8f0]">
+   732→              Approvals
+   733→            </TabsTrigger>
+   734→          </TabsList>
+   735→
+   736→          <TabsContent value="all" className="mt-6 space-y-6">
+   737→            {!hasData && !loading ? (
+   738→              <EmptyState />
+   739→            ) : (
+   740→              <>
+   741→                <ExecutionsTable executions={trustData?.recentExecutions ?? []} loading={loading} />
+   742→                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   743→                  <VerificationList verifications={trustData?.recentVerifications ?? []} loading={loading} />
+   744→                  <ApprovalHistory approvals={trustData?.recentApprovals ?? []} loading={loading} />
+   745→                </div>
+   746→                <CostBreakdown data={trustData} loading={loading} />
+   747→              </>
+   748→            )}
+   749→          </TabsContent>
+   750→
+   751→          <TabsContent value="executions" className="mt-6">
+   752→            <ExecutionsTable executions={trustData?.recentExecutions ?? []} loading={loading} />
+   753→          </TabsContent>
+   754→
+   755→          <TabsContent value="verifications" className="mt-6">
+   756→            <VerificationList verifications={trustData?.recentVerifications ?? []} loading={loading} />
+   757→          </TabsContent>
+   758→
+   759→          <TabsContent value="approvals" className="mt-6">
+   760→            <ApprovalHistory approvals={trustData?.recentApprovals ?? []} loading={loading} />
+   761→          </TabsContent>
+   762→        </Tabs>
+   763→      </motion.div>
+   764→    </motion.div>
+   765→  )
+   766→}
+   767→

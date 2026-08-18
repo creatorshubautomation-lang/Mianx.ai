@@ -1,0 +1,1061 @@
+   100→   100→  blocked
+   101→   101→}
+   102→   102→
+   103→   103→enum OutcomeStatus {
+   104→   104→  not_started
+   105→   105→  in_progress
+   106→   106→  near_target
+   107→   107→  achieved
+   108→   108→  missed
+   109→   109→  failed
+   110→   110→}
+   111→   111→
+   112→   112→enum VerificationType {
+   113→   113→  schema_validation
+   114→   114→  test
+   115→   115→  typecheck
+   116→   116→  lint
+   117→   117→  build
+   118→   118→  security
+   119→   119→  accessibility
+   120→   120→  business_rule
+   121→   121→  artifact_check
+   122→   122→  metric_threshold
+   123→   123→}
+   124→   124→
+   125→   125→enum WorkflowRunStatus {
+   126→   126→  queued
+   127→   127→  running
+   128→   128→  waiting
+   129→   129→  waiting_approval
+   130→   130→  completed
+   131→   131→  failed
+   132→   132→  cancelled
+   133→   133→  timed_out
+   134→   134→  dead_lettered
+   135→   135→}
+   136→   136→
+   137→   137→enum JobPriority {
+   138→   138→  critical
+   139→   139→  high
+   140→   140→  normal
+   141→   141→  low
+   142→   142→}
+   143→   143→
+   144→   144→enum OutboxStatus {
+   145→   145→  pending
+   146→   146→  published
+   147→   147→  failed
+   148→   148→}
+   149→   149→
+   150→   150→enum ToolRiskLevel {
+   151→   151→  READ
+   152→   152→  LOW_WRITE
+   153→   153→  MEDIUM_WRITE
+   154→   154→  HIGH_WRITE
+   155→   155→  CRITICAL
+   156→   156→}
+   157→   157→
+   158→   158→enum AutonomyLevel {
+   159→   159→  conservative
+   160→   160→  balanced
+   161→   161→  autonomous
+   162→   162→}
+   163→   163→
+   164→   164→enum UserMode {
+   165→   165→  simple
+   166→   166→  pro
+   167→   167→  expert
+   168→   168→}
+   169→   169→
+   170→   170→enum ActorType {
+   171→   171→  human
+   172→   172→  ai_agent
+   173→   173→  system
+   174→   174→  integration
+   175→   175→}
+   176→   176→
+   177→   177→enum SettingScope {
+   178→   178→  platform
+   179→   179→  organization
+   180→   180→  domain
+   181→   181→  module
+   182→   182→  user
+   183→   183→}
+   184→   184→
+   185→   185→enum MemoryScope {
+   186→   186→  session
+   187→   187→  conversation
+   188→   188→  user
+   189→   189→  organization
+   190→   190→  domain
+   191→   191→  agent
+   192→   192→  operational
+   193→   193→}
+   194→   194→
+   195→   195→enum FailureClassification {
+   196→   196→  validation_error
+   197→   197→  authorization_error
+   198→   198→  not_found
+   199→   199→  conflict
+   200→   200→  rate_limited
+   201→   201→  timeout
+   202→   202→  transient_external_error
+   203→   203→  permanent_external_error
+   204→   204→  ai_error
+   205→   205→  approval_timeout
+   206→   206→  policy_violation
+   207→   207→  verification_failed
+   208→   208→  budget_exceeded
+   209→   209→  unknown
+   210→   210→}
+   211→   211→
+   212→   212→// ============================================================
+   213→   213→// CORE: IDENTITY & ORGANIZATION
+   214→   214→// ============================================================
+   215→   215→
+   216→   216→model Profile {
+   217→   217→  id          String   @id @default(cuid())
+   218→   218→  email       String   @unique
+   219→   219→  displayName String   @default("")
+   220→   220→  avatarUrl   String?
+   221→   221→  locale      String   @default("en")
+   222→   222→  timezone    String   @default("UTC")
+   223→   223→  createdAt   DateTime @default(now())
+   224→   224→  updatedAt   DateTime @updatedAt
+   225→   225→
+   226→   226→  memberships  OrganizationMembership[]
+   227→   227→  missions    Mission[]
+   228→   228→  aiRuns      AiRun[]
+   229→   229→  uploadedFiles File[]
+   230→   230→  notifications Notification[]
+   231→   231→  auditLogs   AuditLog[]  @relation("ActorLogs")
+   232→   232→}
+   233→   233→
+   234→   234→model Organization {
+   235→   235→  id        String             @id @default(cuid())
+   236→   236→  name      String
+   237→   237→  slug      String             @unique
+   238→   238→  status    OrganizationStatus  @default(active)
+   239→   239→  timezone  String             @default("UTC")
+   240→   240→  locale    String             @default("en")
+   241→   241→  currency  String             @default("USD")
+   242→   242→  createdAt DateTime           @default(now())
+   243→   243→  updatedAt DateTime           @updatedAt
+   244→   244→
+   245→   245→  memberships      OrganizationMembership[]
+   246→   246→  teams            Team[]
+   247→   247→  domains          OrganizationDomain[]
+   248→   248→  modules          OrganizationModule[]
+   249→   249→  agents           Agent[]
+   250→   250→  missions         Mission[]
+   251→   251→  workflows        Workflow[]
+   252→   252→  events           Event[]
+   253→   253→  subscriptions    Subscription[]
+   254→   254→  entitlements     Entitlement[]
+   255→   255→  usageRecords     UsageRecord[]
+   256→   256→  aiCostRecords    AiCostRecord[]
+   257→   257→  files            File[]
+   258→   258→  integrations     Integration[]
+   259→   259→  notifications    Notification[]
+   260→   260→  auditLogs        AuditLog[]
+   261→   261→  jobs             Job[]
+   262→   262→  settings         Setting[]
+   263→   263→  memories         AgentMemory[]
+   264→   264→  knowledgeSources KnowledgeSource[]
+   265→   265→  outcomes         Outcome[]
+   266→   266→  aiRuns          AiRun[]
+   267→   267→  workflowRuns    WorkflowRun[]
+   268→   268→  workflowApprovals WorkflowApproval[]
+   269→   269→  invoices        Invoice[]
+   270→   270→  credits         Credit[]
+   271→   271→  trials          Trial[]
+   272→   272→  autonomyPolicy   AutonomyPolicy?
+   273→   273→}
+   274→   274→
+   275→   275→model OrganizationMembership {
+   276→   276→  id             String           @id @default(cuid())
+   277→   277→  organizationId String
+   278→   278→  userId         String
+   279→   279→  status         MembershipStatus @default(invited)
+   280→   280→  joinedAt       DateTime?        @default(now())
+   281→   281→  createdAt      DateTime         @default(now())
+   282→   282→  updatedAt      DateTime         @updatedAt
+   283→   283→
+   284→   284→  organization Organization              @relation(fields: [organizationId], references: [id])
+   285→   285→  user         Profile                   @relation(fields: [userId], references: [id])
+   286→   286→  roles        MembershipRole[]
+   287→   287→  teamMembers  TeamMember[]
+   288→   288→
+   289→   289→  @@unique([organizationId, userId])
+   290→   290→}
+   291→   291→
+   292→   292→model Team {
+   293→   293→  id             String @id @default(cuid())
+   294→   294→  organizationId String
+   295→   295→  name           String
+   296→   296→  description    String?
+   297→   297→  createdAt      DateTime @default(now())
+   298→   298→  updatedAt      DateTime @updatedAt
+   299→   299→
+   300→   300→  organization Organization              @relation(fields: [organizationId], references: [id])
+   301→   301→  members      TeamMember[]
+   302→   302→}
+   303→   303→
+   304→   304→model TeamMember {
+   305→   305→  id             String @id @default(cuid())
+   306→   306→  teamId        String
+   307→   307→  membershipId  String
+   308→   308→  createdAt      DateTime @default(now())
+   309→   309→
+   310→   310→  team       Team                    @relation(fields: [teamId], references: [id])
+   311→   311→  membership OrganizationMembership @relation(fields: [membershipId], references: [id])
+   312→   312→
+   313→   313→  @@unique([teamId, membershipId])
+   314→   314→}
+   315→   315→
+   316→   316→// ============================================================
+   317→   317→// CORE: AUTHORIZATION
+   318→   318→// ============================================================
+   319→   319→
+   320→   320→model Role {
+   321→   321→  id             String   @id @default(cuid())
+   322→   322→  organizationId String?
+   323→   323→  name           String
+   324→   324→  slug           String
+   325→   325→  description    String?
+   326→   326→  isSystem       Boolean  @default(false)
+   327→   327→  createdAt      DateTime @default(now())
+   328→   328→  updatedAt      DateTime @updatedAt
+   329→   329→
+   330→   330→  permissions RolePermission[]
+   331→   331→  memberships MembershipRole[]
+   332→   332→
+   333→   333→  @@unique([organizationId, slug])
+   334→   334→}
+   335→   335→
+   336→   336→model Permission {
+   337→   337→  id          String   @id @default(cuid())
+   338→   338→  key         String   @unique
+   339→   339→  description String?
+   340→   340→  createdAt   DateTime @default(now())
+   341→   341→
+   342→   342→  roles RolePermission[]
+   343→   343→}
+   344→   344→
+   345→   345→model RolePermission {
+   346→   346→  id           String   @id @default(cuid())
+   347→   347→  roleId       String
+   348→   348→  permissionId String
+   349→   349→  createdAt    DateTime @default(now())
+   350→   350→
+   351→   351→  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+   352→   352→  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+   353→   353→
+   354→   354→  @@unique([roleId, permissionId])
+   355→   355→}
+   356→   356→
+   357→   357→model MembershipRole {
+   358→   358→  id            String   @id @default(cuid())
+   359→   359→  membershipId  String
+   360→   360→  roleId        String
+   361→   361→  createdAt     DateTime @default(now())
+   362→   362→
+   363→   363→  membership OrganizationMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+   364→   364→  role        Role                    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+   365→   365→
+   366→   366→  @@unique([membershipId, roleId])
+   367→   367→}
+   368→   368→
+   369→   369→// ============================================================
+   370→   370→// CORE: DOMAIN & MODULE ENGINE
+   371→   371→// ============================================================
+   372→   372→
+   373→   373→model Domain {
+   374→   374→  id          String        @id @default(cuid())
+   375→   375→  name        String
+   376→   376→  slug        String        @unique
+   377→   377→  version     String        @default("1.0.0")
+   378→   378→  description String?
+   379→   379→  status      DomainStatus  @default(draft)
+   380→   380→  manifest    String        @default("{}")
+   381→   381→  createdAt   DateTime      @default(now())
+   382→   382→  updatedAt   DateTime      @updatedAt
+   383→   383→
+   384→   384→  organizationDomains OrganizationDomain[]
+   385→   385→  modules              Module[]
+   386→   386→  agents               Agent[]
+   387→   387→  workflows            Workflow[]
+   388→   388→  knowledgeSources     KnowledgeSource[]
+   389→   389→}
+   390→   390→
+   391→   391→model OrganizationDomain {
+   392→   392→  id             String   @id @default(cuid())
+   393→   393→  organizationId String
+   394→   394→  domainId       String
+   395→   395→  status         String   @default("active")
+   396→   396→  configuration  String   @default("{}")
+   397→   397→  activatedAt    DateTime?
+   398→   398→  createdAt      DateTime @default(now())
+   399→   399→  updatedAt      DateTime @updatedAt
+   400→   400→
+   401→   401→  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+   402→   402→  domain       Domain       @relation(fields: [domainId], references: [id], onDelete: Cascade)
+   403→   403→
+   404→   404→  @@unique([organizationId, domainId])
+   405→   405→}
+   406→   406→
+   407→   407→model Module {
+   408→   408→  id          String   @id @default(cuid())
+   409→   409→  domainId    String
+   410→   410→  name        String
+   411→   411→  slug        String
+   412→   412→  version     String   @default("1.0.0")
+   413→   413→  description String?
+   414→   414→  manifest    String   @default("{}")
+   415→   415→  status      String   @default("active")
+   416→   416→  createdAt   DateTime @default(now())
+   417→   417→  updatedAt   DateTime @updatedAt
+   418→   418→
+   419→   419→  domain             Domain                @relation(fields: [domainId], references: [id], onDelete: Cascade)
+   420→   420→  organizationModules OrganizationModule[]
+   421→   421→}
+   422→   422→
+   423→   423→model OrganizationModule {
+   424→   424→  id             String   @id @default(cuid())
+   425→   425→  organizationId String
+   426→   426→  moduleId       String
+   427→   427→  status         String   @default("active")
+   428→   428→  configuration  String   @default("{}")
+   429→   429→  activatedAt    DateTime?
+   430→   430→  createdAt      DateTime @default(now())
+   431→   431→  updatedAt      DateTime @updatedAt
+   432→   432→
+   433→   433→  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+   434→   434→  module       Module       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+   435→   435→
+   436→   436→  @@unique([organizationId, moduleId])
+   437→   437→}
+   438→   438→
+   439→   439→// ============================================================
+   440→   440→// V3: MISSION ENGINE
+   441→   441→// ============================================================
+   442→   442→
+   443→   443→model Mission {
+   444→   444→  id              String        @id @default(cuid())
+   445→   445→  organizationId  String
+   446→   446→  userId          String?
+   447→   447→  title           String
+   448→   448→  goal            String
+   449→   449→  objective       String?
+   450→   450→  constraints     String        @default("{}")
+   451→   451→  budget          Float         @default(0)
+   452→   452→  estimatedCost   Float         @default(0)
+   453→   453→  actualCost      Float         @default(0)
+   454→   454→  deadline        DateTime?
+   455→   455→  successCriteria String        @default("[]")
+   456→   456→  plan            String        @default("{}")
+   457→   457→  status          MissionStatus @default(draft)
+   458→   458→  userMode        UserMode      @default(simple)
+   459→   459→  correlationId   String?
+   460→   460→  createdAt       DateTime      @default(now())
+   461→   461→  updatedAt       DateTime      @updatedAt
+   462→   462→
+   463→   463→  organization Organization     @relation(fields: [organizationId], references: [id])
+   464→   464→  user         Profile?          @relation(fields: [userId], references: [id])
+   465→   465→  tasks        MissionTask[]
+   466→   466→  agents       MissionAgent[]
+   467→   467→  outcomes     Outcome[]
+   468→   468→  verifications Verification[]
+   469→   469→  events       Event[]
+   470→   470→  approvals    WorkflowApproval[]
+   471→   471→}
+   472→   472→
+   473→   473→model MissionTask {
+   474→   474→  id             String      @id @default(cuid())
+   475→   475→  missionId      String
+   476→   476→  parentTaskId   String?
+   477→   477→  title          String
+   478→   478→  description    String?
+   479→   479→  status         TaskStatus  @default(planned)
+   480→   480→  agentId        String?
+   481→   481→  assignedTools  String      @default("[]")
+   482→   482→  dependencies   String      @default("[]")
+   483→   483→  verificationConfig String     @default("{}")
+   484→   484→  input          String      @default("{}")
+   485→   485→  output         String      @default("{}")
+   486→   486→  error          String?
+   487→   487→  retryCount     Int         @default(0)
+   488→   488→  maxRetries     Int         @default(3)
+   489→   489→  startedAt      DateTime?
+   490→   490→  completedAt    DateTime?
+   491→   491→  createdAt      DateTime    @default(now())
+   492→   492→  updatedAt      DateTime    @updatedAt
+   493→   493→
+   494→   494→  mission    Mission      @relation(fields: [missionId], references: [id], onDelete: Cascade)
+   495→   495→  parent     MissionTask? @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
+   496→   496→  children   MissionTask[] @relation("TaskHierarchy")
+   497→   497→  agent      Agent?       @relation("TaskAgent", fields: [agentId], references: [id])
+   498→   498→
+   499→   499→  @@index([agentId])
+   500→   500→  verifications Verification[]
+   501→   501→}
+   502→   502→
+   503→   503→model MissionAgent {
+   504→   504→  id             String  @id @default(cuid())
+   505→   505→  missionId      String
+   506→   506→  agentId        String
+   507→   507→  role           String  @default("worker")
+   508→   508→  capabilitiesUsed String @default("[]")
+   509→   509→  costIncurred   Float   @default(0)
+   510→   510→  createdAt      DateTime @default(now())
+   511→   511→
+   512→   512→  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+   513→   513→  agent   Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+   514→   514→
+   515→   515→  @@unique([missionId, agentId])
+   516→   516→}
+   517→   517→
+   518→   518→// ============================================================
+   519→   519→// V3: OUTCOME ENGINE
+   520→   520→// ============================================================
+   521→   521→
+   522→   522→model Outcome {
+   523→   523→  id             String        @id @default(cuid())
+   524→   524→  organizationId  String
+   525→   525→  missionId      String
+   526→   526→  objective     String
+   527→   527→  baseline      String         @default("{}")
+   528→   528→  target        String         @default("{}")
+   529→   529→  currentResult String         @default("{}")
+   530→   530→  progress      Float          @default(0)
+   531→   531→  confidence    Float          @default(0)
+   532→   532→  status        OutcomeStatus  @default(not_started)
+   533→   533→  evidence      String         @default("[]")
+   534→   534→  verifiedAt    DateTime?
+   535→   535→  createdAt     DateTime       @default(now())
+   536→   536→  updatedAt     DateTime       @updatedAt
+   537→   537→
+   538→   538→  mission     Mission     @relation(fields: [missionId], references: [id], onDelete: Cascade)
+   539→   539→  organization Organization @relation(fields: [organizationId], references: [id])
+   540→   540→}
+   541→   541→
+   542→   542→// ============================================================
+   543→   543→// V3: VERIFICATION ENGINE
+   544→   544→// ============================================================
+   545→   545→
+   546→   546→model Verification {
+   547→   547→  id            String           @id @default(cuid())
+   548→   548→  missionId     String
+   549→   549→  missionTaskId String?
+   550→   550→  type          VerificationType
+   551→   551→  config        String           @default("{}")
+   552→   552→  result        String?
+   553→   553→  evidence      String           @default("[]")
+   554→   554→  passed        Boolean?
+   555→   555→  verifiedAt    DateTime?
+   556→   556→  createdAt     DateTime         @default(now())
+   557→   557→
+   558→   558→  mission Mission      @relation(fields: [missionId], references: [id], onDelete: Cascade)
+   559→   559→  task    MissionTask? @relation(fields: [missionTaskId], references: [id], onDelete: Cascade)
+   560→   560→}
+   561→   561→
+   562→   562→// ============================================================
+   563→   563→// V3: AUTONOMY POLICY
+   564→   564→// ============================================================
+   565→   565→
+   566→   566→model AutonomyPolicy {
+   567→   567→  id             String         @id @default(cuid())
+   568→   568→  organizationId String         @unique
+   569→   569→  level          AutonomyLevel  @default(balanced)
+   570→   570→  config         String         @default("{}")
+   571→   571→  createdAt      DateTime       @default(now())
+   572→   572→  updatedAt      DateTime       @updatedAt
+   573→   573→
+   574→   574→  organization Organization @relation(fields: [organizationId], references: [id])
+   575→   575→}
+   576→   576→
+   577→   577→// ============================================================
+   578→   578→// AI: AGENTS
+   579→   579→// ============================================================
+   580→   580→
+   581→   581→model Agent {
+   582→   582→  id             String      @id @default(cuid())
+   583→   583→  organizationId String
+   584→   584→  domainId       String?
+   585→   585→  name           String
+   586→   586→  slug           String
+   587→   587→  description    String?
+   588→   588→  status         AgentStatus @default(draft)
+   589→   589→  type           String      @default("assistant")
+   590→   590→  configuration  String      @default("{}")
+   591→   591→  capabilities   String      @default("[]")
+   592→   592→  version        String      @default("1.0.0")
+   593→   593→  successMetrics String      @default("{}")
+   594→   594→  createdAt      DateTime    @default(now())
+   595→   595→  updatedAt      DateTime    @updatedAt
+   596→   596→
+   597→   597→  organization  Organization    @relation(fields: [organizationId], references: [id])
+   598→   598→  domain        Domain?         @relation(fields: [domainId], references: [id])
+   599→   599→  tools         AgentTool[]
+   600→   600→  skills        AgentSkill[]
+   601→   601→  runs          AiRun[]
+   602→   602→  memories      AgentMemory[]
+   603→   603→  missionTasks  MissionTask[]   @relation("TaskAgent")
+   604→   604→  missionAgents MissionAgent[]
+   605→   605→  delegations   AgentDelegation[] @relation("DelegateParent")
+   606→   606→  delegatedTo   AgentDelegation[] @relation("DelegateChild")
+   607→   607→}
+   608→   608→
+   609→   609→model AgentTool {
+   610→   610→  id            String       @id @default(cuid())
+   611→   611→  agentId       String
+   612→   612→  toolKey       String
+   613→   613→  configuration String       @default("{}")
+   614→   614→  riskLevel     ToolRiskLevel @default(READ)
+   615→   615→  enabled       Boolean      @default(true)
+   616→   616→  timeout       Int          @default(30000)
+   617→   617→  retryPolicy   String       @default("{}")
+   618→   618→  createdAt     DateTime     @default(now())
+   619→   619→  updatedAt     DateTime     @updatedAt
+   620→   620→
+   621→   621→  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+   622→   622→
+   623→   623→  @@unique([agentId, toolKey])
+   624→   624→}
+   625→   625→
+   626→   626→model AgentSkill {
+   627→   627→  id        String   @id @default(cuid())
+   628→   628→  agentId   String
+   629→   629→  skillKey  String
+   630→   630→  level     Int      @default(1)
+   631→   631→  createdAt DateTime @default(now())
+   632→   632→
+   633→   633→  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+   634→   634→
+   635→   635→  @@unique([agentId, skillKey])
+   636→   636→}
+   637→   637→
+   638→   638→model AgentDelegation {
+   639→   639→  id            String   @id @default(cuid())
+   640→   640→  parentAgentId String
+   641→   641→  childAgentId  String
+   642→   642→  task          String?
+   643→   643→  status        String   @default("active")
+   644→   644→  createdAt     DateTime @default(now())
+   645→   645→
+   646→   646→  parent Agent @relation("DelegateParent", fields: [parentAgentId], references: [id], onDelete: Cascade)
+   647→   647→  child  Agent @relation("DelegateChild", fields: [childAgentId], references: [id], onDelete: Cascade)
+   648→   648→
+   649→   649→  @@unique([parentAgentId, childAgentId])
+   650→   650→}
+   651→   651→
+   652→   652→// ============================================================
+   653→   653→// AI: RUNS & MESSAGES
+   654→   654→// ============================================================
+   655→   655→
+   656→   656→model AiRun {
+   657→   657→  id             String    @id @default(cuid())
+   658→   658→  organizationId String
+   659→   659→  agentId        String
+   660→   660→  userId         String?
+   661→   661→  model          String    @default("gpt-4o")
+   662→   662→  provider       String    @default("openai")
+   663→   663→  status         String    @default("pending")
+   664→   664→  inputTokens    Int       @default(0)
+   665→   665→  outputTokens   Int       @default(0)
+   666→   666→  totalTokens    Int       @default(0)
+   667→   667→  cost           Float?    
+   668→   668→  durationMs     Int?
+   669→   669→    
+   670→   670→  correlationId  String?
+   671→   671→  createdAt      DateTime  @default(now())
+   672→   672→  completedAt    DateTime?
+   673→   673→
+   674→   674→  organization Organization @relation(fields: [organizationId], references: [id])
+   675→   675→  agent        Agent        @relation(fields: [agentId], references: [id])
+   676→   676→  user         Profile?     @relation(fields: [userId], references: [id])
+   677→   677→  messages     AiMessage[]
+   678→   678→  toolCalls    AiToolCall[]
+   679→   679→  costRecords  AiCostRecord[]
+   680→   680→}
+   681→   681→
+   682→   682→model AiMessage {
+   683→   683→  id        String   @id @default(cuid())
+   684→   684→  aiRunId   String
+   685→   685→  role      String
+   686→   686→  content   String   @default("")
+   687→   687→  toolCalls String?  @default("null")
+   688→   688→  createdAt DateTime @default(now())
+   689→   689→
+   690→   690→  run AiRun @relation(fields: [aiRunId], references: [id], onDelete: Cascade)
+   691→   691→}
+   692→   692→
+   693→   693→model AiToolCall {
+   694→   694→  id          String   @id @default(cuid())
+   695→   695→  aiRunId     String
+   696→   696→  aiMessageId String?
+   697→   697→  toolKey     String
+   698→   698→  input       String   @default("{}")
+   699→   699→  output      String?
+   700→   700→  status      String   @default("pending")
+   701→   701→  error       String?
+   702→   702→  startedAt   DateTime @default(now())
+   703→   703→  completedAt DateTime?
+   704→   704→
+   705→   705→  run AiRun @relation(fields: [aiRunId], references: [id], onDelete: Cascade)
+   706→   706→}
+   707→   707→
+   708→   708→model AiCostRecord {
+   709→   709→  id             String   @id @default(cuid())
+   710→   710→  organizationId String
+   711→   711→  aiRunId        String?
+   712→   712→  model          String
+   713→   713→  provider       String
+   714→   714→  inputTokens    Int      @default(0)
+   715→   715→  outputTokens   Int      @default(0)
+   716→   716→  totalTokens    Int      @default(0)
+   717→   717→  estimatedCost  Float    @default(0)
+   718→   718→  actualCost     Float?
+   719→   719→  occurredAt     DateTime @default(now())
+   720→   720→  createdAt      DateTime @default(now())
+   721→   721→
+   722→   722→  organization Organization @relation(fields: [organizationId], references: [id])
+   723→   723→  aiRun        AiRun?       @relation(fields: [aiRunId], references: [id])
+   724→   724→}
+   725→   725→
+   726→   726→// ============================================================
+   727→   727→// AI: MEMORY & KNOWLEDGE
+   728→   728→// ============================================================
+   729→   729→
+   730→   730→model AgentMemory {
+   731→   731→  id             String      @id @default(cuid())
+   732→   732→  organizationId String
+   733→   733→  agentId        String?
+   734→   734→  scope          MemoryScope @default(session)
+   735→   735→  content        String
+   736→   736→  metadata       String      @default("{}")
+   737→   737→  source         String?
+   738→   738→  createdAt      DateTime    @default(now())
+   739→   739→  updatedAt      DateTime    @updatedAt
+   740→   740→
+   741→   741→  organization Organization @relation(fields: [organizationId], references: [id])
+   742→   742→  agent        Agent?       @relation(fields: [agentId], references: [id])
+   743→   743→}
+   744→   744→
+   745→   745→model KnowledgeSource {
+   746→   746→  id             String   @id @default(cuid())
+   747→   747→  organizationId String
+   748→   748→  domainId       String?
+   749→   749→  sourceType     String   @default("document")
+   750→   750→  name           String
+   751→   751→  status         String   @default("active")
+   752→   752→  configuration  String   @default("{}")
+   753→   753→  createdAt      DateTime @default(now())
+   754→   754→  updatedAt      DateTime @updatedAt
+   755→   755→
+   756→   756→  organization Organization @relation(fields: [organizationId], references: [id])
+   757→   757→  domain       Domain?       @relation(fields: [domainId], references: [id])
+   758→   758→}
+   759→   759→
+   760→   760→model Skill {
+   761→   761→  id                  String   @id @default(cuid())
+   762→   762→  key                 String   @unique
+   763→   763→  version             String   @default("1.0.0")
+   764→   764→  description         String?
+   765→   765→  inputs              String   @default("{}")
+   766→   766→  outputs             String   @default("{}")
+   767→   767→  requiredPermissions String   @default("[]")
+   768→   768→  evaluationPolicy    String   @default("{}")
+   769→   769→  createdAt           DateTime @default(now())
+   770→   770→  updatedAt           DateTime @updatedAt
+   771→   771→}
+   772→   772→
+   773→   773→// ============================================================
+   774→   774→// WORKFLOW & AUTOMATION
+   775→   775→// ============================================================
+   776→   776→
+   777→   777→model Workflow {
+   778→   778→  id             String   @id @default(cuid())
+   779→   779→  organizationId String
+   780→   780→  domainId       String?
+   781→   781→  name           String
+   782→   782→  slug           String
+   783→   783→  status         String   @default("draft")
+   784→   784→  definition     String   @default("{}")
+   785→   785→  triggerType    String   @default("manual")
+   786→   786→  createdAt      DateTime @default(now())
+   787→   787→  updatedAt      DateTime @updatedAt
+   788→   788→
+   789→   789→  organization Organization      @relation(fields: [organizationId], references: [id])
+   790→   790→  domain       Domain?             @relation(fields: [domainId], references: [id])
+   791→   791→  runs         WorkflowRun[]
+   792→   792→}
+   793→   793→
+   794→   794→model WorkflowRun {
+   795→   795→  id              String             @id @default(cuid())
+   796→   796→  workflowId      String
+   797→   797→  organizationId  String
+   798→   798→  status          WorkflowRunStatus  @default(queued)
+   799→   799→  input           String             @default("{}")
+   800→   800→  output          String?
+   801→   801→  currentStep     String?
+   802→   802→  error           String?
+   803→   803→  startedAt       DateTime?
+   804→   804→  completedAt     DateTime?
+   805→   805→  createdAt       DateTime           @default(now())
+   806→   806→  updatedAt       DateTime           @updatedAt
+   807→   807→
+   808→   808→  workflow   Workflow            @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+   809→   809→  organization Organization         @relation(fields: [organizationId], references: [id])
+   810→   810→  steps      WorkflowStepRun[]
+   811→   811→  approvals  WorkflowApproval[]
+   812→   812→  events     Event[]
+   813→   813→}
+   814→   814→
+   815→   815→model WorkflowStepRun {
+   816→   816→  id             String   @id @default(cuid())
+   817→   817→  workflowRunId  String
+   818→   818→  stepId         String
+   819→   819→  status         String   @default("pending")
+   820→   820→  attempt        Int      @default(1)
+   821→   821→  input          String   @default("{}")
+   822→   822→  output         String?
+   823→   823→  error          String?
+   824→   824→  startedAt      DateTime?
+   825→   825→  completedAt    DateTime?
+   826→   826→
+   827→   827→  workflowRun WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+   828→   828→}
+   829→   829→
+   830→   830→model WorkflowApproval {
+   831→   831→  id                String   @id @default(cuid())
+   832→   832→  workflowRunId     String?
+   833→   833→  missionId         String?
+   834→   834→  organizationId     String
+   835→   835→  requestedAction   String   @default("{}")
+   836→   836→  riskLevel         String   @default("medium")
+   837→   837→  requestedBy       String?
+   838→   838→  approvedBy        String?
+   839→   839→  decision          String?
+   840→   840→  reason            String?
+   841→   841→  expiresAt         DateTime?
+   842→   842→  createdAt         DateTime @default(now())
+   843→   843→  decidedAt         DateTime?
+   844→   844→
+   845→   845→  workflowRun WorkflowRun? @relation(fields: [workflowRunId], references: [id])
+   846→   846→  mission     Mission?     @relation(fields: [missionId], references: [id])
+   847→   847→  organization Organization @relation(fields: [organizationId], references: [id])
+   848→   848→}
+   849→   849→
+   850→   850→model Job {
+   851→   851→  id             String      @id @default(cuid())
+   852→   852→  organizationId String
+   853→   853→  type           String
+   854→   854→  payload        String      @default("{}")
+   855→   855→  status         String      @default("pending")
+   856→   856→  priority       JobPriority  @default(normal)
+   857→   857→  scheduledAt    DateTime?
+   858→   858→  attempts       Int         @default(0)
+   859→   859→  createdAt      DateTime    @default(now())
+   860→   860→
+   861→   861→  organization Organization @relation(fields: [organizationId], references: [id])
+   862→   862→}
+   863→   863→
+   864→   864→// ============================================================
+   865→   865→// EVENTS
+   866→   866→// ============================================================
+   867→   867→
+   868→   868→model Event {
+   869→   869→  id             String    @id @default(cuid())
+   870→   870→  eventType       String
+   871→   871→  eventVersion    String    @default("1.0")
+   872→   872→  organizationId  String?
+   873→   873→  domainId        String?
+   874→   874→  missionId       String?
+   875→   875→  workflowRunId   String?
+   876→   876→  sourceType      ActorType @default(system)
+   877→   877→  sourceId        String?
+   878→   878→  actorType       ActorType @default(system)
+   879→   879→  actorId         String?
+   880→   880→  correlationId   String?
+   881→   881→  causationId     String?
+   882→   882→  payload         String    @default("{}")
+   883→   883→  occurredAt      DateTime  @default(now())
+   884→   884→  createdAt       DateTime  @default(now())
+   885→   885→
+   886→   886→  organization Organization?  @relation(fields: [organizationId], references: [id])
+   887→   887→  mission     Mission?        @relation(fields: [missionId], references: [id])
+   888→   888→  workflowRun WorkflowRun?     @relation(fields: [workflowRunId], references: [id])
+   889→   889→}
+   890→   890→
+   891→   891→model OutboxEvent {
+   892→   892→  id             String       @id @default(cuid())
+   893→   893→  organizationId String?
+   894→   894→  eventType       String
+   895→   895→  payload         String       @default("{}")
+   896→   896→  status          OutboxStatus @default(pending)
+   897→   897→  attempts        Int          @default(0)
+   898→   898→  availableAt     DateTime?
+   899→   899→  publishedAt     DateTime?
+   900→   900→  createdAt       DateTime     @default(now())
+   901→   901→}
+   902→   902→
+   903→   903→// ============================================================
+   904→   904→// BILLING
+   905→   905→// ============================================================
+   906→   906→
+   907→   907→model Plan {
+   908→   908→  id          String   @id @default(cuid())
+   909→   909→  name        String
+   910→   910→  description String?
+   911→   911→  billingModel String @default("subscription")
+   912→   912→  createdAt   DateTime @default(now())
+   913→   913→  updatedAt   DateTime @updatedAt
+   914→   914→
+   915→   915→  versions PlanVersion[]
+   916→   916→}
+   917→   917→
+   918→   918→model PlanVersion {
+   919→   919→  id               String   @id @default(cuid())
+   920→   920→  planId           String
+   921→   921→  version          String   @default("1.0")
+   922→   922→  includedFeatures String   @default("{}")
+   923→   923→  includedDomains  String   @default("[]")
+   924→   924→  limits           String   @default("{}")
+   925→   925→  usageAllowances  String   @default("{}")
+   926→   926→  seatAllowances   String?  @default("null")
+   927→   927→  aiAllowance      String?  @default("null")
+   928→   928→  createdAt        DateTime @default(now())
+   929→   929→
+   930→   930→  plan        Plan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+   931→   931→  subscriptions Subscription[]
+   932→   932→}
+   933→   933→
+   934→   934→model Subscription {
+   935→   935→  id                 String             @id @default(cuid())
+   936→   936→  organizationId     String
+   937→   937→  planVersionId       String
+   938→   938→  status             SubscriptionStatus @default(trialing)
+   939→   939→  currentPeriodStart DateTime           @default(now())
+   940→   940→  currentPeriodEnd   DateTime?
+   941→   941→  createdAt          DateTime           @default(now())
+   942→   942→  updatedAt          DateTime           @updatedAt
+   943→   943→
+   944→   944→  organization Organization @relation(fields: [organizationId], references: [id])
+   945→   945→  planVersion  PlanVersion @relation(fields: [planVersionId], references: [id])
+   946→   946→  items        SubscriptionItem[]
+   947→   947→  entitlements  Entitlement[]
+   948→   948→  invoices     Invoice[]
+   949→   949→  credits      Credit[]
+   950→   950→  trials       Trial[]
+   951→   951→}
+   952→   952→
+   953→   953→model SubscriptionItem {
+   954→   954→  id              String   @id @default(cuid())
+   955→   955→  subscriptionId  String
+   956→   956→  type            String   @default("base_plan")
+   957→   957→  referenceId     String?
+   958→   958→  quantity        Int?
+   959→   959→  unitAmount      Float?
+   960→   960→  createdAt       DateTime @default(now())
+   961→   961→
+   962→   962→  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+   963→   963→}
+   964→   964→
+   965→   965→model Entitlement {
+   966→   966→  id             String           @id @default(cuid())
+   967→   967→  organizationId String
+   968→   968→  subscriptionId String
+   969→   969→  featureId      String?
+   970→   970→  resourceType   String?
+   971→   971→  resourceId     String?
+   972→   972→  status         EntitlementStatus @default(enabled)
+   973→   973→  limitValue     Float?
+   974→   974→  createdAt      DateTime         @default(now())
+   975→   975→  updatedAt      DateTime         @updatedAt
+   976→   976→
+   977→   977→  organization Organization  @relation(fields: [organizationId], references: [id])
+   978→   978→  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+   979→   979→}
+   980→   980→
+   981→   981→model UsageRecord {
+   982→   982→  id             String   @id @default(cuid())
+   983→   983→  organizationId String
+   984→   984→  meterKey       String
+   985→   985→  quantity       Float    @default(0)
+   986→   986→  unit           String   @default("count")
+   987→   987→  source         String?
+   988→   988→  occurredAt     DateTime @default(now())
+   989→   989→  idempotencyKey String   @unique
+   990→   990→  metadata       String?  @default("null")
+   991→   991→  createdAt      DateTime @default(now())
+   992→   992→
+   993→   993→  organization Organization @relation(fields: [organizationId], references: [id])
+   994→   994→}
+   995→   995→
+   996→   996→model UsageMeter {
+   997→   997→  id          String   @id @default(cuid())
+   998→   998→  key         String   @unique
+   999→   999→  name        String
+  1000→  1000→  unit        String   @default("count")
+  1001→  1001→  aggregation String   @default("sum")
+  1002→  1002→  period      String   @default("monthly")
+  1003→  1003→  createdAt   DateTime @default(now())
+  1004→  1004→}
+  1005→  1005→
+  1006→  1006→model Invoice {
+  1007→  1007→  id             String   @id @default(cuid())
+  1008→  1008→  organizationId String
+  1009→  1009→  subscriptionId String
+  1010→  1010→  periodStart    DateTime @default(now())
+  1011→  1011→  periodEnd      DateTime?
+  1012→  1012→  lineItems      String   @default("[]")
+  1013→  1013→  subtotal       Float    @default(0)
+  1014→  1014→  discount       Float    @default(0)
+  1015→  1015→  tax            Float    @default(0)
+  1016→  1016→  total          Float    @default(0)
+  1017→  1017→  currency       String   @default("USD")
+  1018→  1018→  status         String   @default("draft")
+  1019→  1019→  issuedAt       DateTime @default(now())
+  1020→  1020→  dueAt          DateTime?
+  1021→  1021→  paidAt         DateTime?
+  1022→  1022→
+  1023→  1023→  organization Organization @relation(fields: [organizationId], references: [id])
+  1024→  1024→  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  1025→  1025→}
+  1026→  1026→
+  1027→  1027→model Credit {
+  1028→  1028→  id             String   @id @default(cuid())
+  1029→  1029→  organizationId String
+  1030→  1030→  subscriptionId String
+  1031→  1031→  amount         Float    @default(0)
+  1032→  1032→  currency       String   @default("USD")
+  1033→  1033→  type           String   @default("promotional")
+  1034→  1034→  expiration     DateTime?
+  1035→  1035→  priority       Int      @default(0)
+  1036→  1036→  remaining      Float    @default(0)
+  1037→  1037→  createdAt      DateTime @default(now())
+  1038→  1038→
+  1039→  1039→  organization Organization @relation(fields: [organizationId], references: [id])
+  1040→  1040→  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  1041→  1041→}
+  1042→  1042→
+  1043→  1043→model Trial {
+  1044→  1044→  id             String      @id @default(cuid())
+  1045→  1045→  organizationId String
+  1046→  1046→  subscriptionId String
+  1047→  1047→  planId         String
+  1048→  1048→  status         TrialStatus @default(started)
+  1049→  1049→  durationDays   Int         @default(14)
+  1050→  1050→  features       String     @default("{}")
+  1051→  1051→  usageLimits    String     @default("{}")
+  1052→  1052→  startsAt       DateTime    @default(now())
+  1053→  1053→  endsAt         DateTime?
+  1054→  1054→  convertedAt    DateTime?
+  1055→  1055→  createdAt      DateTime    @default(now())
+  1056→  1056→
+  1057→  1057→  organization Organization @relation(fields: [organizationId], references: [id])
+  1058→  1058→  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  1059→  1059→}
+  1060→  1060→
+  1061→  1061→// ============================================================
+  1062→  1062→// INTEGRATION
+  1063→  1063→// ============================================================
+  1064→  1064→
+  1065→  1065→model Integration {
+  1066→  1066→  id             String   @id @default(cuid())
+  1067→  1067→  organizationId String
+  1068→  1068→  provider       String
+  1069→  1069→  name           String
+  1070→  1070→  status         String   @default("disconnected")
+  1071→  1071→  configuration  String   @default("{}")
+  1072→  1072→  createdAt      DateTime @default(now())
+  1073→  1073→  updatedAt      DateTime @updatedAt
+  1074→  1074→
+  1075→  1075→  organization Organization @relation(fields: [organizationId], references: [id])
+  1076→  1076→}
+  1077→  1077→
+  1078→  1078→// ============================================================
+  1079→  1079→// AUDIT & OBSERVABILITY
+  1080→  1080→// ============================================================
+  1081→  1081→
+  1082→  1082→model AuditLog {
+  1083→  1083→  id             String    @id @default(cuid())
+  1084→  1084→  organizationId String?
+  1085→  1085→  actorType      ActorType @default(human)
+  1086→  1086→  actorId        String?
+  1087→  1087→  action         String
+  1088→  1088→  resourceType   String
+  1089→  1089→  resourceId     String?
+  1090→  1090→  before         String?   @default("null")
+  1091→  1091→  after          String?   @default("null")
+  1092→  1092→  metadata       String?   @default("null")
+  1093→  1093→  requestId      String?
+  1094→  1094→  correlationId   String?
+  1095→  1095→  createdAt      DateTime  @default(now())
+  1096→  1096→
+  1097→  1097→  organization Organization? @relation(fields: [organizationId], references: [id])
+  1098→  1098→  actor        Profile?      @relation("ActorLogs", fields: [actorId], references: [id])
+  1099→  1099→}
+  1100→  1100→
+  1101→  1101→// ============================================================
+  1102→  1102→// SUPPORTING
+  1103→  1103→// ============================================================
+  1104→  1104→
+  1105→  1105→model File {
+  1106→  1106→  id             String   @id @default(cuid())
+  1107→  1107→  organizationId String
+  1108→  1108→  uploadedBy     String
+  1109→  1109→  name           String
+  1110→  1110→  storagePath    String
+  1111→  1111→  mimeType       String   @default("application/octet-stream")
+  1112→  1112→  sizeBytes      Int      @default(0)
+  1113→  1113→  metadata       String?  @default("null")
+  1114→  1114→  createdAt      DateTime @default(now())
+  1115→  1115→  updatedAt      DateTime @updatedAt
+  1116→  1116→
+  1117→  1117→  organization Organization @relation(fields: [organizationId], references: [id])
+  1118→  1118→  uploader     Profile      @relation(fields: [uploadedBy], references: [id])
+  1119→  1119→}
+  1120→  1120→
+  1121→  1121→model Notification {
+  1122→  1122→  id               String   @id @default(cuid())
+  1123→  1123→  organizationId   String
+  1124→  1124→  recipientUserId  String
+  1125→  1125→  type             String
+  1126→  1126→  title            String
+  1127→  1127→  body             String?
+  1128→  1128→  data             String?  @default("null")
+  1129→  1129→  readAt           DateTime?
+  1130→  1130→  createdAt        DateTime @default(now())
+  1131→  1131→
+  1132→  1132→  organization Organization @relation(fields: [organizationId], references: [id])
+  1133→  1133→  recipient   Profile      @relation(fields: [recipientUserId], references: [id])
+  1134→  1134→}
+  1135→  1135→
+  1136→  1136→model Setting {
+  1137→  1137→  id             String      @id @default(cuid())
+  1138→  1138→  organizationId String?
+  1139→  1139→  scopeType      SettingScope @default(platform)
+  1140→  1140→  scopeId        String?
+  1141→  1141→  key            String
+  1142→  1142→  value          String      @default("{}")
+  1143→  1143→  createdAt      DateTime    @default(now())
+  1144→  1144→  updatedAt      DateTime    @updatedAt
+  1145→  1145→
+  1146→  1146→  organization Organization? @relation(fields: [organizationId], references: [id])
+  1147→  1147→}
+  1148→  1148→
+  1149→  1149→model ApiKey {
+  1150→  1150→  id             String   @id @default(cuid())
+  1151→  1151→  organizationId String
+  1152→  1152→  name           String
+  1153→  1153→  keyHash        String   @unique
+  1154→  1154→  scopes         String   @default("[]")
+  1155→  1155→  status         String   @default("active")
+  1156→  1156→  expiresAt       DateTime?
+  1157→  1157→  lastUsedAt     DateTime?
+  1158→  1158→  createdAt      DateTime @default(now())
+  1159→  1159→}
+  1160→  1160→

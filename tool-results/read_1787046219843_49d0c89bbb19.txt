@@ -1,0 +1,719 @@
+     1→'use client'
+     2→
+     3→import { useEffect, useState, useCallback } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  CreditCard,
+     7→  AlertCircle,
+     8→  Crown,
+     9→  Zap,
+    10→  ArrowUpRight,
+    11→  FileText,
+    12→  Calendar,
+    13→  TrendingUp,
+    14→  Infinity,
+    15→  Check,
+    16→  Sparkles,
+    17→  Receipt,
+    18→  Activity,
+    19→} from 'lucide-react'
+    20→import { Button } from '@/components/ui/button'
+    21→import { Badge } from '@/components/ui/badge'
+    22→import { Skeleton } from '@/components/ui/skeleton'
+    23→import { Progress } from '@/components/ui/progress'
+    24→import {
+    25→  Table,
+    26→  TableBody,
+    27→  TableCell,
+    28→  TableHead,
+    29→  TableHeader,
+    30→  TableRow,
+    31→} from '@/components/ui/table'
+    32→import { Separator } from '@/components/ui/separator'
+    33→import { useStore, useActiveOrg } from '@/lib/store'
+    34→import { cn } from '@/lib/utils'
+    35→import { parseJsonField, type BillingOverview, type InvoiceDto } from '@/lib/types'
+    36→
+    37→// ============================================================
+    38→// Animation Variants
+    39→// ============================================================
+    40→
+    41→const containerVariants = {
+    42→  hidden: { opacity: 0 },
+    43→  visible: {
+    44→    opacity: 1,
+    45→    transition: { staggerChildren: 0.06, delayChildren: 0.05 },
+    46→  },
+    47→}
+    48→
+    49→const itemVariants = {
+    50→  hidden: { opacity: 0, y: 20 },
+    51→  visible: {
+    52→    opacity: 1,
+    53→    y: 0,
+    54→    transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number,number,number,number] },
+    55→  },
+    56→}
+    57→
+    58→// ============================================================
+    59→// Configs
+    60→// ============================================================
+    61→
+    62→const SUBSCRIPTION_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+    63→  trialing:  { label: 'Trial',      color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+    64→  active:    { label: 'Active',     color: '#34d399', bg: 'rgba(52,211,153,0.12)' },
+    65→  past_due:  { label: 'Past Due',  color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+    66→  canceled:  { label: 'Canceled',  color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+    67→  unpaid:    { label: 'Unpaid',    color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+    68→}
+    69→
+    70→const INVOICE_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+    71→  draft:     { label: 'Draft',     color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+    72→  open:      { label: 'Open',      color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+    73→  paid:      { label: 'Paid',      color: '#34d399', bg: 'rgba(52,211,153,0.12)' },
+    74→  void:      { label: 'Void',      color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+    75→  uncollectible: { label: 'Uncollectible', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+    76→}
+    77→
+    78→// ============================================================
+    79→// Helpers
+    80→// ============================================================
+    81→
+    82→function formatDate(dateStr: string): string {
+    83→  return new Date(dateStr).toLocaleDateString('en-US', {
+    84→    month: 'short',
+    85→    day: 'numeric',
+    86→    year: 'numeric',
+    87→  })
+    88→}
+    89→
+    90→function formatCurrency(amount: number, currency: string = 'USD'): string {
+    91→  return new Intl.NumberFormat('en-US', {
+    92→    style: 'currency',
+    93→    currency: currency.toUpperCase(),
+    94→    minimumFractionDigits: 2,
+    95→  }).format(amount / 100)
+    96→}
+    97→
+    98→function getUsageColor(current: number, limit: number | null): string {
+    99→  if (limit === null) return '#34d399'
+   100→  const pct = (current / limit) * 100
+   101→  if (pct > 90) return '#ef4444'
+   102→  if (pct > 70) return '#f59e0b'
+   103→  return '#34d399'
+   104→}
+   105→
+   106→function getUsageProgress(current: number, limit: number | null): number {
+   107→  if (limit === null) return 0
+   108→  return Math.min(Math.round((current / limit) * 100), 100)
+   109→}
+   110→
+   111→function getDaysRemaining(endsAt: string | null): number | null {
+   112→  if (!endsAt) return null
+   113→  const end = new Date(endsAt).getTime()
+   114→  const now = Date.now()
+   115→  const diff = end - now
+   116→  if (diff <= 0) return 0
+   117→  return Math.ceil(diff / 86400000)
+   118→}
+   119→
+   120→function parseFeatures(featuresStr: string): string[] {
+   121→  return parseJsonField<string[]>(featuresStr, [])
+   122→}
+   123→
+   124→// ============================================================
+   125→// Sub-Components
+   126→// ============================================================
+   127→
+   128→function OverviewCard({
+   129→  overview,
+   130→  loading,
+   131→}: {
+   132→  overview: BillingOverview | null
+   133→  loading: boolean
+   134→}) {
+   135→  if (loading) {
+   136→    return (
+   137→      <motion.div variants={itemVariants} className="glass-strong rounded-xl p-6">
+   138→        <Skeleton className="h-6 w-48 mb-5" />
+   139→        <div className="space-y-4">
+   140→          <Skeleton className="h-5 w-36" />
+   141→          <Skeleton className="h-4 w-full" />
+   142→          <Skeleton className="h-4 w-3/4" />
+   143→          <Skeleton className="h-4 w-1/2" />
+   144→        </div>
+   145→      </motion.div>
+   146→    )
+   147→  }
+   148→
+   149→  const sub = overview?.subscription
+   150→  const plan = overview?.plan
+   151→  const trial = overview?.trial
+   152→
+   153→  const subStatus = sub
+   154→    ? SUBSCRIPTION_STATUS_CONFIG[sub.status] ?? {
+   155→        label: sub.status,
+   156→        color: '#94a3b8',
+   157→        bg: 'rgba(148,163,184,0.12)',
+   158→      }
+   159→    : null
+   160→
+   161→  const daysRemaining = trial?.endsAt ? getDaysRemaining(trial.endsAt) : null
+   162→
+   163→  return (
+   164→    <motion.div variants={itemVariants} className="glass-strong rounded-xl p-6">
+   165→      <div className="flex items-center gap-3 mb-5">
+   166→        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#f59e0b] to-[#ec4899] flex items-center justify-center">
+   167→          <Crown className="w-5 h-5 text-white" />
+   168→        </div>
+   169→        <h2 className="text-base font-semibold text-[#e2e8f0]">
+   170→          Current Plan
+   171→        </h2>
+   172→      </div>
+   173→
+   174→      {plan && sub ? (
+   175→        <div className="space-y-4">
+   176→          {/* Plan Name + Status */}
+   177→          <div className="flex items-center gap-3 flex-wrap">
+   178→            <h3 className="text-xl font-bold text-[#e2e8f0]">{plan.name}</h3>
+   179→            {plan.currentVersion && (
+   180→              <Badge
+   181→                variant="outline"
+   182→                className="text-[10px] font-medium border-[rgba(99,102,241,0.2)] text-[#a78bfa] bg-[rgba(99,102,241,0.06)]"
+   183→              >
+   184→                v{plan.currentVersion.version}
+   185→              </Badge>
+   186→            )}
+   187→            {subStatus && (
+   188→              <Badge
+   189→                variant="secondary"
+   190→                className="text-[10px] font-medium border-0"
+   191→                style={{ color: subStatus.color, backgroundColor: subStatus.bg }}
+   192→              >
+   193→                {subStatus.label}
+   194→              </Badge>
+   195→            )}
+   196→          </div>
+   197→
+   198→          {plan.description && (
+   199→            <p className="text-sm text-[#94a3b8] leading-relaxed">
+   200→              {plan.description}
+   201→            </p>
+   202→          )}
+   203→
+   204→          {/* Trial Info */}
+   205→          {trial && (
+   206→            <div className="bg-[rgba(245,158,11,0.06)] border border-[rgba(245,158,11,0.15)] rounded-lg p-3.5">
+   207→              <div className="flex items-center justify-between">
+   208→                <div className="flex items-center gap-2">
+   209→                  <Sparkles className="w-4 h-4 text-[#f59e0b]" />
+   210→                  <span className="text-sm font-medium text-[#f59e0b]">Trial Period</span>
+   211→                </div>
+   212→                {daysRemaining !== null && daysRemaining > 0 && (
+   213→                  <Badge
+   214→                    variant="secondary"
+   215→                    className="text-[10px] font-medium border-0"
+   216→                    style={{ color: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.15)' }}
+   217→                  >
+   218→                    {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} remaining
+   219→                  </Badge>
+   220→                )}
+   221→              </div>
+   222→              <div className="mt-2 flex items-center gap-4 text-xs text-[#94a3b8]">
+   223→                <span>Status: <span className="text-[#f59e0b] capitalize">{trial.status}</span></span>
+   224→                <span>Duration: {trial.durationDays} days</span>
+   225→              </div>
+   226→              <div className="mt-1.5 flex items-center gap-4 text-xs text-[#94a3b8]">
+   227→                <span>Start: {formatDate(trial.startsAt)}</span>
+   228→                {trial.endsAt && <span>End: {formatDate(trial.endsAt)}</span>}
+   229→              </div>
+   230→            </div>
+   231→          )}
+   232→
+   233→          {/* Billing Period */}
+   234→          <div className="flex items-center gap-2 text-sm">
+   235→            <Calendar className="w-4 h-4 text-[#64748b]" />
+   236→            <span className="text-[#94a3b8]">Current period:</span>
+   237→            <span className="text-[#e2e8f0] font-medium">
+   238→              {formatDate(sub.currentPeriodStart)}
+   239→            </span>
+   240→            <span className="text-[#64748b]">→</span>
+   241→            <span className="text-[#e2e8f0] font-medium">
+   242→              {sub.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : 'Ongoing'}
+   243→            </span>
+   244→          </div>
+   245→
+   246→          {/* Included Features */}
+   247→          {plan.currentVersion?.includedFeatures &&
+   248→            parseFeatures(plan.currentVersion.includedFeatures).length > 0 && (
+   249→              <div>
+   250→                <p className="text-[10px] text-[#64748b] uppercase tracking-wider mb-2">
+   251→                  Included Features
+   252→                </p>
+   253→                <div className="flex flex-wrap gap-1.5">
+   254→                  {parseFeatures(plan.currentVersion.includedFeatures).map((f) => (
+   255→                    <Badge
+   256→                      key={f}
+   257→                      variant="outline"
+   258→                      className="text-[10px] font-normal border-[rgba(52,211,153,0.2)] text-[#34d399] bg-[rgba(52,211,153,0.06)] gap-1"
+   259→                    >
+   260→                      <Check className="w-2.5 h-2.5" />
+   261→                      {f}
+   262→                    </Badge>
+   263→                  ))}
+   264→                </div>
+   265→              </div>
+   266→            )}
+   267→        </div>
+   268→      ) : (
+   269→        <div>
+   270→          <div className="flex items-center gap-2 mb-2">
+   271→            <AlertCircle className="w-4 h-4 text-[#f59e0b]" />
+   272→            <h3 className="text-base font-medium text-[#e2e8f0]">
+   273→              No active subscription
+   274→            </h3>
+   275→          </div>
+   276→          <p className="text-sm text-[#94a3b8] leading-relaxed">
+   277→            You don&apos;t have an active plan yet. Start with a free trial to
+   278→            explore all features.
+   279→          </p>
+   280→        </div>
+   281→      )}
+   282→    </motion.div>
+   283→  )
+   284→}
+   285→
+   286→function UsageCard({
+   287→  meter,
+   288→  index,
+   289→}: {
+   290→  meter: { meterKey: string; meterName: string; unit: string; current: number; limit: number | null; period: string }
+   291→  index: number
+   292→}) {
+   293→  const color = getUsageColor(meter.current, meter.limit)
+   294→  const progress = getUsageProgress(meter.current, meter.limit)
+   295→  const isUnlimited = meter.limit === null
+   296→
+   297→  const icons = [Zap, Activity, TrendingUp, CreditCard]
+   298→  const Icon = icons[index % icons.length]
+   299→
+   300→  return (
+   301→    <motion.div variants={itemVariants} className="glass-card p-5 rounded-xl">
+   302→      <div className="flex items-start justify-between mb-3">
+   303→        <div
+   304→          className="w-9 h-9 rounded-lg flex items-center justify-center"
+   305→          style={{ backgroundColor: `${color}18` }}
+   306→        >
+   307→          <Icon className="w-4.5 h-4.5" style={{ color }} />
+   308→        </div>
+   309→        {isUnlimited ? (
+   310→          <Badge
+   311→            variant="outline"
+   312→            className="text-[9px] font-medium border-[rgba(99,102,241,0.15)] text-[#6366f1] bg-[rgba(99,102,241,0.06)] gap-1"
+   313→          >
+   314→            <Infinity className="w-3 h-3" />
+   315→            Unlimited
+   316→          </Badge>
+   317→        ) : (
+   318→          <span
+   319→            className="text-xs font-semibold"
+   320→            style={{ color }}
+   321→          >
+   322→            {progress}%
+   323→          </span>
+   324→        )}
+   325→      </div>
+   326→
+   327→      <p className="text-xs text-[#94a3b8] mb-1">{meter.meterName}</p>
+   328→      <div className="flex items-baseline gap-1.5 mb-3">
+   329→        <span className="text-xl font-bold text-[#e2e8f0]">
+   330→          {meter.current.toLocaleString()}
+   331→        </span>
+   332→        <span className="text-xs text-[#64748b]">
+   333→          / {isUnlimited ? '∞' : meter.limit?.toLocaleString()} {meter.unit}
+   334→        </span>
+   335→      </div>
+   336→
+   337→      {!isUnlimited && (
+   338→        <div className="space-y-1.5">
+   339→          <Progress
+   340→            value={progress}
+   341→            className="h-1.5"
+   342→          />
+   343→          <p className="text-[10px] text-[#64748b]">
+   344→            {meter.limit !== null && meter.limit - meter.current > 0
+   345→              ? `${(meter.limit - meter.current).toLocaleString()} ${meter.unit} remaining this ${meter.period}`
+   346→              : `Limit reached`}
+   347→          </p>
+   348→        </div>
+   349→      )}
+   350→    </motion.div>
+   351→  )
+   352→}
+   353→
+   354→function UsageSection({
+   355→  usage,
+   356→  loading,
+   357→}: {
+   358→  usage: NonNullable<BillingOverview['usage']>
+   359→  loading: boolean
+   360→}) {
+   361→  if (loading) {
+   362→    return (
+   363→      <motion.div variants={itemVariants}>
+   364→        <h2 className="text-base font-semibold text-[#e2e8f0] mb-4 flex items-center gap-2">
+   365→          <Activity className="w-4 h-4 text-[#22d3ee]" />
+   366→          Usage
+   367→        </h2>
+   368→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   369→          {Array.from({ length: 3 }).map((_, i) => (
+   370→            <Skeleton key={i} className="h-40 rounded-xl" />
+   371→          ))}
+   372→        </div>
+   373→      </motion.div>
+   374→    )
+   375→  }
+   376→
+   377→  if (usage.length === 0) {
+   378→    return (
+   379→      <motion.div variants={itemVariants}>
+   380→        <h2 className="text-base font-semibold text-[#e2e8f0] mb-4 flex items-center gap-2">
+   381→          <Activity className="w-4 h-4 text-[#22d3ee]" />
+   382→          Usage
+   383→        </h2>
+   384→        <div className="glass-card p-6 rounded-xl text-center">
+   385→          <Activity className="w-8 h-8 text-[#6366f1] mx-auto mb-2 opacity-40" />
+   386→          <p className="text-sm text-[#94a3b8]">No usage data available yet.</p>
+   387→        </div>
+   388→      </motion.div>
+   389→    )
+   390→  }
+   391→
+   392→  return (
+   393→    <motion.div variants={itemVariants}>
+   394→      <h2 className="text-base font-semibold text-[#e2e8f0] mb-4 flex items-center gap-2">
+   395→        <Activity className="w-4 h-4 text-[#22d3ee]" />
+   396→        Usage
+   397→      </h2>
+   398→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   399→        {usage.map((meter, i) => (
+   400→          <UsageCard key={meter.meterKey} meter={meter} index={i} />
+   401→        ))}
+   402→      </div>
+   403→    </motion.div>
+   404→  )
+   405→}
+   406→
+   407→function InvoicesTable({
+   408→  invoices,
+   409→  loading,
+   410→}: {
+   411→  invoices: InvoiceDto[]
+   412→  loading: boolean
+   413→}) {
+   414→  if (loading) {
+   415→    return (
+   416→      <motion.div variants={itemVariants} className="glass-card rounded-xl p-6">
+   417→        <h2 className="text-base font-semibold text-[#e2e8f0] mb-4 flex items-center gap-2">
+   418→          <Receipt className="w-4 h-4 text-[#a78bfa]" />
+   419→          Invoices
+   420→        </h2>
+   421→        <div className="space-y-3">
+   422→          {Array.from({ length: 3 }).map((_, i) => (
+   423→            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+   424→          ))}
+   425→        </div>
+   426→      </motion.div>
+   427→    )
+   428→  }
+   429→
+   430→  return (
+   431→    <motion.div variants={itemVariants} className="glass-card rounded-xl overflow-hidden">
+   432→      <div className="p-5 pb-3">
+   433→        <h2 className="text-base font-semibold text-[#e2e8f0] flex items-center gap-2">
+   434→          <Receipt className="w-4 h-4 text-[#a78bfa]" />
+   435→          Invoices
+   436→        </h2>
+   437→      </div>
+   438→
+   439→      {invoices.length === 0 ? (
+   440→        <div className="p-6 text-center">
+   441→          <FileText className="w-8 h-8 text-[#6366f1] mx-auto mb-2 opacity-40" />
+   442→          <p className="text-sm text-[#94a3b8]">No invoices yet.</p>
+   443→        </div>
+   444→      ) : (
+   445→        <>
+   446→          {/* Desktop Table */}
+   447→          <div className="hidden md:block">
+   448→            <Table>
+   449→              <TableHeader>
+   450→                <TableRow className="border-[rgba(99,102,241,0.08)] hover:bg-transparent">
+   451→                  <TableHead className="text-[10px] uppercase tracking-wider text-[#64748b]">Invoice</TableHead>
+   452→                  <TableHead className="text-[10px] uppercase tracking-wider text-[#64748b]">Period</TableHead>
+   453→                  <TableHead className="text-[10px] uppercase tracking-wider text-[#64748b]">Total</TableHead>
+   454→                  <TableHead className="text-[10px] uppercase tracking-wider text-[#64748b]">Status</TableHead>
+   455→                  <TableHead className="text-[10px] uppercase tracking-wider text-[#64748b]">Issued</TableHead>
+   456→                  <TableHead className="text-[10px] uppercase tracking-wider text-[#64748b]">Paid</TableHead>
+   457→                </TableRow>
+   458→              </TableHeader>
+   459→              <TableBody>
+   460→                {invoices.map((inv) => {
+   461→                  const statusCfg = INVOICE_STATUS_CONFIG[inv.status] ?? {
+   462→                    label: inv.status,
+   463→                    color: '#94a3b8',
+   464→                    bg: 'rgba(148,163,184,0.12)',
+   465→                  }
+   466→                  return (
+   467→                    <TableRow
+   468→                      key={inv.id}
+   469→                      className="border-[rgba(99,102,241,0.06)] hover:bg-[rgba(99,102,241,0.04)]"
+   470→                    >
+   471→                      <TableCell>
+   472→                        <span className="text-xs text-[#94a3b8] font-mono">
+   473→                          {inv.id.slice(0, 8)}…
+   474→                        </span>
+   475→                      </TableCell>
+   476→                      <TableCell>
+   477→                        <span className="text-xs text-[#94a3b8]">
+   478→                          {formatDate(inv.periodStart)}
+   479→                          {inv.periodEnd ? ` — ${formatDate(inv.periodEnd)}` : ''}
+   480→                        </span>
+   481→                      </TableCell>
+   482→                      <TableCell>
+   483→                        <span className="text-sm font-semibold text-[#e2e8f0]">
+   484→                          {formatCurrency(inv.total, inv.currency)}
+   485→                        </span>
+   486→                      </TableCell>
+   487→                      <TableCell>
+   488→                        <Badge
+   489→                          variant="secondary"
+   490→                          className="text-[10px] font-medium border-0"
+   491→                          style={{ color: statusCfg.color, backgroundColor: statusCfg.bg }}
+   492→                        >
+   493→                          {statusCfg.label}
+   494→                        </Badge>
+   495→                      </TableCell>
+   496→                      <TableCell>
+   497→                        <span className="text-xs text-[#64748b]">
+   498→                          {formatDate(inv.issuedAt)}
+   499→                        </span>
+   500→                      </TableCell>
+   501→                      <TableCell>
+   502→                        <span className="text-xs text-[#64748b]">
+   503→                          {inv.paidAt ? formatDate(inv.paidAt) : '—'}
+   504→                        </span>
+   505→                      </TableCell>
+   506→                    </TableRow>
+   507→                  )
+   508→                })}
+   509→              </TableBody>
+   510→            </Table>
+   511→          </div>
+   512→
+   513→          {/* Mobile Cards */}
+   514→          <div className="md:hidden p-4 space-y-3">
+   515→            {invoices.map((inv) => {
+   516→              const statusCfg = INVOICE_STATUS_CONFIG[inv.status] ?? {
+   517→                label: inv.status,
+   518→                color: '#94a3b8',
+   519→                bg: 'rgba(148,163,184,0.12)',
+   520→              }
+   521→              return (
+   522→                <div key={inv.id} className="glass-card p-3.5 rounded-lg">
+   523→                  <div className="flex items-center justify-between mb-1.5">
+   524→                    <span className="text-xs font-mono text-[#94a3b8]">
+   525→                      {inv.id.slice(0, 8)}…
+   526→                    </span>
+   527→                    <Badge
+   528→                      variant="secondary"
+   529→                      className="text-[10px] font-medium border-0"
+   530→                      style={{ color: statusCfg.color, backgroundColor: statusCfg.bg }}
+   531→                    >
+   532→                      {statusCfg.label}
+   533→                    </Badge>
+   534→                  </div>
+   535→                  <div className="flex items-center justify-between">
+   536→                    <span className="text-sm font-bold text-[#e2e8f0]">
+   537→                      {formatCurrency(inv.total, inv.currency)}
+   538→                    </span>
+   539→                    <span className="text-[10px] text-[#64748b]">
+   540→                      {formatDate(inv.issuedAt)}
+   541→                    </span>
+   542→                  </div>
+   543→                </div>
+   544→              )
+   545→            })}
+   546→          </div>
+   547→        </>
+   548→      )}
+   549→    </motion.div>
+   550→  )
+   551→}
+   552→
+   553→// ============================================================
+   554→// Main BillingView
+   555→// ============================================================
+   556→
+   557→export default function BillingView() {
+   558→  const activeOrg = useActiveOrg()
+   559→  const isAuthenticated = useStore((s) => s.isAuthenticated)
+   560→
+   561→  const [overview, setOverview] = useState<BillingOverview | null>(null)
+   562→  const [invoices, setInvoices] = useState<InvoiceDto[]>([])
+   563→  const [loading, setLoading] = useState(true)
+   564→  const [error, setError] = useState<string | null>(null)
+   565→
+   566→  const fetchBilling = useCallback(async () => {
+   567→    if (!activeOrg?.id) return
+   568→    setLoading(true)
+   569→    setError(null)
+   570→    try {
+   571→      const [overviewRes, invoicesRes] = await Promise.all([
+   572→        fetch(`/api/billing/overview?organizationId=${activeOrg.id}`),
+   573→        fetch(`/api/billing/invoices?organizationId=${activeOrg.id}&limit=20`),
+   574→      ])
+   575→
+   576→      if (overviewRes.ok) {
+   577→        const json = await overviewRes.json()
+   578→        setOverview(json.data ?? null)
+   579→      }
+   580→
+   581→      if (invoicesRes.ok) {
+   582→        const json = await invoicesRes.json()
+   583→        setInvoices(json.data ?? [])
+   584→      }
+   585→
+   586→      if (!overviewRes.ok && !invoicesRes.ok) {
+   587→        setError('Failed to load billing data')
+   588→      }
+   589→    } catch {
+   590→      setError('Network error')
+   591→    } finally {
+   592→      setLoading(false)
+   593→    }
+   594→  }, [activeOrg?.id])
+   595→
+   596→  useEffect(() => {
+   597→    if (activeOrg?.id) fetchBilling()
+   598→  }, [activeOrg?.id, fetchBilling])
+   599→
+   600→  const showUpgrade =
+   601→    !overview?.subscription ||
+   602→    overview.subscription.status === 'trialing' ||
+   603→    overview.subscription.status === 'past_due'
+   604→
+   605→  // Auth guard
+   606→  if (!isAuthenticated) {
+   607→    return (
+   608→      <div className="space-y-6 animate-fade-in">
+   609→        <h1 className="text-2xl font-bold gradient-text">Billing & Subscription</h1>
+   610→        <motion.div
+   611→          initial={{ opacity: 0, y: 20 }}
+   612→          animate={{ opacity: 1, y: 0 }}
+   613→          className="glass-card p-8 rounded-xl flex flex-col items-center justify-center min-h-[40vh]"
+   614→        >
+   615→          <AlertCircle className="w-10 h-10 text-[#f59e0b] mb-3 opacity-60" />
+   616→          <p className="text-sm font-medium text-[#94a3b8]">
+   617→            Sign in to view billing
+   618→          </p>
+   619→        </motion.div>
+   620→      </div>
+   621→    )
+   622→  }
+   623→
+   624→  if (!activeOrg) {
+   625→    return (
+   626→      <div className="space-y-6 animate-fade-in">
+   627→        <h1 className="text-2xl font-bold gradient-text">Billing & Subscription</h1>
+   628→        <motion.div
+   629→          initial={{ opacity: 0, y: 20 }}
+   630→          animate={{ opacity: 1, y: 0 }}
+   631→          className="glass-card p-8 rounded-xl flex flex-col items-center justify-center min-h-[40vh]"
+   632→        >
+   633→          <CreditCard className="w-10 h-10 text-[#6366f1] mb-3 opacity-40" />
+   634→          <p className="text-sm font-medium text-[#94a3b8]">
+   635→            Select an organization to view billing
+   636→          </p>
+   637→        </motion.div>
+   638→      </div>
+   639→    )
+   640→  }
+   641→
+   642→  return (
+   643→    <motion.div
+   644→      className="space-y-6 animate-fade-in"
+   645→      variants={containerVariants}
+   646→      initial="hidden"
+   647→      animate="visible"
+   648→    >
+   649→      {/* Header */}
+   650→      <motion.div variants={itemVariants} className="flex items-center justify-between">
+   651→        <h1 className="text-2xl font-bold gradient-text">Billing & Subscription</h1>
+   652→        <Badge
+   653→          variant="outline"
+   654→          className="text-[10px] border-[rgba(99,102,241,0.2)] text-[#a78bfa] bg-[rgba(99,102,241,0.06)]"
+   655→        >
+   656→          <CreditCard className="w-3 h-3 mr-1" />
+   657→          Manage
+   658→        </Badge>
+   659→      </motion.div>
+   660→
+   661→      {/* Error State */}
+   662→      {error && !loading && (
+   663→        <motion.div
+   664→          variants={itemVariants}
+   665→          className="glass-card p-8 rounded-xl text-center"
+   666→        >
+   667→          <AlertCircle className="w-10 h-10 text-[#ef4444] mx-auto mb-3 opacity-60" />
+   668→          <p className="text-sm font-medium text-[#e2e8f0]">Failed to load billing data</p>
+   669→          <p className="text-xs text-[#94a3b8] mt-1">{error}</p>
+   670→          <Button
+   671→            variant="outline"
+   672→            className="mt-4 border-[rgba(99,102,241,0.15)] text-[#94a3b8] hover:text-[#e2e8f0]"
+   673→            onClick={fetchBilling}
+   674→          >
+   675→            Try Again
+   676→          </Button>
+   677→        </motion.div>
+   678→      )}
+   679→
+   680→      {/* Overview */}
+   681→      <OverviewCard overview={overview} loading={loading} />
+   682→
+   683→      {/* Upgrade CTA */}
+   684→      {showUpgrade && !loading && (
+   685→        <motion.div
+   686→          variants={itemVariants}
+   687→          className="glass-strong rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+   688→        >
+   689→          <div className="flex items-center gap-4">
+   690→            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#a78bfa] flex items-center justify-center flex-shrink-0">
+   691→              <Crown className="w-6 h-6 text-white" />
+   692→            </div>
+   693→            <div>
+   694→              <h3 className="text-base font-semibold text-[#e2e8f0]">
+   695→                Upgrade Your Plan
+   696→              </h3>
+   697→              <p className="text-sm text-[#94a3b8] mt-0.5">
+   698→                Unlock advanced features, higher limits, and priority support.
+   699→              </p>
+   700→            </div>
+   701→          </div>
+   702→          <Button className="btn-gradient text-white flex-shrink-0">
+   703→            <ArrowUpRight className="w-4 h-4 mr-1.5" />
+   704→            Upgrade Plan
+   705→          </Button>
+   706→        </motion.div>
+   707→      )}
+   708→
+   709→      {/* Usage */}
+   710→      <UsageSection
+   711→        usage={overview?.usage ?? []}
+   712→        loading={loading}
+   713→      />
+   714→
+   715→      {/* Invoices */}
+   716→      <InvoicesTable invoices={invoices} loading={loading} />
+   717→    </motion.div>
+   718→  )
+   719→}

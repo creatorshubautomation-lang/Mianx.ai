@@ -1,0 +1,887 @@
+     1→'use client'
+     2→
+     3→import { useEffect, useState, useCallback } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  Bot,
+     7→  Plus,
+     8→  Eye,
+     9→  Pencil,
+    10→  Play,
+    11→  Trash2,
+    12→  X,
+    13→  Activity,
+    14→  CheckCircle2,
+    15→  AlertCircle,
+    16→  Settings2,
+    17→  Wrench,
+    18→} from 'lucide-react'
+    19→import { Button } from '@/components/ui/button'
+    20→import { Badge } from '@/components/ui/badge'
+    21→import { Skeleton } from '@/components/ui/skeleton'
+    22→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    23→import {
+    24→  Dialog,
+    25→  DialogContent,
+    26→  DialogHeader,
+    27→  DialogTitle,
+    28→  DialogTrigger,
+    29→} from '@/components/ui/dialog'
+    30→import { Input } from '@/components/ui/input'
+    31→import { Label } from '@/components/ui/label'
+    32→import { Textarea } from '@/components/ui/textarea'
+    33→import {
+    34→  Select,
+    35→  SelectTrigger,
+    36→  SelectValue,
+    37→  SelectContent,
+    38→  SelectItem,
+    39→} from '@/components/ui/select'
+    40→import { ScrollArea } from '@/components/ui/scroll-area'
+    41→import { Separator } from '@/components/ui/separator'
+    42→import { useStore, useActiveOrg } from '@/lib/store'
+    43→import { cn } from '@/lib/utils'
+    44→import { parseJsonField, slugify, type AgentDto, type AgentStatus } from '@/lib/types'
+    45→import { toast } from '@/hooks/use-toast'
+    46→
+    47→// ============================================================
+    48→// Animation Variants
+    49→// ============================================================
+    50→
+    51→const containerVariants = {
+    52→  hidden: { opacity: 0 },
+    53→  visible: {
+    54→    opacity: 1,
+    55→    transition: { staggerChildren: 0.06, delayChildren: 0.05 },
+    56→  },
+    57→}
+    58→
+    59→const itemVariants = {
+    60→  hidden: { opacity: 0, y: 20 },
+    61→  visible: {
+    62→    opacity: 1,
+    63→    y: 0,
+    64→    transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number,number,number,number] },
+    65→  },
+    66→}
+    67→
+    68→// ============================================================
+    69→// Status / Type Configs
+    70→// ============================================================
+    71→
+    72→const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+    73→  draft:      { label: 'Draft',      color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+    74→  testing:    { label: 'Testing',    color: '#22d3ee', bg: 'rgba(34,211,238,0.12)' },
+    75→  active:     { label: 'Active',     color: '#34d399', bg: 'rgba(52,211,153,0.12)' },
+    76→  paused:     { label: 'Paused',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+    77→  deprecated: { label: 'Deprecated', color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+    78→  retired:    { label: 'Retired',    color: '#64748b', bg: 'rgba(100,116,139,0.12)' },
+    79→}
+    80→
+    81→const TYPE_COLORS: Record<string, string> = {
+    82→  assistant:   '#6366f1',
+    83→  analyst:     '#22d3ee',
+    84→  workflow:    '#a78bfa',
+    85→  monitoring:  '#34d399',
+    86→  specialist:  '#f59e0b',
+    87→  automation:  '#ec4899',
+    88→}
+    89→
+    90→const AVATAR_GRADIENTS = [
+    91→  'from-[#6366f1] to-[#8b5cf6]',
+    92→  'from-[#22d3ee] to-[#06b6d4]',
+    93→  'from-[#a78bfa] to-[#c084fc]',
+    94→  'from-[#34d399] to-[#10b981]',
+    95→  'from-[#f59e0b] to-[#d97706]',
+    96→  'from-[#ec4899] to-[#f43f5e]',
+    97→]
+    98→
+    99→const AGENT_TYPES = ['assistant', 'analyst', 'workflow', 'monitoring', 'specialist', 'automation'] as const
+   100→const AGENT_STATUSES = ['draft', 'testing', 'active', 'paused', 'deprecated', 'retired'] as const
+   101→
+   102→// ============================================================
+   103→// Helpers
+   104→// ============================================================
+   105→
+   106→function getStatusBadge(status: string) {
+   107→  const config = STATUS_CONFIG[status] ?? {
+   108→    label: status,
+   109→    color: '#94a3b8',
+   110→    bg: 'rgba(148,163,184,0.12)',
+   111→  }
+   112→  return (
+   113→    <Badge
+   114→      variant="secondary"
+   115→      className="text-[10px] font-medium border-0"
+   116→      style={{ color: config.color, backgroundColor: config.bg }}
+   117→    >
+   118→      {config.label}
+   119→    </Badge>
+   120→  )
+   121→}
+   122→
+   123→function getAvatarGradient(index: number): string {
+   124→  return AVATAR_GRADIENTS[index % AVATAR_GRADIENTS.length]
+   125→}
+   126→
+   127→function formatDate(dateStr: string): string {
+   128→  return new Date(dateStr).toLocaleDateString('en-US', {
+   129→    month: 'short',
+   130→    day: 'numeric',
+   131→    year: 'numeric',
+   132→  })
+   133→}
+   134→
+   135→function parseCapabilities(capabilitiesStr: string): string[] {
+   136→  return parseJsonField<string[]>(capabilitiesStr, [])
+   137→}
+   138→
+   139→function parseConfiguration(configStr: string): Record<string, unknown> {
+   140→  return parseJsonField<Record<string, unknown>>(configStr, {})
+   141→}
+   142→
+   143→// ============================================================
+   144→// Sub-Components
+   145→// ============================================================
+   146→
+   147→function StatsRow({
+   148→  total,
+   149→  active,
+   150→  runs,
+   151→  loading,
+   152→}: {
+   153→  total: number
+   154→  active: number
+   155→  runs: number
+   156→  loading: boolean
+   157→}) {
+   158→  if (loading) {
+   159→    return (
+   160→      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   161→        {Array.from({ length: 3 }).map((_, i) => (
+   162→          <Skeleton key={i} className="h-24 rounded-xl" />
+   163→        ))}
+   164→      </div>
+   165→    )
+   166→  }
+   167→
+   168→  const stats = [
+   169→    {
+   170→      icon: Bot,
+   171→      label: 'Total Agents',
+   172→      value: total,
+   173→      color: '#6366f1',
+   174→      bg: 'rgba(99,102,241,0.12)',
+   175→    },
+   176→    {
+   177→      icon: CheckCircle2,
+   178→      label: 'Active Agents',
+   179→      value: active,
+   180→      color: '#34d399',
+   181→      bg: 'rgba(52,211,153,0.12)',
+   182→    },
+   183→    {
+   184→      icon: Activity,
+   185→      label: 'Total Runs',
+   186→      value: runs,
+   187→      color: '#22d3ee',
+   188→      bg: 'rgba(34,211,238,0.12)',
+   189→    },
+   190→  ]
+   191→
+   192→  return (
+   193→    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   194→      {stats.map((s) => {
+   195→        const Icon = s.icon
+   196→        return (
+   197→          <motion.div
+   198→            key={s.label}
+   199→            variants={itemVariants}
+   200→            className="glass-card p-4 rounded-xl flex items-center gap-4"
+   201→          >
+   202→            <div
+   203→              className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+   204→              style={{ backgroundColor: s.bg }}
+   205→            >
+   206→              <Icon className="w-5 h-5" style={{ color: s.color }} />
+   207→            </div>
+   208→            <div>
+   209→              <p className="text-2xl font-bold text-[#e2e8f0]">{s.value}</p>
+   210→              <p className="text-xs text-[#94a3b8]">{s.label}</p>
+   211→            </div>
+   212→          </motion.div>
+   213→        )
+   214→      })}
+   215→    </div>
+   216→  )
+   217→}
+   218→
+   219→function AgentCard({
+   220→  agent,
+   221→  index,
+   222→  onSelect,
+   223→  onRun,
+   224→}: {
+   225→  agent: AgentDto
+   226→  index: number
+   227→  onSelect: () => void
+   228→  onRun: () => void
+   229→}) {
+   230→  const capabilities = parseCapabilities(agent.capabilities)
+   231→  const typeColor = TYPE_COLORS[agent.type] ?? '#94a3b8'
+   232→  const gradient = getAvatarGradient(index)
+   233→
+   234→  return (
+   235→    <motion.div
+   236→      variants={itemVariants}
+   237→      className="glass-card card-hover p-5 rounded-xl cursor-pointer"
+   238→      onClick={onSelect}
+   239→    >
+   240→      {/* Avatar + Name Row */}
+   241→      <div className="flex items-start gap-3.5 mb-3">
+   242→        <div className="relative flex-shrink-0">
+   243→          <Avatar className="w-11 h-11">
+   244→            <AvatarFallback
+   245→              className={cn(
+   246→                'bg-gradient-to-br text-white text-base font-bold',
+   247→                gradient
+   248→              )}
+   249→            >
+   250→              {agent.name.charAt(0).toUpperCase()}
+   251→            </AvatarFallback>
+   252→          </Avatar>
+   253→          <div
+   254→            className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center bg-[#0f10c0] border-2 border-[#0f10c0]"
+   255→          >
+   256→            <Bot className="w-3 h-3" style={{ color: typeColor }} />
+   257→          </div>
+   258→        </div>
+   259→        <div className="flex-1 min-w-0">
+   260→          <div className="flex items-center gap-2 flex-wrap">
+   261→            <h3 className="text-sm font-semibold text-[#e2e8f0] truncate">
+   262→              {agent.name}
+   263→            </h3>
+   264→            <Badge
+   265→              variant="secondary"
+   266→              className="text-[9px] font-medium border-0"
+   267→              style={{
+   268→                color: typeColor,
+   269→                backgroundColor: `${typeColor}18`,
+   270→              }}
+   271→            >
+   272→              {agent.type}
+   273→            </Badge>
+   274→            {getStatusBadge(agent.status)}
+   275→          </div>
+   276→          {agent.description && (
+   277→            <p className="text-xs text-[#94a3b8] mt-0.5 line-clamp-2">
+   278→              {agent.description}
+   279→            </p>
+   280→          )}
+   281→        </div>
+   282→      </div>
+   283→
+   284→      {/* Capabilities */}
+   285→      {capabilities.length > 0 && (
+   286→        <div className="flex flex-wrap gap-1.5 mb-3">
+   287→          {capabilities.slice(0, 4).map((cap) => (
+   288→            <Badge
+   289→              key={cap}
+   290→              variant="outline"
+   291→              className="text-[9px] font-normal border-[rgba(99,102,241,0.15)] text-[#94a3b8] bg-transparent"
+   292→            >
+   293→              {cap}
+   294→            </Badge>
+   295→          ))}
+   296→          {capabilities.length > 4 && (
+   297→            <Badge
+   298→              variant="outline"
+   299→              className="text-[9px] font-normal border-[rgba(99,102,241,0.15)] text-[#64748b] bg-transparent"
+   300→            >
+   301→              +{capabilities.length - 4}
+   302→            </Badge>
+   303→          )}
+   304→        </div>
+   305→      )}
+   306→
+   307→      {/* Footer */}
+   308→      <div className="flex items-center justify-between pt-3 border-t border-[rgba(99,102,241,0.08)]">
+   309→        <div className="flex items-center gap-3 text-[10px] text-[#64748b]">
+   310→          <span>v{agent.version}</span>
+   311→          <span>·</span>
+   312→          <span>{formatDate(agent.createdAt)}</span>
+   313→        </div>
+   314→        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+   315→          <Button
+   316→            variant="ghost"
+   317→            size="sm"
+   318→            className="h-7 w-7 p-0 text-[#94a3b8] hover:text-[#e2e8f0] hover:bg-[rgba(99,102,241,0.08)]"
+   319→            onClick={onSelect}
+   320→          >
+   321→            <Eye className="w-3.5 h-3.5" />
+   322→          </Button>
+   323→          <Button
+   324→            variant="ghost"
+   325→            size="sm"
+   326→            className="h-7 w-7 p-0 text-[#94a3b8] hover:text-[#e2e8f0] hover:bg-[rgba(99,102,241,0.08)]"
+   327→            onClick={onRun}
+   328→          >
+   329→            <Play className="w-3.5 h-3.5" />
+   330→          </Button>
+   331→        </div>
+   332→      </div>
+   333→    </motion.div>
+   334→  )
+   335→}
+   336→
+   337→function CreateAgentDialog({
+   338→  open,
+   339→  onOpenChange,
+   340→  onCreated,
+   341→  orgId,
+   342→}: {
+   343→  open: boolean
+   344→  onOpenChange: (open: boolean) => void
+   345→  onCreated: () => void
+   346→  orgId: string
+   347→}) {
+   348→  const [name, setName] = useState('')
+   349→  const [slug, setSlug] = useState('')
+   350→  const [description, setDescription] = useState('')
+   351→  const [type, setType] = useState('assistant')
+   352→  const [status, setStatus] = useState<AgentStatus>('draft')
+   353→  const [capabilities, setCapabilities] = useState('')
+   354→  const [submitting, setSubmitting] = useState(false)
+   355→
+   356→  const handleNameChange = (val: string) => {
+   357→    setName(val)
+   358→    if (!slug || slug === slugify(name)) {
+   359→      setSlug(slugify(val))
+   360→    }
+   361→  }
+   362→
+   363→  const handleSubmit = async () => {
+   364→    if (!name.trim() || !slug.trim()) return
+   365→    setSubmitting(true)
+   366→    try {
+   367→      const caps = capabilities
+   368→        .split(',')
+   369→        .map((c) => c.trim())
+   370→        .filter(Boolean)
+   371→
+   372→      const res = await fetch(`/api/agents?organizationId=${orgId}`, {
+   373→        method: 'POST',
+   374→        headers: { 'Content-Type': 'application/json' },
+   375→        body: JSON.stringify({
+   376→          name: name.trim(),
+   377→          slug: slug.trim(),
+   378→          description: description.trim() || undefined,
+   379→          type,
+   380→          status,
+   381→          capabilities: caps.length > 0 ? caps : undefined,
+   382→        }),
+   383→      })
+   384→      if (res.ok) {
+   385→        toast({ title: 'Agent created', description: `${name} has been created successfully.` })
+   386→        setName('')
+   387→        setSlug('')
+   388→        setDescription('')
+   389→        setType('assistant')
+   390→        setStatus('draft')
+   391→        setCapabilities('')
+   392→        onOpenChange(false)
+   393→        onCreated()
+   394→      } else {
+   395→        const json = await res.json().catch(() => ({}))
+   396→        toast({
+   397→          title: 'Failed to create agent',
+   398→          description: json?.error?.message ?? 'An unexpected error occurred.',
+   399→          variant: 'destructive',
+   400→        })
+   401→      }
+   402→    } catch {
+   403→      toast({ title: 'Error', description: 'Network error. Please try again.', variant: 'destructive' })
+   404→    } finally {
+   405→      setSubmitting(false)
+   406→    }
+   407→  }
+   408→
+   409→  return (
+   410→    <Dialog open={open} onOpenChange={onOpenChange}>
+   411→      <DialogContent className="glass-strong border-[rgba(99,102,241,0.18)] max-w-lg">
+   412→        <DialogHeader>
+   413→          <DialogTitle className="text-[#e2e8f0]">Create Agent</DialogTitle>
+   414→        </DialogHeader>
+   415→        <div className="space-y-4 mt-2">
+   416→          <div className="space-y-2">
+   417→            <Label className="text-xs text-[#94a3b8]">Name</Label>
+   418→            <Input
+   419→              value={name}
+   420→              onChange={(e) => handleNameChange(e.target.value)}
+   421→              placeholder="e.g. Data Analyst Pro"
+   422→              className="bg-[rgba(99,102,241,0.06)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] placeholder:text-[#64748b]"
+   423→            />
+   424→          </div>
+   425→          <div className="space-y-2">
+   426→            <Label className="text-xs text-[#94a3b8]">Slug</Label>
+   427→            <Input
+   428→              value={slug}
+   429→              onChange={(e) => setSlug(e.target.value)}
+   430→              placeholder="data-analyst-pro"
+   431→              className="bg-[rgba(99,102,241,0.06)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] placeholder:text-[#64748b]"
+   432→            />
+   433→          </div>
+   434→          <div className="space-y-2">
+   435→            <Label className="text-xs text-[#94a3b8]">Description</Label>
+   436→            <Textarea
+   437→              value={description}
+   438→              onChange={(e) => setDescription(e.target.value)}
+   439→              placeholder="What does this agent do?"
+   440→              rows={3}
+   441→              className="bg-[rgba(99,102,241,0.06)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] placeholder:text-[#64748b] resize-none"
+   442→            />
+   443→          </div>
+   444→          <div className="grid grid-cols-2 gap-4">
+   445→            <div className="space-y-2">
+   446→              <Label className="text-xs text-[#94a3b8]">Type</Label>
+   447→              <Select value={type} onValueChange={setType}>
+   448→                <SelectTrigger className="bg-[rgba(99,102,241,0.06)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0]">
+   449→                  <SelectValue />
+   450→                </SelectTrigger>
+   451→                <SelectContent className="glass-strong border-[rgba(99,102,241,0.18)]">
+   452→                  {AGENT_TYPES.map((t) => (
+   453→                    <SelectItem key={t} value={t} className="text-[#e2e8f0] focus:bg-[rgba(99,102,241,0.12)] focus:text-white">
+   454→                      {t.charAt(0).toUpperCase() + t.slice(1)}
+   455→                    </SelectItem>
+   456→                  ))}
+   457→                </SelectContent>
+   458→              </Select>
+   459→            </div>
+   460→            <div className="space-y-2">
+   461→              <Label className="text-xs text-[#94a3b8]">Status</Label>
+   462→              <Select value={status} onValueChange={(v) => setStatus(v as AgentStatus)}>
+   463→                <SelectTrigger className="bg-[rgba(99,102,241,0.06)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0]">
+   464→                  <SelectValue />
+   465→                </SelectTrigger>
+   466→                <SelectContent className="glass-strong border-[rgba(99,102,241,0.18)]">
+   467→                  {AGENT_STATUSES.map((s) => (
+   468→                    <SelectItem key={s} value={s} className="text-[#e2e8f0] focus:bg-[rgba(99,102,241,0.12)] focus:text-white">
+   469→                      {s.charAt(0).toUpperCase() + s.slice(1)}
+   470→                    </SelectItem>
+   471→                  ))}
+   472→                </SelectContent>
+   473→              </Select>
+   474→            </div>
+   475→          </div>
+   476→          <div className="space-y-2">
+   477→            <Label className="text-xs text-[#94a3b8]">Capabilities</Label>
+   478→            <Input
+   479→              value={capabilities}
+   480→              onChange={(e) => setCapabilities(e.target.value)}
+   481→              placeholder="code-review, data-analysis, report-generation (comma-separated)"
+   482→              className="bg-[rgba(99,102,241,0.06)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] placeholder:text-[#64748b]"
+   483→            />
+   484→          </div>
+   485→          <div className="flex justify-end gap-3 pt-2">
+   486→            <Button
+   487→              variant="outline"
+   488→              className="border-[rgba(99,102,241,0.15)] text-[#94a3b8] hover:text-[#e2e8f0]"
+   489→              onClick={() => onOpenChange(false)}
+   490→            >
+   491→              Cancel
+   492→            </Button>
+   493→            <Button
+   494→              className="btn-gradient text-white"
+   495→              onClick={handleSubmit}
+   496→              disabled={!name.trim() || !slug.trim() || submitting}
+   497→            >
+   498→              {submitting ? 'Creating...' : 'Create Agent'}
+   499→            </Button>
+   500→          </div>
+   501→        </div>
+   502→      </DialogContent>
+   503→    </Dialog>
+   504→  )
+   505→}
+   506→
+   507→function AgentDetailPanel({
+   508→  agent,
+   509→  open,
+   510→  onOpenChange,
+   511→  onDeleted,
+   512→  orgId,
+   513→}: {
+   514→  agent: AgentDto | null
+   515→  open: boolean
+   516→  onOpenChange: (open: boolean) => void
+   517→  onDeleted: () => void
+   518→  orgId: string
+   519→}) {
+   520→  const capabilities = agent ? parseCapabilities(agent.capabilities) : []
+   521→  const configuration = agent ? parseConfiguration(agent.configuration) : {}
+   522→  const [deleting, setDeleting] = useState(false)
+   523→
+   524→  const handleDelete = async () => {
+   525→    if (!agent) return
+   526→    setDeleting(true)
+   527→    try {
+   528→      const res = await fetch(`/api/agents/${agent.id}?organizationId=${orgId}`, {
+   529→        method: 'DELETE',
+   530→      })
+   531→      if (res.ok) {
+   532→        toast({ title: 'Agent deleted', description: `${agent.name} has been removed.` })
+   533→        onOpenChange(false)
+   534→        onDeleted()
+   535→      } else {
+   536→        toast({ title: 'Delete failed', variant: 'destructive' })
+   537→      }
+   538→    } catch {
+   539→      toast({ title: 'Error', description: 'Network error.', variant: 'destructive' })
+   540→    } finally {
+   541→      setDeleting(false)
+   542→    }
+   543→  }
+   544→
+   545→  if (!agent) return null
+   546→
+   547→  const configJson = JSON.stringify(configuration, null, 2)
+   548→
+   549→  return (
+   550→    <Dialog open={open} onOpenChange={onOpenChange}>
+   551→      <DialogContent className="glass-strong border-[rgba(99,102,241,0.18)] max-w-2xl max-h-[85vh]">
+   552→        <DialogHeader>
+   553→          <div className="flex items-center justify-between pr-6">
+   554→            <DialogTitle className="text-[#e2e8f0] flex items-center gap-3">
+   555→              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#6366f1] to-[#22d3ee] flex items-center justify-center">
+   556→                <Bot className="w-4 h-4 text-white" />
+   557→              </div>
+   558→              {agent.name}
+   559→            </DialogTitle>
+   560→            <div className="flex items-center gap-1.5">
+   561→              {getStatusBadge(agent.status)}
+   562→            </div>
+   563→          </div>
+   564→        </DialogHeader>
+   565→
+   566→        <ScrollArea className="max-h-[60vh] pr-2">
+   567→          <div className="space-y-5 pb-4">
+   568→            {/* Basic Info */}
+   569→            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+   570→              <div>
+   571→                <p className="text-[10px] text-[#64748b] uppercase tracking-wider mb-1">Type</p>
+   572→                <Badge
+   573→                  variant="secondary"
+   574→                  className="text-[10px] font-medium border-0"
+   575→                  style={{
+   576→                    color: TYPE_COLORS[agent.type] ?? '#94a3b8',
+   577→                    backgroundColor: `${TYPE_COLORS[agent.type] ?? '#94a3b8'}18`,
+   578→                  }}
+   579→                >
+   580→                  {agent.type}
+   581→                </Badge>
+   582→              </div>
+   583→              <div>
+   584→                <p className="text-[10px] text-[#64748b] uppercase tracking-wider mb-1">Version</p>
+   585→                <p className="text-sm text-[#e2e8f0]">{agent.version}</p>
+   586→              </div>
+   587→              <div>
+   588→                <p className="text-[10px] text-[#64748b] uppercase tracking-wider mb-1">Slug</p>
+   589→                <p className="text-sm text-[#94a3b8] font-mono">{agent.slug}</p>
+   590→              </div>
+   591→              <div>
+   592→                <p className="text-[10px] text-[#64748b] uppercase tracking-wider mb-1">Created</p>
+   593→                <p className="text-sm text-[#94a3b8]">{formatDate(agent.createdAt)}</p>
+   594→              </div>
+   595→            </div>
+   596→
+   597→            {agent.description && (
+   598→              <div>
+   599→                <p className="text-[10px] text-[#64748b] uppercase tracking-wider mb-1.5">Description</p>
+   600→                <p className="text-sm text-[#e2e8f0] leading-relaxed">
+   601→                  {agent.description}
+   602→                </p>
+   603→              </div>
+   604→            )}
+   605→
+   606→            <Separator className="bg-[rgba(99,102,241,0.1)]" />
+   607→
+   608→            {/* Tools */}
+   609→            <div>
+   610→              <div className="flex items-center gap-2 mb-2">
+   611→                <Wrench className="w-3.5 h-3.5 text-[#64748b]" />
+   612→                <p className="text-[10px] text-[#64748b] uppercase tracking-wider">Tools</p>
+   613→              </div>
+   614→              <p className="text-sm text-[#64748b] italic">No tools configured</p>
+   615→            </div>
+   616→
+   617→            <Separator className="bg-[rgba(99,102,241,0.1)]" />
+   618→
+   619→            {/* Skills / Capabilities */}
+   620→            <div>
+   621→              <div className="flex items-center gap-2 mb-2">
+   622→                <Settings2 className="w-3.5 h-3.5 text-[#64748b]" />
+   623→                <p className="text-[10px] text-[#64748b] uppercase tracking-wider">
+   624→                  Capabilities
+   625→                </p>
+   626→              </div>
+   627→              {capabilities.length === 0 ? (
+   628→                <p className="text-sm text-[#64748b] italic">No capabilities defined</p>
+   629→              ) : (
+   630→                <div className="flex flex-wrap gap-1.5">
+   631→                  {capabilities.map((cap) => (
+   632→                    <Badge
+   633→                      key={cap}
+   634→                      variant="outline"
+   635→                      className="text-[10px] font-normal border-[rgba(99,102,241,0.15)] text-[#a78bfa] bg-[rgba(99,102,241,0.06)]"
+   636→                    >
+   637→                      {cap}
+   638→                    </Badge>
+   639→                  ))}
+   640→                </div>
+   641→              )}
+   642→            </div>
+   643→
+   644→            <Separator className="bg-[rgba(99,102,241,0.1)]" />
+   645→
+   646→            {/* Configuration JSON */}
+   647→            <div>
+   648→              <p className="text-[10px] text-[#64748b] uppercase tracking-wider mb-2">
+   649→                Configuration
+   650→              </p>
+   651→              <pre className="bg-[rgba(0,0,0,0.3)] border border-[rgba(99,102,241,0.1)] rounded-lg p-4 text-xs text-[#94a3b8] font-mono overflow-x-auto max-h-48">
+   652→                <code>{configJson}</code>
+   653→              </pre>
+   654→            </div>
+   655→          </div>
+   656→        </ScrollArea>
+   657→
+   658→        {/* Actions */}
+   659→        <div className="flex justify-end gap-3 pt-2 border-t border-[rgba(99,102,241,0.08)]">
+   660→          <Button
+   661→            variant="outline"
+   662→            className="border-[rgba(239,68,68,0.2)] text-[#ef4444] hover:bg-[rgba(239,68,68,0.08)] hover:text-[#ef4444]"
+   663→            onClick={handleDelete}
+   664→            disabled={deleting}
+   665→          >
+   666→            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+   667→            {deleting ? 'Deleting...' : 'Delete'}
+   668→          </Button>
+   669→          <Button
+   670→            variant="outline"
+   671→            className="border-[rgba(99,102,241,0.15)] text-[#94a3b8] hover:text-[#e2e8f0]"
+   672→          >
+   673→            <Pencil className="w-3.5 h-3.5 mr-1.5" />
+   674→            Edit
+   675→          </Button>
+   676→        </div>
+   677→      </DialogContent>
+   678→    </Dialog>
+   679→  )
+   680→}
+   681→
+   682→// ============================================================
+   683→// Main AgentsView
+   684→// ============================================================
+   685→
+   686→export default function AgentsView() {
+   687→  const activeOrg = useActiveOrg()
+   688→  const isAuthenticated = useStore((s) => s.isAuthenticated)
+   689→
+   690→  const [agents, setAgents] = useState<AgentDto[]>([])
+   691→  const [loading, setLoading] = useState(true)
+   692→  const [error, setError] = useState<string | null>(null)
+   693→  const [createOpen, setCreateOpen] = useState(false)
+   694→  const [detailAgent, setDetailAgent] = useState<AgentDto | null>(null)
+   695→  const [detailOpen, setDetailOpen] = useState(false)
+   696→
+   697→  const fetchAgents = useCallback(async () => {
+   698→    if (!activeOrg?.id) return
+   699→    setLoading(true)
+   700→    setError(null)
+   701→    try {
+   702→      const res = await fetch(
+   703→        `/api/agents?organizationId=${activeOrg.id}&limit=50`
+   704→      )
+   705→      if (res.ok) {
+   706→        const json = await res.json()
+   707→        setAgents(json.data ?? [])
+   708→      } else {
+   709→        setError('Failed to load agents')
+   710→      }
+   711→    } catch {
+   712→      setError('Network error')
+   713→    } finally {
+   714→      setLoading(false)
+   715→    }
+   716→  }, [activeOrg?.id])
+   717→
+   718→  useEffect(() => {
+   719→    if (activeOrg?.id) fetchAgents()
+   720→  }, [activeOrg?.id, fetchAgents])
+   721→
+   722→  const handleSelectAgent = (agent: AgentDto) => {
+   723→    setDetailAgent(agent)
+   724→    setDetailOpen(true)
+   725→  }
+   726→
+   727→  const handleRunAgent = (agent: AgentDto) => {
+   728→    toast({
+   729→      title: 'Agent run triggered',
+   730→      description: `${agent.name} is now running.`,
+   731→    })
+   732→  }
+   733→
+   734→  const handleDelete = () => {
+   735→    fetchAgents()
+   736→  }
+   737→
+   738→  // Auth guard
+   739→  if (!isAuthenticated) {
+   740→    return (
+   741→      <div className="space-y-6 animate-fade-in">
+   742→        <h1 className="text-2xl font-bold gradient-text">Agents</h1>
+   743→        <motion.div
+   744→          initial={{ opacity: 0, y: 20 }}
+   745→          animate={{ opacity: 1, y: 0 }}
+   746→          className="glass-card p-8 rounded-xl flex flex-col items-center justify-center min-h-[40vh]"
+   747→        >
+   748→          <AlertCircle className="w-10 h-10 text-[#f59e0b] mb-3 opacity-60" />
+   749→          <p className="text-sm font-medium text-[#94a3b8]">
+   750→            Sign in to manage your agents
+   751→          </p>
+   752→        </motion.div>
+   753→      </div>
+   754→    )
+   755→  }
+   756→
+   757→  if (!activeOrg) {
+   758→    return (
+   759→      <div className="space-y-6 animate-fade-in">
+   760→        <h1 className="text-2xl font-bold gradient-text">Agents</h1>
+   761→        <motion.div
+   762→          initial={{ opacity: 0, y: 20 }}
+   763→          animate={{ opacity: 1, y: 0 }}
+   764→          className="glass-card p-8 rounded-xl flex flex-col items-center justify-center min-h-[40vh]"
+   765→        >
+   766→          <Bot className="w-10 h-10 text-[#6366f1] mb-3 opacity-40" />
+   767→          <p className="text-sm font-medium text-[#94a3b8]">
+   768→            Select an organization to manage agents
+   769→          </p>
+   770→        </motion.div>
+   771→      </div>
+   772→    )
+   773→  }
+   774→
+   775→  const totalAgents = agents.length
+   776→  const activeAgents = agents.filter((a) => a.status === 'active').length
+   777→
+   778→  return (
+   779→    <>
+   780→      <motion.div
+   781→        className="space-y-6 animate-fade-in"
+   782→        variants={containerVariants}
+   783→        initial="hidden"
+   784→        animate="visible"
+   785→      >
+   786→        {/* Header */}
+   787→        <motion.div
+   788→          variants={itemVariants}
+   789→          className="flex items-center justify-between"
+   790→        >
+   791→          <h1 className="text-2xl font-bold gradient-text">Agents</h1>
+   792→          <Button
+   793→            className="btn-gradient text-white"
+   794→            onClick={() => setCreateOpen(true)}
+   795→          >
+   796→            <Plus className="w-4 h-4 mr-1.5" />
+   797→            Create Agent
+   798→          </Button>
+   799→        </motion.div>
+   800→
+   801→        {/* Stats Row */}
+   802→        <StatsRow
+   803→          total={totalAgents}
+   804→          active={activeAgents}
+   805→          runs={0}
+   806→          loading={loading}
+   807→        />
+   808→
+   809→        {/* Agents Grid */}
+   810→        {loading ? (
+   811→          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+   812→            {Array.from({ length: 6 }).map((_, i) => (
+   813→              <Skeleton key={i} className="h-52 rounded-xl" />
+   814→            ))}
+   815→          </div>
+   816→        ) : error ? (
+   817→          <motion.div
+   818→            variants={itemVariants}
+   819→            className="glass-card p-8 rounded-xl text-center"
+   820→          >
+   821→            <AlertCircle className="w-10 h-10 text-[#ef4444] mx-auto mb-3 opacity-60" />
+   822→            <p className="text-sm font-medium text-[#e2e8f0]">Failed to load agents</p>
+   823→            <p className="text-xs text-[#94a3b8] mt-1">{error}</p>
+   824→            <Button
+   825→              variant="outline"
+   826→              className="mt-4 border-[rgba(99,102,241,0.15)] text-[#94a3b8] hover:text-[#e2e8f0]"
+   827→              onClick={fetchAgents}
+   828→            >
+   829→              Try Again
+   830→            </Button>
+   831→          </motion.div>
+   832→        ) : agents.length === 0 ? (
+   833→          <motion.div
+   834→            variants={itemVariants}
+   835→            className="glass-card p-8 rounded-xl flex flex-col items-center justify-center min-h-[35vh]"
+   836→          >
+   837→            <Bot className="w-12 h-12 text-[#6366f1] mb-3 opacity-40" />
+   838→            <h3 className="text-base font-semibold text-[#e2e8f0]">
+   839→              No agents yet
+   840→            </h3>
+   841→            <p className="text-sm text-[#94a3b8] mt-1.5 max-w-md text-center">
+   842→              Create your first AI agent to automate tasks and workflows within
+   843→              your organization.
+   844→            </p>
+   845→            <Button
+   846→              className="btn-gradient mt-5 text-white"
+   847→              onClick={() => setCreateOpen(true)}
+   848→            >
+   849→              <Plus className="w-4 h-4 mr-1.5" />
+   850→              Create Agent
+   851→            </Button>
+   852→          </motion.div>
+   853→        ) : (
+   854→          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+   855→            {agents.map((agent, i) => (
+   856→              <AgentCard
+   857→                key={agent.id}
+   858→                agent={agent}
+   859→                index={i}
+   860→                onSelect={() => handleSelectAgent(agent)}
+   861→                onRun={() => handleRunAgent(agent)}
+   862→              />
+   863→            ))}
+   864→          </div>
+   865→        )}
+   866→      </motion.div>
+   867→
+   868→      {/* Create Dialog */}
+   869→      <CreateAgentDialog
+   870→        open={createOpen}
+   871→        onOpenChange={setCreateOpen}
+   872→        onCreated={fetchAgents}
+   873→        orgId={activeOrg.id}
+   874→      />
+   875→
+   876→      {/* Detail Panel */}
+   877→      <AgentDetailPanel
+   878→        agent={detailAgent}
+   879→        open={detailOpen}
+   880→        onOpenChange={setDetailOpen}
+   881→        onDeleted={handleDelete}
+   882→        orgId={activeOrg.id}
+   883→      />
+   884→    </>
+   885→  )
+   886→}
+   887→

@@ -1,0 +1,1007 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useMemo } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  ArrowLeft,
+     7→  Play,
+     8→  Pause,
+     9→  Pencil,
+    10→  Trash2,
+    11→  Bot,
+    12→  CheckCircle2,
+    13→  XCircle,
+    14→  Clock,
+    15→  Loader2,
+    16→  AlertCircle,
+    17→  Target,
+    18→  ShieldCheck,
+    19→  ShieldX,
+    20→  FileText,
+    21→  Zap,
+    22→  Ban,
+    23→  RotateCcw,
+    24→  ChevronRight,
+    25→  LayoutGrid,
+    26→  List,
+    27→  GitBranch,
+    28→  DollarSign,
+    29→} from 'lucide-react'
+    30→import { Button } from '@/components/ui/button'
+    31→import { Badge } from '@/components/ui/badge'
+    32→import { Progress } from '@/components/ui/progress'
+    33→import { Skeleton } from '@/components/ui/skeleton'
+    34→import { Separator } from '@/components/ui/separator'
+    35→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    36→import {
+    37→  Dialog,
+    38→  DialogContent,
+    39→  DialogHeader,
+    40→  DialogTitle,
+    41→} from '@/components/ui/dialog'
+    42→import { Input } from '@/components/ui/input'
+    43→import { Label } from '@/components/ui/label'
+    44→import { Textarea } from '@/components/ui/textarea'
+    45→import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+    46→import { ScrollArea } from '@/components/ui/scroll-area'
+    47→import { cn } from '@/lib/utils'
+    48→import { useStore, useUserMode } from '@/lib/store'
+    49→import { navigate } from '@/lib/router'
+    50→import type {
+    51→  MissionStatus,
+    52→  TaskStatus,
+    53→  OutcomeStatus,
+    54→  ApiResponseEnvelope,
+    55→  MissionDto,
+    56→  MissionTaskDto,
+    57→  OutcomeDto,
+    58→} from '@/lib/types'
+    59→
+    60→// ============================================================
+    61→// Extended types for API responses with includes
+    62→// ============================================================
+    63→
+    64→interface MissionAgentItem {
+    65→  id: string
+    66→  missionId: string
+    67→  agentId: string
+    68→  role: string
+    69→  capabilitiesUsed: string
+    70→  costIncurred: number
+    71→  createdAt: string
+    72→  agent: { id: string; name: string; slug: string }
+    73→}
+    74→
+    75→interface MissionDetailResponse extends MissionDto {
+    76→  agents: MissionAgentItem[]
+    77→  _count: { tasks: number; outcomes: number; verifications: number }
+    78→}
+    79→
+    80→interface TaskWithAgent extends MissionTaskDto {
+    81→  agent?: { id: string; name: string; slug: string } | null
+    82→  _count?: { children: number; verifications: number }
+    83→}
+    84→
+    85→interface VerificationItem {
+    86→  id: string
+    87→  missionId: string
+    88→  missionTaskId: string | null
+    89→  type: string
+    90→  config: string
+    91→  result: string | null
+    92→  evidence: string
+    93→  passed: boolean | null
+    94→  verifiedAt: string | null
+    95→  createdAt: string
+    96→  task?: { id: string; title: string } | null
+    97→}
+    98→
+    99→// ============================================================
+   100→// Constants
+   101→// ============================================================
+   102→
+   103→const MISSION_STATUS_COLORS: Record<MissionStatus, { bg: string; text: string; dot: string }> = {
+   104→  draft:     { bg: 'bg-[rgba(148,163,184,0.15)]', text: 'text-[#94a3b8]', dot: 'bg-[#94a3b8]' },
+   105→  planning:  { bg: 'bg-[rgba(245,158,11,0.15)]',  text: 'text-[#f59e0b]',  dot: 'bg-[#f59e0b]' },
+   106→  approved:  { bg: 'bg-[rgba(167,139,250,0.15)]',  text: 'text-[#a78bfa]',  dot: 'bg-[#a78bfa]' },
+   107→  executing: { bg: 'bg-[rgba(34,211,238,0.15)]',   text: 'text-[#22d3ee]',  dot: 'bg-[#22d3ee]' },
+   108→  verifying: { bg: 'bg-[rgba(99,102,241,0.15)]',   text: 'text-[#6366f1]',  dot: 'bg-[#6366f1]' },
+   109→  completed: { bg: 'bg-[rgba(52,211,153,0.15)]',   text: 'text-[#34d399]',  dot: 'bg-[#34d399]' },
+   110→  failed:    { bg: 'bg-[rgba(239,68,68,0.15)]',    text: 'text-[#ef4444]',  dot: 'bg-[#ef4444]' },
+   111→  cancelled: { bg: 'bg-[rgba(100,116,139,0.15)]',  text: 'text-[#64748b]',  dot: 'bg-[#64748b]' },
+   112→}
+   113→
+   114→const TASK_STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+   115→  planned:         { bg: 'bg-[rgba(148,163,184,0.12)]', text: 'text-[#94a3b8]', dot: 'bg-[#94a3b8]' },
+   116→  queued:          { bg: 'bg-[rgba(99,102,241,0.12)]', text: 'text-[#818cf8]', dot: 'bg-[#818cf8]' },
+   117→  running:         { bg: 'bg-[rgba(34,211,238,0.12)]', text: 'text-[#22d3ee]', dot: 'bg-[#22d3ee]' },
+   118→  waiting_tool:    { bg: 'bg-[rgba(245,158,11,0.12)]', text: 'text-[#f59e0b]', dot: 'bg-[#f59e0b]' },
+   119→  waiting_approval:{ bg: 'bg-[rgba(167,139,250,0.12)]', text: 'text-[#a78bfa]', dot: 'bg-[#a78bfa]' },
+   120→  verifying:       { bg: 'bg-[rgba(99,102,241,0.12)]', text: 'text-[#6366f1]', dot: 'bg-[#6366f1]' },
+   121→  retrying:        { bg: 'bg-[rgba(245,158,11,0.12)]', text: 'text-[#f59e0b]', dot: 'bg-[#f59e0b]' },
+   122→  failed:          { bg: 'bg-[rgba(239,68,68,0.12)]',  text: 'text-[#ef4444]', dot: 'bg-[#ef4444]' },
+   123→  completed:       { bg: 'bg-[rgba(52,211,153,0.12)]',  text: 'text-[#34d399]', dot: 'bg-[#34d399]' },
+   124→  cancelled:       { bg: 'bg-[rgba(100,116,139,0.12)]', text: 'text-[#64748b]', dot: 'bg-[#64748b]' },
+   125→  blocked:         { bg: 'bg-[rgba(239,68,68,0.12)]',  text: 'text-[#ef4444]', dot: 'bg-[#ef4444]' },
+   126→}
+   127→
+   128→const OUTCOME_STATUS_COLORS: Record<OutcomeStatus, { bg: string; text: string }> = {
+   129→  not_started: { bg: 'bg-[rgba(148,163,184,0.12)]', text: 'text-[#94a3b8]' },
+   130→  in_progress: { bg: 'bg-[rgba(34,211,238,0.12)]',   text: 'text-[#22d3ee]' },
+   131→  near_target: { bg: 'bg-[rgba(245,158,11,0.12)]',  text: 'text-[#f59e0b]' },
+   132→  achieved:    { bg: 'bg-[rgba(52,211,153,0.12)]',   text: 'text-[#34d399]' },
+   133→  missed:      { bg: 'bg-[rgba(239,68,68,0.12)]',    text: 'text-[#ef4444]' },
+   134→  failed:      { bg: 'bg-[rgba(239,68,68,0.12)]',    text: 'text-[#ef4444]' },
+   135→}
+   136→
+   137→const KANBAN_COLUMNS: { status: TaskStatus; label: string }[] = [
+   138→  { status: 'planned', label: 'Planned' },
+   139→  { status: 'running', label: 'Running' },
+   140→  { status: 'completed', label: 'Completed' },
+   141→  { status: 'failed', label: 'Failed' },
+   142→]
+   143→
+   144→const MODE_COLORS: Record<string, string> = {
+   145→  simple: 'bg-[rgba(52,211,153,0.12)] text-[#34d399] border-[rgba(52,211,153,0.2)]',
+   146→  pro:    'bg-[rgba(99,102,241,0.12)] text-[#818cf8] border-[rgba(99,102,241,0.2)]',
+   147→  expert: 'bg-[rgba(245,158,11,0.12)] text-[#f59e0b] border-[rgba(245,158,11,0.2)]',
+   148→}
+   149→
+   150→// ============================================================
+   151→// Helpers
+   152→// ============================================================
+   153→
+   154→function relativeTime(dateStr: string | null): string {
+   155→  if (!dateStr) return '—'
+   156→  const diffMs = Date.now() - new Date(dateStr).getTime()
+   157→  const seconds = Math.floor(diffMs / 1000)
+   158→  if (seconds < 60) return 'just now'
+   159→  const minutes = Math.floor(seconds / 60)
+   160→  if (minutes < 60) return `${minutes}m ago`
+   161→  const hours = Math.floor(minutes / 60)
+   162→  if (hours < 24) return `${hours}h ago`
+   163→  const days = Math.floor(hours / 24)
+   164→  if (days < 30) return `${days}d ago`
+   165→  return `${Math.floor(days / 30)}mo ago`
+   166→}
+   167→
+   168→function formatDate(dateStr: string | null): string {
+   169→  if (!dateStr) return '—'
+   170→  return new Date(dateStr).toLocaleDateString('en-US', {
+   171→    month: 'short', day: 'numeric', year: 'numeric',
+   172→  })
+   173→}
+   174→
+   175→function formatCost(amount: number): string {
+   176→  if (amount === 0) return '$0.00'
+   177→  return `$${amount.toFixed(2)}`
+   178→}
+   179→
+   180→function formatVerificationType(type: string): string {
+   181→  return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+   182→}
+   183→
+   184→function truncate(str: string, max: number): string {
+   185→  if (!str) return ''
+   186→  return str.length > max ? str.slice(0, max) + '...' : str
+   187→}
+   188→
+   189→// ============================================================
+   190→// Edit Mission Dialog
+   191→// ============================================================
+   192→
+   193→function EditMissionDialog({
+   194→  mission,
+   195→  open,
+   196→  onOpenChange,
+   197→  onSaved,
+   198→}: {
+   199→  mission: MissionDetailResponse | null
+   200→  open: boolean
+   201→  onOpenChange: (open: boolean) => void
+   202→  onSaved: (updated: MissionDetailResponse) => void
+   203→}) {
+   204→  const [title, setTitle] = useState('')
+   205→  const [goal, setGoal] = useState('')
+   206→  const [budget, setBudget] = useState('')
+   207→  const [deadline, setDeadline] = useState('')
+   208→  const [submitting, setSubmitting] = useState(false)
+   209→  const [error, setError] = useState('')
+   210→  const addToast = useStore((s) => s.addToast)
+   211→
+   212→  useEffect(() => {
+   213→    if (mission && open) {
+   214→      setTitle(mission.title)
+   215→      setGoal(mission.goal)
+   216→      setBudget(mission.budget > 0 ? String(mission.budget) : '')
+   217→      setDeadline(mission.deadline ? mission.deadline.slice(0, 10) : '')
+   218→      setError('')
+   219→    }
+   220→  }, [mission, open])
+   221→
+   222→  const handleSave = async () => {
+   223→    if (!mission) return
+   224→    if (!title.trim() || !goal.trim()) {
+   225→      setError('Title and goal are required')
+   226→      return
+   227→    }
+   228→    setSubmitting(true)
+   229→    setError('')
+   230→    try {
+   231→      const res = await fetch(`/api/missions/${mission.id}`, {
+   232→        method: 'PUT',
+   233→        headers: { 'Content-Type': 'application/json' },
+   234→        body: JSON.stringify({
+   235→          title: title.trim(),
+   236→          goal: goal.trim(),
+   237→          budget: budget ? parseFloat(budget) : 0,
+   238→          deadline: deadline || null,
+   239→        }),
+   240→      })
+   241→      const json: ApiResponseEnvelope<MissionDetailResponse> = await res.json()
+   242→      if (!res.ok || json.error) {
+   243→        setError(json.error?.message ?? 'Failed to update')
+   244→        return
+   245→      }
+   246→      addToast({ title: 'Mission updated', variant: 'success' })
+   247→      onSaved(json.data)
+   248→      onOpenChange(false)
+   249→    } catch {
+   250→      setError('Network error')
+   251→    } finally {
+   252→      setSubmitting(false)
+   253→    }
+   254→  }
+   255→
+   256→  return (
+   257→    <Dialog open={open} onOpenChange={onOpenChange}>
+   258→      <DialogContent className="glass-strong border-[rgba(99,102,241,0.18)] max-w-lg">
+   259→        <DialogHeader>
+   260→          <DialogTitle className="text-[#e2e8f0]">Edit Mission</DialogTitle>
+   261→        </DialogHeader>
+   262→        <div className="space-y-4 pt-2">
+   263→          <div className="space-y-2">
+   264→            <Label className="text-[#94a3b8] text-sm">Title</Label>
+   265→            <Input value={title} onChange={(e) => setTitle(e.target.value)}
+   266→              className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] placeholder:text-[#475569]" />
+   267→          </div>
+   268→          <div className="space-y-2">
+   269→            <Label className="text-[#94a3b8] text-sm">Goal</Label>
+   270→            <Textarea value={goal} onChange={(e) => setGoal(e.target.value)} rows={3}
+   271→              className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] placeholder:text-[#475569] resize-none" />
+   272→          </div>
+   273→          <div className="grid grid-cols-2 gap-4">
+   274→            <div className="space-y-2">
+   275→              <Label className="text-[#94a3b8] text-sm">Budget ($)</Label>
+   276→              <Input type="number" min="0" step="0.01" value={budget} onChange={(e) => setBudget(e.target.value)}
+   277→                className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] placeholder:text-[#475569]" />
+   278→            </div>
+   279→            <div className="space-y-2">
+   280→              <Label className="text-[#94a3b8] text-sm">Deadline</Label>
+   281→              <Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)}
+   282→                className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] placeholder:text-[#475569] [color-scheme:dark]" />
+   283→            </div>
+   284→          </div>
+   285→          {error && (
+   286→            <div className="flex items-center gap-2 text-xs text-[#ef4444] bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.2)] rounded-lg px-3 py-2">
+   287→              <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
+   288→            </div>
+   289→          )}
+   290→          <div className="flex justify-end gap-3 pt-2">
+   291→            <Button variant="ghost" onClick={() => onOpenChange(false)}
+   292→              className="text-[#94a3b8] hover:text-[#e2e8f0]">Cancel</Button>
+   293→            <Button onClick={handleSave} disabled={submitting} className="btn-gradient text-white border-0">
+   294→              {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Pencil className="w-4 h-4 mr-2" />}
+   295→              {submitting ? 'Saving...' : 'Save Changes'}
+   296→            </Button>
+   297→          </div>
+   298→        </div>
+   299→      </DialogContent>
+   300→    </Dialog>
+   301→  )
+   302→}
+   303→
+   304→// ============================================================
+   305→// Delete Confirm Dialog
+   306→// ============================================================
+   307→
+   308→function DeleteConfirmDialog({
+   309→  mission,
+   310→  open,
+   311→  onOpenChange,
+   312→  onDeleted,
+   313→}: {
+   314→  mission: MissionDetailResponse | null
+   315→  open: boolean
+   316→  onOpenChange: (open: boolean) => void
+   317→  onDeleted: () => void
+   318→}) {
+   319→  const [submitting, setSubmitting] = useState(false)
+   320→  const [error, setError] = useState('')
+   321→  const removeMission = useStore((s) => s.removeMission)
+   322→  const addToast = useStore((s) => s.addToast)
+   323→
+   324→  const handleDelete = async () => {
+   325→    if (!mission) return
+   326→    setSubmitting(true)
+   327→    setError('')
+   328→    try {
+   329→      const res = await fetch(`/api/missions/${mission.id}`, { method: 'DELETE' })
+   330→      if (!res.ok && res.status !== 204) {
+   331→        const json = await res.json().catch(() => null)
+   332→        setError((json as { error?: { message?: string } })?.error?.message ?? 'Failed to delete')
+   333→        return
+   334→      }
+   335→      removeMission(mission.id)
+   336→      addToast({ title: 'Mission deleted', variant: 'success' })
+   337→      onDeleted()
+   338→      onOpenChange(false)
+   339→    } catch {
+   340→      setError('Network error')
+   341→    } finally {
+   342→      setSubmitting(false)
+   343→    }
+   344→  }
+   345→
+   346→  return (
+   347→    <Dialog open={open} onOpenChange={onOpenChange}>
+   348→      <DialogContent className="glass-strong border-[rgba(239,68,68,0.2)] max-w-sm">
+   349→        <DialogHeader>
+   350→          <DialogTitle className="text-[#e2e8f0]">Delete Mission?</DialogTitle>
+   351→        </DialogHeader>
+   352→        <p className="text-sm text-[#94a3b8]">
+   353→          This will permanently delete &ldquo;{mission?.title}&rdquo; and all its tasks, outcomes, and verifications. This action cannot be undone.
+   354→        </p>
+   355→        {error && (
+   356→          <div className="flex items-center gap-2 text-xs text-[#ef4444] bg-[rgba(239,68,68,0.1)] rounded-lg px-3 py-2">
+   357→            <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
+   358→          </div>
+   359→        )}
+   360→        <div className="flex justify-end gap-3 pt-2">
+   361→          <Button variant="ghost" onClick={() => onOpenChange(false)}
+   362→            className="text-[#94a3b8] hover:text-[#e2e8f0]">Cancel</Button>
+   363→          <Button onClick={handleDelete} disabled={submitting}
+   364→            className="bg-[rgba(239,68,68,0.15)] text-[#ef4444] border border-[rgba(239,68,68,0.3)] hover:bg-[rgba(239,68,68,0.25)]">
+   365→            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+   366→            {submitting ? 'Deleting...' : 'Delete'}
+   367→          </Button>
+   368→        </div>
+   369→      </DialogContent>
+   370→    </Dialog>
+   371→  )
+   372→}
+   373→
+   374→// ============================================================
+   375→// Kanban Board Tab
+   376→// ============================================================
+   377→
+   378→function BoardTab({ tasks }: { tasks: TaskWithAgent[] }) {
+   379→  return (
+   380→    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+   381→      {KANBAN_COLUMNS.map((col) => {
+   382→        const colTasks = tasks.filter((t) => t.status === col.status)
+   383→        const colors = TASK_STATUS_COLORS[col.status] ?? TASK_STATUS_COLORS.planned
+   384→        return (
+   385→          <div key={col.status} className="space-y-3">
+   386→            <div className="flex items-center gap-2">
+   387→              <span className={cn('w-2 h-2 rounded-full', colors.dot)} />
+   388→              <span className="text-xs font-medium text-[#94a3b8] uppercase tracking-wider">
+   389→                {col.label}
+   390→              </span>
+   391→              <span className="text-[10px] text-[#64748b] bg-[rgba(100,116,139,0.15)] rounded-full px-1.5 py-0.5">
+   392→                {colTasks.length}
+   393→              </span>
+   394→            </div>
+   395→            <ScrollArea className="max-h-[420px]">
+   396→              <div className="space-y-2">
+   397→                <AnimatePresence mode="popLayout">
+   398→                  {colTasks.length === 0 && (
+   399→                    <div className="glass-card p-4 text-center">
+   400→                      <p className="text-[10px] text-[#475569]">No tasks</p>
+   401→                    </div>
+   402→                  )}
+   403→                  {colTasks.map((task) => (
+   404→                    <motion.div
+   405→                      key={task.id}
+   406→                      layout
+   407→                      initial={{ opacity: 0, scale: 0.95 }}
+   408→                      animate={{ opacity: 1, scale: 1 }}
+   409→                      exit={{ opacity: 0, scale: 0.95 }}
+   410→                      className="glass-card p-3.5 space-y-2"
+   411→                    >
+   412→                      <p className="text-sm font-medium text-[#e2e8f0] leading-snug">{task.title}</p>
+   413→                      {task.description && (
+   414→                        <p className="text-[11px] text-[#64748b] line-clamp-2">{task.description}</p>
+   415→                      )}
+   416→                      <div className="flex items-center justify-between pt-1">
+   417→                        {task.agent ? (
+   418→                          <div className="flex items-center gap-1.5">
+   419→                            <Avatar className="w-5 h-5">
+   420→                              <AvatarFallback className="text-[8px] bg-[rgba(99,102,241,0.2)] text-[#a5b4fc]">
+   421→                                {task.agent.name.slice(0, 2).toUpperCase()}
+   422→                              </AvatarFallback>
+   423→                            </Avatar>
+   424→                            <span className="text-[10px] text-[#64748b] max-w-[80px] truncate">
+   425→                              {task.agent.name}
+   426→                            </span>
+   427→                          </div>
+   428→                        ) : (
+   429→                          <span className="text-[10px] text-[#475569]">Unassigned</span>
+   430→                        )}
+   431→                        {task.retryCount > 0 && (
+   432→                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-[rgba(245,158,11,0.3)] text-[#f59e0b] bg-transparent">
+   433→                            <RotateCcw className="w-2.5 h-2.5 mr-0.5" />{task.retryCount}
+   434→                          </Badge>
+   435→                        )}
+   436→                      </div>
+   437→                    </motion.div>
+   438→                  ))}
+   439→                </AnimatePresence>
+   440→              </div>
+   441→            </ScrollArea>
+   442→          </div>
+   443→        )
+   444→      })}
+   445→    </div>
+   446→  )
+   447→}
+   448→
+   449→// ============================================================
+   450→// List Tab
+   451→// ============================================================
+   452→
+   453→function ListTab({ tasks }: { tasks: TaskWithAgent[] }) {
+   454→  return (
+   455→    <ScrollArea className="max-h-[480px]">
+   456→      <div className="space-y-1.5">
+   457→        <AnimatePresence mode="popLayout">
+   458→          {tasks.map((task, idx) => {
+   459→            const colors = TASK_STATUS_COLORS[task.status] ?? TASK_STATUS_COLORS.planned
+   460→            return (
+   461→              <motion.div
+   462→                key={task.id}
+   463→                layout
+   464→                initial={{ opacity: 0, x: -8 }}
+   465→                animate={{ opacity: 1, x: 0 }}
+   466→                exit={{ opacity: 0, x: 8 }}
+   467→                transition={{ delay: idx * 0.03 }}
+   468→                className="glass-card px-4 py-3 flex items-center gap-4"
+   469→              >
+   470→                <span className="text-xs text-[#475569] w-6 text-right font-mono">{idx + 1}</span>
+   471→                <div className="flex-1 min-w-0">
+   472→                  <p className="text-sm font-medium text-[#e2e8f0] truncate">{task.title}</p>
+   473→                  {task.agent && (
+   474→                    <p className="text-[10px] text-[#64748b] mt-0.5">{task.agent.name}</p>
+   475→                  )}
+   476→                </div>
+   477→                <Badge variant="outline" className={cn('shrink-0 text-[10px] px-2 py-0.5 rounded-full border-0 font-medium', colors.bg, colors.text)}>
+   478→                  <span className={cn('w-1.5 h-1.5 rounded-full mr-1.5 inline-block', colors.dot)} />
+   479→                  {task.status}
+   480→                </Badge>
+   481→                {task.retryCount > 0 && (
+   482→                  <span className="text-[10px] text-[#f59e0b] shrink-0">
+   483→                    <RotateCcw className="w-3 h-3 inline mr-0.5" />{task.retryCount}
+   484→                  </span>
+   485→                )}
+   486→              </motion.div>
+   487→            )
+   488→          })}
+   489→        </AnimatePresence>
+   490→      </div>
+   491→    </ScrollArea>
+   492→  )
+   493→}
+   494→
+   495→// ============================================================
+   496→// Timeline Tab
+   497→// ============================================================
+   498→
+   499→function TimelineTab({ tasks }: { tasks: TaskWithAgent[] }) {
+   500→  const sorted = useMemo(() => [...tasks].sort(
+   501→    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+   502→  ), [tasks])
+   503→
+   504→  return (
+   505→    <ScrollArea className="max-h-[480px]">
+   506→      <div className="relative pl-6">
+   507→        {/* Vertical line */}
+   508→        <div className="absolute left-[11px] top-2 bottom-2 w-px bg-[rgba(99,102,241,0.15)]" />
+   509→
+   510→        <div className="space-y-4">
+   511→          {sorted.map((task, idx) => {
+   512→            const colors = TASK_STATUS_COLORS[task.status] ?? TASK_STATUS_COLORS.planned
+   513→            const isCompleted = task.status === 'completed'
+   514→            const isFailed = task.status === 'failed'
+   515→            return (
+   516→              <motion.div
+   517→                key={task.id}
+   518→                initial={{ opacity: 0, y: 8 }}
+   519→                animate={{ opacity: 1, y: 0 }}
+   520→                transition={{ delay: idx * 0.05 }}
+   521→                className="relative flex gap-4"
+   522→              >
+   523→                {/* Dot on the line */}
+   524→                <div className={cn(
+   525→                  'absolute -left-6 top-1 w-[22px] h-[22px] rounded-full flex items-center justify-center border-2 z-10',
+   526→                  isCompleted
+   527→                    ? 'border-[#34d399] bg-[rgba(52,211,153,0.15)]'
+   528→                    : isFailed
+   529→                      ? 'border-[#ef4444] bg-[rgba(239,68,68,0.15)]'
+   530→                      : 'border-[rgba(99,102,241,0.3)] bg-[#0a0b14]',
+   531→                )}>
+   532→                  {isCompleted ? (
+   533→                    <CheckCircle2 className="w-3 h-3 text-[#34d399]" />
+   534→                  ) : isFailed ? (
+   535→                    <XCircle className="w-3 h-3 text-[#ef4444]" />
+   536→                  ) : (
+   537→                    <div className={cn('w-2 h-2 rounded-full', colors.dot)} />
+   538→                  )}
+   539→                </div>
+   540→
+   541→                {/* Card */}
+   542→                <div className="glass-card p-3.5 flex-1 min-w-0">
+   543→                  <div className="flex items-start justify-between gap-2">
+   544→                    <div className="min-w-0">
+   545→                      <p className="text-sm font-medium text-[#e2e8f0]">{task.title}</p>
+   546→                      {task.description && (
+   547→                        <p className="text-[11px] text-[#64748b] mt-0.5 line-clamp-2">{task.description}</p>
+   548→                      )}
+   549→                    </div>
+   550→                    <Badge variant="outline" className={cn('shrink-0 text-[10px] px-2 py-0.5 rounded-full border-0 font-medium', colors.bg, colors.text)}>
+   551→                      {task.status}
+   552→                    </Badge>
+   553→                  </div>
+   554→                  {task.agent && (
+   555→                    <div className="flex items-center gap-1.5 mt-2">
+   556→                      <Bot className="w-3 h-3 text-[#64748b]" />
+   557→                      <span className="text-[10px] text-[#64748b]">{task.agent.name}</span>
+   558→                    </div>
+   559→                  )}
+   560→                </div>
+   561→              </motion.div>
+   562→            )
+   563→          })}
+   564→        </div>
+   565→      </div>
+   566→    </ScrollArea>
+   567→  )
+   568→}
+   569→
+   570→// ============================================================
+   571→// Main MissionDetailView
+   572→// ============================================================
+   573→
+   574→export default function MissionDetailView() {
+   575→  const viewParams = useStore((s) => s.viewParams)
+   576→  const missionId = viewParams?.missionId
+   577→  const userMode = useUserMode()
+   578→  const addToast = useStore((s) => s.addToast)
+   579→  const updateMission = useStore((s) => s.updateMission)
+   580→  const removeMission = useStore((s) => s.removeMission)
+   581→
+   582→  const [mission, setMission] = useState<MissionDetailResponse | null>(null)
+   583→  const [tasks, setTasks] = useState<TaskWithAgent[]>([])
+   584→  const [outcomes, setOutcomes] = useState<OutcomeDto[]>([])
+   585→  const [verifications, setVerifications] = useState<VerificationItem[]>([])
+   586→  const [loading, setLoading] = useState(true)
+   587→  const [error, setError] = useState('')
+   588→  const [editOpen, setEditOpen] = useState(false)
+   589→  const [deleteOpen, setDeleteOpen] = useState(false)
+   590→  const [actionLoading, setActionLoading] = useState(false)
+   591→
+   592→  // ── Fetch all data ──
+   593→  const fetchAll = useCallback(async () => {
+   594→    if (!missionId) { setLoading(false); return }
+   595→    setLoading(true)
+   596→    setError('')
+   597→    try {
+   598→      const [missionRes, tasksRes, outcomesRes, verifsRes] = await Promise.all([
+   599→        fetch(`/api/missions/${missionId}`),
+   600→        fetch(`/api/missions/${missionId}/tasks?limit=100`),
+   601→        fetch(`/api/outcomes?missionId=${missionId}&limit=50`),
+   602→        fetch(`/api/missions/${missionId}/verifications?limit=50`),
+   603→      ])
+   604→
+   605→      const mJson: ApiResponseEnvelope<MissionDetailResponse> = await missionRes.json()
+   606→      if (!missionRes.ok || mJson.error) {
+   607→        setError(mJson.error?.message ?? 'Mission not found')
+   608→        setLoading(false)
+   609→        return
+   610→      }
+   611→      setMission(mJson.data)
+   612→
+   613→      if (tasksRes.ok) {
+   614→        const tJson: ApiResponseEnvelope<TaskWithAgent[]> = await tasksRes.json()
+   615→        setTasks(tJson.data ?? [])
+   616→      }
+   617→      if (outcomesRes.ok) {
+   618→        const oJson: ApiResponseEnvelope<OutcomeDto[]> = await outcomesRes.json()
+   619→        setOutcomes(oJson.data ?? [])
+   620→      }
+   621→      if (verifsRes.ok) {
+   622→        const vJson: ApiResponseEnvelope<VerificationItem[]> = await verifsRes.json()
+   623→        setVerifications(vJson.data ?? [])
+   624→      }
+   625→    } catch {
+   626→      setError('Failed to load mission data')
+   627→    } finally {
+   628→      setLoading(false)
+   629→    }
+   630→  }, [missionId])
+   631→
+   632→  useEffect(() => { fetchAll() }, [fetchAll])
+   633→
+   634→  // ── Computed values ──
+   635→  const totalTasks = tasks.length
+   636→  const completedTasks = tasks.filter((t) => t.status === 'completed').length
+   637→  const runningTasks = tasks.filter((t) => t.status === 'running' || t.status === 'retrying').length
+   638→  const failedTasks = tasks.filter((t) => t.status === 'failed').length
+   639→  const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+   640→
+   641→  const statusColors = mission ? MISSION_STATUS_COLORS[mission.status] : MISSION_STATUS_COLORS.draft
+   642→
+   643→  // ── Action handlers ──
+   644→  const handleExecute = async () => {
+   645→    if (!mission) return
+   646→    setActionLoading(true)
+   647→    try {
+   648→      const res = await fetch(`/api/missions/${mission.id}/execute`, { method: 'POST' })
+   649→      const json: ApiResponseEnvelope<MissionDetailResponse> = await res.json()
+   650→      if (!res.ok || json.error) {
+   651→        addToast({ title: 'Execution failed', description: json.error?.message ?? 'Unknown error', variant: 'destructive' })
+   652→        return
+   653→      }
+   654→      setMission(json.data)
+   655→      updateMission(mission.id, { status: json.data.status })
+   656→      addToast({ title: 'Mission executing', description: 'Tasks are now being processed', variant: 'success' })
+   657→      fetchAll()
+   658→    } catch {
+   659→      addToast({ title: 'Network error', variant: 'destructive' })
+   660→    } finally {
+   661→      setActionLoading(false)
+   662→    }
+   663→  }
+   664→
+   665→  const handleEditSaved = (updated: MissionDetailResponse) => {
+   666→    setMission(updated)
+   667→    updateMission(updated.id, {
+   668→      title: updated.title,
+   669→      goal: updated.goal,
+   670→      budget: updated.budget,
+   671→      deadline: updated.deadline,
+   672→    })
+   673→  }
+   674→
+   675→  const handleDeleted = () => {
+   676→    navigate('missions')
+   677→  }
+   678→
+   679→  // ── Loading skeleton ──
+   680→  if (loading) {
+   681→    return (
+   682→      <div className="space-y-6 animate-fade-in">
+   683→        <div className="flex items-center gap-3">
+   684→          <Skeleton className="h-8 w-32 rounded bg-[rgba(99,102,241,0.08)]" />
+   685→        </div>
+   686→        <Skeleton className="h-10 w-2/3 rounded-lg bg-[rgba(99,102,241,0.08)]" />
+   687→        <Skeleton className="h-4 w-full max-w-xl rounded bg-[rgba(99,102,241,0.06)]" />
+   688→        <Skeleton className="h-6 w-full max-w-md rounded-full bg-[rgba(99,102,241,0.08)]" />
+   689→        <div className="grid grid-cols-4 gap-4">
+   690→          {[...Array(4)].map((_, i) => (
+   691→            <Skeleton key={i} className="h-20 rounded-xl bg-[rgba(99,102,241,0.06)]" />
+   692→          ))}
+   693→        </div>
+   694→        <Skeleton className="h-64 rounded-xl bg-[rgba(99,102,241,0.06)]" />
+   695→      </div>
+   696→    )
+   697→  }
+   698→
+   699→  // ── Error state ──
+   700→  if (error || !mission) {
+   701→    return (
+   702→      <div className="space-y-6 animate-fade-in">
+   703→        <button
+   704→          onClick={() => navigate('missions')}
+   705→          className="flex items-center gap-1.5 text-sm text-[#94a3b8] hover:text-[#e2e8f0] transition-colors"
+   706→        >
+   707→          <ArrowLeft className="w-4 h-4" /> Back to Missions
+   708→        </button>
+   709→        <div className="glass-card p-8 flex flex-col items-center text-center">
+   710→          <AlertCircle className="w-10 h-10 text-[#ef4444] mb-3 opacity-70" />
+   711→          <p className="text-sm text-[#e2e8f0] font-medium">Failed to load mission</p>
+   712→          <p className="text-xs text-[#64748b] mt-1">{error || 'Mission not found'}</p>
+   713→          <Button variant="outline" onClick={fetchAll} className="mt-4 border-[rgba(99,102,241,0.2)] text-[#a5b4fc]">
+   714→            Retry
+   715→          </Button>
+   716→        </div>
+   717→      </div>
+   718→    )
+   719→  }
+   720→
+   721→  // ── Render ──
+   722→  return (
+   723→    <div className="space-y-6 animate-fade-in">
+   724→      {/* ── Back Button ── */}
+   725→      <button
+   726→        onClick={() => navigate('missions')}
+   727→        className="flex items-center gap-1.5 text-sm text-[#94a3b8] hover:text-[#e2e8f0] transition-colors group"
+   728→      >
+   729→        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+   730→        Back to Missions
+   731→      </button>
+   732→
+   733→      {/* ── Mission Header ── */}
+   734→      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+   735→        <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+   736→          <h1 className="text-2xl sm:text-3xl font-bold text-[#e2e8f0] flex-1">{mission.title}</h1>
+   737→          <div className="flex items-center gap-2 shrink-0">
+   738→            <Badge variant="outline" className={cn('text-xs px-2.5 py-1 rounded-full border-0 font-medium', MODE_COLORS[mission.userMode] ?? MODE_COLORS.simple)}>
+   739→              <Zap className="w-3 h-3 mr-1" />{mission.userMode}
+   740→            </Badge>
+   741→            <Badge variant="outline" className={cn('text-xs px-2.5 py-1 rounded-full border-0 font-medium', statusColors.bg, statusColors.text)}>
+   742→              <span className={cn('w-1.5 h-1.5 rounded-full mr-1.5 inline-block', statusColors.dot)} />
+   743→              {mission.status}
+   744→            </Badge>
+   745→          </div>
+   746→        </div>
+   747→        <p className="text-sm text-[#94a3b8] max-w-2xl leading-relaxed">{mission.goal}</p>
+   748→        <div className="flex items-center gap-4 text-xs text-[#64748b]">
+   749→          <span>Created {relativeTime(mission.createdAt)}</span>
+   750→          {mission.deadline && <span>· Deadline {formatDate(mission.deadline)}</span>}
+   751→        </div>
+   752→      </motion.div>
+   753→
+   754→      <Separator className="bg-[rgba(99,102,241,0.08)]" />
+   755→
+   756→      {/* ── Progress Section ── */}
+   757→      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="glass-card p-5 space-y-4">
+   758→        <div className="flex items-center justify-between">
+   759→          <span className="text-sm font-medium text-[#e2e8f0]">Mission Progress</span>
+   760→          <span className="text-lg font-bold text-[#e2e8f0]">{progressPct}%</span>
+   761→        </div>
+   762→        <div className="h-2.5 bg-[rgba(99,102,241,0.08)] rounded-full overflow-hidden">
+   763→          <motion.div
+   764→            className="h-full rounded-full"
+   765→            style={{
+   766→              background: progressPct === 100
+   767→                ? 'linear-gradient(90deg, #34d399, #22d3ee)'
+   768→                : 'linear-gradient(90deg, #6366f1, #22d3ee)',
+   769→            }}
+   770→            initial={{ width: 0 }}
+   771→            animate={{ width: `${progressPct}%` }}
+   772→            transition={{ duration: 0.8, ease: 'easeOut' }}
+   773→          />
+   774→        </div>
+   775→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   776→          {[
+   777→            { label: 'Total Tasks', value: totalTasks, color: 'text-[#e2e8f0]', icon: FileText },
+   778→            { label: 'Completed', value: completedTasks, color: 'text-[#34d399]', icon: CheckCircle2 },
+   779→            { label: 'Running', value: runningTasks, color: 'text-[#22d3ee]', icon: Loader2 },
+   780→            { label: 'Failed', value: failedTasks, color: 'text-[#ef4444]', icon: XCircle },
+   781→          ].map((stat) => (
+   782→            <div key={stat.label} className="bg-[rgba(15,16,28,0.4)] rounded-lg p-3 text-center">
+   783→              <stat.icon className={cn('w-4 h-4 mx-auto mb-1', stat.color)} />
+   784→              <p className={cn('text-lg font-bold', stat.color)}>{stat.value}</p>
+   785→              <p className="text-[10px] text-[#64748b] uppercase tracking-wider">{stat.label}</p>
+   786→            </div>
+   787→          ))}
+   788→        </div>
+   789→      </motion.div>
+   790→
+   791→      {/* ── Action Bar ── */}
+   792→      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+   793→        className="flex flex-wrap items-center gap-2"
+   794→      >
+   795→        {mission.status === 'draft' && (
+   796→          <Button onClick={handleExecute} disabled={actionLoading} className="btn-gradient text-white border-0">
+   797→            {actionLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+   798→            Plan Mission
+   799→          </Button>
+   800→        )}
+   801→        {mission.status === 'approved' && (
+   802→          <Button onClick={handleExecute} disabled={actionLoading} className="btn-gradient text-white border-0">
+   803→            {actionLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+   804→            Start Execution
+   805→          </Button>
+   806→        )}
+   807→        {mission.status === 'executing' && (
+   808→          <Button variant="outline" disabled className="border-[rgba(34,211,238,0.3)] text-[#22d3ee]">
+   809→            <Pause className="w-4 h-4 mr-2" />Pause
+   810→          </Button>
+   811→        )}
+   812→        <Button variant="outline" onClick={() => setEditOpen(true)}
+   813→          className="border-[rgba(99,102,241,0.2)] text-[#a5b4fc] hover:bg-[rgba(99,102,241,0.08)]">
+   814→          <Pencil className="w-4 h-4 mr-2" />Edit Mission
+   815→        </Button>
+   816→        <Button variant="outline" onClick={() => setDeleteOpen(true)}
+   817→          className="border-[rgba(239,68,68,0.2)] text-[#ef4444] hover:bg-[rgba(239,68,68,0.08)]">
+   818→          <Trash2 className="w-4 h-4 mr-2" />Delete
+   819→        </Button>
+   820→      </motion.div>
+   821→
+   822→      {/* ── Task Graph (Tabs) ── */}
+   823→      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+   824→        <Tabs defaultValue="board" className="space-y-4">
+   825→          <TabsList className="bg-[rgba(15,16,28,0.6)] border border-[rgba(99,102,241,0.12)]">
+   826→            <TabsTrigger value="board" className="data-[state=active]:bg-[rgba(99,102,241,0.2)] data-[state=active]:text-[#a5b4fc] text-[#64748b]">
+   827→              <LayoutGrid className="w-4 h-4 mr-1.5" />Board
+   828→            </TabsTrigger>
+   829→            <TabsTrigger value="list" className="data-[state=active]:bg-[rgba(99,102,241,0.2)] data-[state=active]:text-[#a5b4fc] text-[#64748b]">
+   830→              <List className="w-4 h-4 mr-1.5" />List
+   831→            </TabsTrigger>
+   832→            <TabsTrigger value="timeline" className="data-[state=active]:bg-[rgba(99,102,241,0.2)] data-[state=active]:text-[#a5b4fc] text-[#64748b]">
+   833→              <GitBranch className="w-4 h-4 mr-1.5" />Timeline
+   834→            </TabsTrigger>
+   835→          </TabsList>
+   836→          <TabsContent value="board">
+   837→            {tasks.length === 0 ? (
+   838→              <div className="glass-card p-8 text-center">
+   839→                <FileText className="w-8 h-8 text-[#6366f1] opacity-40 mx-auto mb-3" />
+   840→                <p className="text-sm text-[#64748b]">No tasks yet. Plan the mission to generate tasks.</p>
+   841→              </div>
+   842→            ) : (
+   843→              <BoardTab tasks={tasks} />
+   844→            )}
+   845→          </TabsContent>
+   846→          <TabsContent value="list">
+   847→            {tasks.length === 0 ? (
+   848→              <div className="glass-card p-8 text-center">
+   849→                <List className="w-8 h-8 text-[#6366f1] opacity-40 mx-auto mb-3" />
+   850→                <p className="text-sm text-[#64748b]">No tasks yet.</p>
+   851→              </div>
+   852→            ) : (
+   853→              <ListTab tasks={tasks} />
+   854→            )}
+   855→          </TabsContent>
+   856→          <TabsContent value="timeline">
+   857→            {tasks.length === 0 ? (
+   858→              <div className="glass-card p-8 text-center">
+   859→                <GitBranch className="w-8 h-8 text-[#6366f1] opacity-40 mx-auto mb-3" />
+   860→                <p className="text-sm text-[#64748b]">No tasks yet.</p>
+   861→              </div>
+   862→            ) : (
+   863→              <TimelineTab tasks={tasks} />
+   864→            )}
+   865→          </TabsContent>
+   866→        </Tabs>
+   867→      </motion.div>
+   868→
+   869→      {/* ── Mission Agents ── */}
+   870→      {mission.agents && mission.agents.length > 0 && (
+   871→        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-3">
+   872→          <h2 className="text-sm font-semibold text-[#e2e8f0] flex items-center gap-2">
+   873→            <Bot className="w-4 h-4 text-[#22d3ee]" />Mission Agents
+   874→          </h2>
+   875→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   876→            {mission.agents.map((ma) => (
+   877→              <div key={ma.id} className="glass-card p-4 flex items-center gap-3">
+   878→                <Avatar className="w-9 h-9 shrink-0">
+   879→                  <AvatarFallback className="text-xs bg-[rgba(34,211,238,0.15)] text-[#22d3ee]">
+   880→                    {ma.agent.name.slice(0, 2).toUpperCase()}
+   881→                  </AvatarFallback>
+   882→                </Avatar>
+   883→                <div className="flex-1 min-w-0">
+   884→                  <p className="text-sm font-medium text-[#e2e8f0] truncate">{ma.agent.name}</p>
+   885→                  <p className="text-[10px] text-[#64748b] capitalize">{ma.role}</p>
+   886→                </div>
+   887→                {ma.costIncurred > 0 && (
+   888→                  <div className="text-right shrink-0">
+   889→                    <p className="text-xs font-medium text-[#e2e8f0]">{formatCost(ma.costIncurred)}</p>
+   890→                    <p className="text-[10px] text-[#64748b]">cost</p>
+   891→                  </div>
+   892→                )}
+   893→              </div>
+   894→            ))}
+   895→          </div>
+   896→        </motion.div>
+   897→      )}
+   898→
+   899→      {/* ── Outcomes Section ── */}
+   900→      {outcomes.length > 0 && (
+   901→        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="space-y-3">
+   902→          <h2 className="text-sm font-semibold text-[#e2e8f0] flex items-center gap-2">
+   903→            <Target className="w-4 h-4 text-[#34d399]" />Outcomes
+   904→          </h2>
+   905→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   906→            {outcomes.map((outcome) => {
+   907→              const oColors = OUTCOME_STATUS_COLORS[outcome.status] ?? OUTCOME_STATUS_COLORS.not_started
+   908→              return (
+   909→                <div key={outcome.id} className="glass-card p-4 space-y-3">
+   910→                  <div className="flex items-start justify-between gap-2">
+   911→                    <p className="text-sm font-medium text-[#e2e8f0] leading-snug">{outcome.objective}</p>
+   912→                    <Badge variant="outline" className={cn('shrink-0 text-[10px] px-2 py-0.5 rounded-full border-0 font-medium', oColors.bg, oColors.text)}>
+   913→                      {outcome.status.replace(/_/g, ' ')}
+   914→                    </Badge>
+   915→                  </div>
+   916→                  <div>
+   917→                    <div className="flex items-center justify-between mb-1">
+   918→                      <span className="text-[10px] text-[#64748b]">Progress</span>
+   919→                      <span className="text-[10px] text-[#94a3b8] font-medium">{Math.round(outcome.progress * 100)}%</span>
+   920→                    </div>
+   921→                    <div className="h-1.5 bg-[rgba(99,102,241,0.08)] rounded-full overflow-hidden">
+   922→                      <motion.div
+   923→                        className="h-full rounded-full bg-[#34d399]"
+   924→                        initial={{ width: 0 }}
+   925→                        animate={{ width: `${Math.round(outcome.progress * 100)}%` }}
+   926→                        transition={{ duration: 0.6, ease: 'easeOut' }}
+   927→                      />
+   928→                    </div>
+   929→                  </div>
+   930→                  <div className="flex items-center justify-between text-[10px] text-[#64748b]">
+   931→                    <span>Confidence: <span className="text-[#94a3b8] font-medium">{Math.round(outcome.confidence * 100)}%</span></span>
+   932→                  </div>
+   933→                </div>
+   934→              )
+   935→            })}
+   936→          </div>
+   937→        </motion.div>
+   938→      )}
+   939→
+   940→      {/* ── Verifications Section ── */}
+   941→      {verifications.length > 0 && (
+   942→        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="space-y-3">
+   943→          <h2 className="text-sm font-semibold text-[#e2e8f0] flex items-center gap-2">
+   944→            <ShieldCheck className="w-4 h-4 text-[#a78bfa]" />Verifications
+   945→          </h2>
+   946→          <ScrollArea className="max-h-80">
+   947→            <div className="space-y-2">
+   948→              {verifications.map((v, idx) => (
+   949→                <motion.div
+   950→                  key={v.id}
+   951→                  initial={{ opacity: 0, y: 4 }}
+   952→                  animate={{ opacity: 1, y: 0 }}
+   953→                  transition={{ delay: idx * 0.03 }}
+   954→                  className="glass-card px-4 py-3 flex items-start gap-3"
+   955→                >
+   956→                  {v.passed === true ? (
+   957→                    <ShieldCheck className="w-4 h-4 text-[#34d399] shrink-0 mt-0.5" />
+   958→                  ) : v.passed === false ? (
+   959→                    <ShieldX className="w-4 h-4 text-[#ef4444] shrink-0 mt-0.5" />
+   960→                  ) : (
+   961→                    <Clock className="w-4 h-4 text-[#64748b] shrink-0 mt-0.5" />
+   962→                  )}
+   963→                  <div className="flex-1 min-w-0">
+   964→                    <div className="flex items-center gap-2 mb-0.5">
+   965→                      <span className="text-xs font-medium text-[#e2e8f0]">
+   966→                        {formatVerificationType(v.type)}
+   967→                      </span>
+   968→                      <Badge variant="outline" className={cn(
+   969→                        'text-[9px] px-1.5 py-0 rounded-full border-0 font-medium',
+   970→                        v.passed === true
+   971→                          ? 'bg-[rgba(52,211,153,0.12)] text-[#34d399]'
+   972→                          : v.passed === false
+   973→                            ? 'bg-[rgba(239,68,68,0.12)] text-[#ef4444]'
+   974→                            : 'bg-[rgba(148,163,184,0.12)] text-[#94a3b8]',
+   975→                      )}>
+   976→                        {v.passed === true ? 'Passed' : v.passed === false ? 'Failed' : 'Pending'}
+   977→                      </Badge>
+   978→                    </div>
+   979→                    {v.task && (
+   980→                      <p className="text-[10px] text-[#64748b]">Task: {v.task.title}</p>
+   981→                    )}
+   982→                    {v.evidence && v.evidence !== '[]' && v.evidence !== '{}'
+   983→                      ? (
+   984→                        <p className="text-[10px] text-[#64748b] mt-0.5">
+   985→                          {truncate(v.evidence, 120)}
+   986→                        </p>
+   987→                      )
+   988→                      : null
+   989→                    }
+   990→                  </div>
+   991→                  <span className="text-[10px] text-[#475569] shrink-0">
+   992→                    {relativeTime(v.verifiedAt ?? v.createdAt)}
+   993→                  </span>
+   994→                </motion.div>
+   995→              ))}
+   996→            </div>
+   997→          </ScrollArea>
+   998→        </motion.div>
+   999→      )}
+  1000→
+  1001→      {/* ── Dialogs ── */}
+  1002→      <EditMissionDialog mission={mission} open={editOpen} onOpenChange={setEditOpen} onSaved={handleEditSaved} />
+  1003→      <DeleteConfirmDialog mission={mission} open={deleteOpen} onOpenChange={setDeleteOpen} onDeleted={handleDeleted} />
+  1004→    </div>
+  1005→  )
+  1006→}
+  1007→

@@ -1,0 +1,758 @@
+     1→import { describe, it, expect, vi, beforeEach } from 'vitest'
+     2→import {
+     3→  createMissionFromGoal,
+     4→  planMission,
+     5→  executeMission,
+     6→  getNextExecutableTasks,
+     7→  handleTaskFailure,
+     8→  completeMission,
+     9→} from '@/lib/mission-engine'
+    10→
+    11→// ============================================================
+    12→// Mock db
+    13→// ============================================================
+    14→
+    15→const mockMissionCreate = vi.fn()
+    16→const mockMissionFindUnique = vi.fn()
+    17→const mockMissionUpdate = vi.fn()
+    18→const mockMissionTaskCreate = vi.fn()
+    19→const mockMissionTaskFindUnique = vi.fn()
+    20→const mockMissionTaskFindMany = vi.fn()
+    21→const mockMissionTaskUpdate = vi.fn()
+    22→const mockMissionAgentFindMany = vi.fn()
+    23→const mockMissionAgentCreate = vi.fn()
+    24→const mockEventCreate = vi.fn()
+    25→const mockOutcomeCreate = vi.fn()
+    26→const mockWorkflowApprovalCreate = vi.fn()
+    27→const mockVerificationCreate = vi.fn()
+    28→const mockAgentFindMany = vi.fn()
+    29→
+    30→vi.mock('@/lib/db', () => ({
+    31→  db: {
+    32→    mission: {
+    33→      create: (...args: unknown[]) => mockMissionCreate(...args),
+    34→      findUnique: (...args: unknown[]) => mockMissionFindUnique(...args),
+    35→      update: (...args: unknown[]) => mockMissionUpdate(...args),
+    36→    },
+    37→    missionTask: {
+    38→      create: (...args: unknown[]) => mockMissionTaskCreate(...args),
+    39→      findUnique: (...args: unknown[]) => mockMissionTaskFindUnique(...args),
+    40→      findMany: (...args: unknown[]) => mockMissionTaskFindMany(...args),
+    41→      update: (...args: unknown[]) => mockMissionTaskUpdate(...args),
+    42→    },
+    43→    missionAgent: {
+    44→      findMany: (...args: unknown[]) => mockMissionAgentFindMany(...args),
+    45→      create: (...args: unknown[]) => mockMissionAgentCreate(...args),
+    46→    },
+    47→    agent: {
+    48→      findMany: (...args: unknown[]) => mockAgentFindMany(...args),
+    49→    },
+    50→    event: {
+    51→      create: (...args: unknown[]) => mockEventCreate(...args),
+    52→    },
+    53→    outcome: {
+    54→      create: (...args: unknown[]) => mockOutcomeCreate(...args),
+    55→    },
+    56→    workflowApproval: {
+    57→      create: (...args: unknown[]) => mockWorkflowApprovalCreate(...args),
+    58→    },
+    59→    verification: {
+    60→      create: (...args: unknown[]) => mockVerificationCreate(...args),
+    61→    },
+    62→  },
+    63→}))
+    64→
+    65→beforeEach(() => {
+    66→  vi.resetAllMocks()
+    67→})
+    68→
+    69→// ============================================================
+    70→// createMissionFromGoal
+    71→// ============================================================
+    72→
+    73→describe('createMissionFromGoal', () => {
+    74→  it('creates a mission with correct fields', async () => {
+    75→    mockMissionCreate.mockResolvedValue({
+    76→      id: 'mission_1',
+    77→      organizationId: 'org_1',
+    78→      userId: 'user_1',
+    79→      title: 'Build a REST API',
+    80→      goal: 'Build a REST API for the team',
+    81→      constraints: '{}',
+    82→      budget: 0,
+    83→      successCriteria: '[]',
+    84→      status: 'draft',
+    85→      userMode: 'simple',
+    86→      correlationId: 'corr_123',
+    87→    })
+    88→    mockEventCreate.mockResolvedValue({})
+    89→
+    90→    const mission = await createMissionFromGoal({
+    91→      organizationId: 'org_1',
+    92→      userId: 'user_1',
+    93→      goal: 'Build a REST API for the team',
+    94→    })
+    95→
+    96→    expect(mission.id).toBe('mission_1')
+    97→    expect(mission.status).toBe('draft')
+    98→    expect(mission.organizationId).toBe('org_1')
+    99→  })
+   100→
+   101→  it('sets default budget to 0', async () => {
+   102→    mockMissionCreate.mockResolvedValue({
+   103→      id: 'm1', organizationId: 'o1', userId: 'u1',
+   104→      title: 'test', goal: 'test', constraints: '{}',
+   105→      budget: 0, successCriteria: '[]', status: 'draft',
+   106→      userMode: 'simple', correlationId: 'c1',
+   107→    })
+   108→    mockEventCreate.mockResolvedValue({})
+   109→
+   110→    await createMissionFromGoal({ organizationId: 'o1', userId: 'u1', goal: 'test' })
+   111→
+   112→    const createCall = mockMissionCreate.mock.calls[0][0] as { data: { budget: number } }
+   113→    expect(createCall.data.budget).toBe(0)
+   114→  })
+   115→
+   116→  it('uses provided budget', async () => {
+   117→    mockMissionCreate.mockResolvedValue({
+   118→      id: 'm1', organizationId: 'o1', userId: 'u1',
+   119→      title: 'test', goal: 'test', constraints: '{}',
+   120→      budget: 500, successCriteria: '[]', status: 'draft',
+   121→      userMode: 'simple', correlationId: 'c1',
+   122→    })
+   123→    mockEventCreate.mockResolvedValue({})
+   124→
+   125→    await createMissionFromGoal({
+   126→      organizationId: 'o1', userId: 'u1', goal: 'test', budget: 500,
+   127→    })
+   128→
+   129→    const createCall = mockMissionCreate.mock.calls[0][0] as { data: { budget: number } }
+   130→    expect(createCall.data.budget).toBe(500)
+   131→  })
+   132→
+   133→  it('generates a correlationId', async () => {
+   134→    mockMissionCreate.mockResolvedValue({
+   135→      id: 'm1', organizationId: 'o1', userId: 'u1',
+   136→      title: 'test', goal: 'test', constraints: '{}',
+   137→      budget: 0, successCriteria: '[]', status: 'draft',
+   138→      userMode: 'simple', correlationId: 'corr_abc',
+   139→    })
+   140→    mockEventCreate.mockResolvedValue({})
+   141→
+   142→    await createMissionFromGoal({ organizationId: 'o1', userId: 'u1', goal: 'test' })
+   143→    expect(mockMissionCreate).toHaveBeenCalledTimes(1)
+   144→    const createData = mockMissionCreate.mock.calls[0][0] as { data: { correlationId: string } }
+   145→    expect(createData.data.correlationId).toMatch(/^corr_/)
+   146→  })
+   147→
+   148→  it('emits a mission.created event', async () => {
+   149→    mockMissionCreate.mockResolvedValue({
+   150→      id: 'm1', organizationId: 'o1', userId: 'u1',
+   151→      title: 'test', goal: 'test', constraints: '{}',
+   152→      budget: 0, successCriteria: '[]', status: 'draft',
+   153→      userMode: 'simple', correlationId: 'c1',
+   154→    })
+   155→    mockEventCreate.mockResolvedValue({})
+   156→
+   157→    await createMissionFromGoal({ organizationId: 'o1', userId: 'u1', goal: 'test' })
+   158→    expect(mockEventCreate).toHaveBeenCalledTimes(1)
+   159→
+   160→    const eventData = mockEventCreate.mock.calls[0][0] as { data: { eventType: string } }
+   161→    expect(eventData.data.eventType).toBe('mission.created')
+   162→  })
+   163→
+   164→  it('sets userMode to simple by default', async () => {
+   165→    mockMissionCreate.mockResolvedValue({
+   166→      id: 'm1', organizationId: 'o1', userId: 'u1',
+   167→      title: 'test', goal: 'test', constraints: '{}',
+   168→      budget: 0, successCriteria: '[]', status: 'draft',
+   169→      userMode: 'simple', correlationId: 'c1',
+   170→    })
+   171→    mockEventCreate.mockResolvedValue({})
+   172→
+   173→    await createMissionFromGoal({ organizationId: 'o1', userId: 'u1', goal: 'test' })
+   174→
+   175→    const createCall = mockMissionCreate.mock.calls[0][0] as { data: { userMode: string } }
+   176→    expect(createCall.data.userMode).toBe('simple')
+   177→  })
+   178→
+   179→  it('extracts title from goal', async () => {
+   180→    mockMissionCreate.mockImplementation(({ data }) => ({
+   181→      ...data, id: 'm1', createdAt: new Date(), updatedAt: new Date(),
+   182→    }))
+   183→    mockEventCreate.mockResolvedValue({})
+   184→
+   185→    await createMissionFromGoal({ organizationId: 'o1', userId: 'u1', goal: 'Build a REST API.' })
+   186→
+   187→    const createCall = mockMissionCreate.mock.calls[0][0] as { data: { title: string } }
+   188→    expect(createCall.data.title).toBe('Build a REST API.')
+   189→  })
+   190→
+   191→  it('stores deadline in constraints', async () => {
+   192→    const deadline = new Date('2025-12-31')
+   193→    mockMissionCreate.mockResolvedValue({
+   194→      id: 'm1', organizationId: 'o1', userId: 'u1',
+   195→      title: 'test', goal: 'test', constraints: '{}',
+   196→      budget: 0, successCriteria: '[]', status: 'draft',
+   197→      userMode: 'simple', correlationId: 'c1', deadline,
+   198→    })
+   199→    mockEventCreate.mockResolvedValue({})
+   200→
+   201→    await createMissionFromGoal({ organizationId: 'o1', userId: 'u1', goal: 'test', deadline })
+   202→
+   203→    const createCall = mockMissionCreate.mock.calls[0][0] as { data: { constraints: string } }
+   204→    const constraints = JSON.parse(createCall.data.constraints)
+   205→    expect(constraints.deadline).toBe('2025-12-31T00:00:00.000Z')
+   206→  })
+   207→})
+   208→
+   209→// ============================================================
+   210→// planMission
+   211→// ============================================================
+   212→
+   213→describe('planMission', () => {
+   214→  it('creates tasks and sets status to approved', async () => {
+   215→    mockMissionFindUnique.mockResolvedValue({
+   216→      id: 'm1', status: 'draft', goal: 'build a new API',
+   217→      organizationId: 'o1', correlationId: 'c1',
+   218→    })
+   219→    mockMissionUpdate.mockResolvedValue({})
+   220→    mockMissionTaskCreate.mockImplementation(({ data }) => ({
+   221→      ...data, id: `task_${Math.random().toString(36).slice(2)}`,
+   222→      missionId: 'm1', createdAt: new Date(), updatedAt: new Date(),
+   223→      dependencies: data.dependencies ?? '[]',
+   224→      verificationConfig: data.verificationConfig ?? '{}',
+   225→      assignedTools: data.assignedTools ?? '[]',
+   226→      input: '{}', output: '{}',
+   227→      error: null, retryCount: 0, maxRetries: 3,
+   228→      startedAt: null, completedAt: null,
+   229→      parentTaskId: null, description: null, agentId: null,
+   230→    }))
+   231→    mockAgentFindMany.mockResolvedValue([])
+   232→    mockMissionAgentFindMany.mockResolvedValue([])
+   233→    mockMissionTaskFindMany.mockResolvedValue([])
+   234→    mockEventCreate.mockResolvedValue({})
+   235→
+   236→    const tasks = await planMission('m1')
+   237→    expect(mockMissionUpdate).toHaveBeenCalled()
+   238→    // Should update to 'approved' (last update call)
+   239→    const lastUpdate = mockMissionUpdate.mock.calls[mockMissionUpdate.mock.calls.length - 1]
+   240→    expect((lastUpdate[0] as { data: { status: string } }).data.status).toBe('approved')
+   241→  })
+   242→
+   243→  it('throws if mission not found', async () => {
+   244→    mockMissionFindUnique.mockResolvedValue(null)
+   245→    await expect(planMission('nonexistent')).rejects.toThrow('not found')
+   246→  })
+   247→
+   248→  it('throws if mission is not in draft status', async () => {
+   249→    mockMissionFindUnique.mockResolvedValue({
+   250→      id: 'm1', status: 'executing', goal: 'test',
+   251→      organizationId: 'o1', correlationId: 'c1',
+   252→    })
+   253→    await expect(planMission('m1')).rejects.toThrow('must be in draft status')
+   254→  })
+   255→
+   256→  it('creates agents for the mission', async () => {
+   257→    mockMissionFindUnique.mockResolvedValue({
+   258→      id: 'm1', status: 'draft', goal: 'build a new API',
+   259→      organizationId: 'o1', correlationId: 'c1',
+   260→    })
+   261→    mockMissionUpdate.mockResolvedValue({})
+   262→    mockMissionTaskCreate.mockImplementation(({ data }) => ({
+   263→      ...data, id: `task_${Math.random().toString(36).slice(2)}`,
+   264→      missionId: 'm1', createdAt: new Date(), updatedAt: new Date(),
+   265→      dependencies: '[]', verificationConfig: '{}', assignedTools: '[]',
+   266→      input: '{}', output: '{}', error: null, retryCount: 0, maxRetries: 3,
+   267→      startedAt: null, completedAt: null, parentTaskId: null, description: null, agentId: null,
+   268→    }))
+   269→    mockAgentFindMany.mockResolvedValue([
+   270→      { id: 'agent_1', capabilities: '[]' },
+   271→      { id: 'agent_2', capabilities: '[]' },
+   272→    ])
+   273→    mockMissionAgentFindMany.mockResolvedValue([
+   274→      { id: 'agent_1', capabilities: '[]' },
+   275→      { id: 'agent_2', capabilities: '[]' },
+   276→    ])
+   277→    mockMissionAgentCreate.mockResolvedValue({})
+   278→    mockMissionTaskFindMany.mockResolvedValue([])
+   279→    mockEventCreate.mockResolvedValue({})
+   280→
+   281→    await planMission('m1')
+   282→    expect(mockMissionAgentCreate).toHaveBeenCalledTimes(2)
+   283→  })
+   284→
+   285→  it('generates build tasks for build-related goals', async () => {
+   286→    mockMissionFindUnique.mockResolvedValue({
+   287→      id: 'm1', status: 'draft', goal: 'Build a new feature for the app',
+   288→      organizationId: 'o1', correlationId: 'c1',
+   289→    })
+   290→    mockMissionUpdate.mockResolvedValue({})
+   291→    mockMissionTaskCreate.mockImplementation(({ data }) => ({
+   292→      ...data, id: `task_${Math.random().toString(36).slice(2)}`,
+   293→      missionId: 'm1', createdAt: new Date(), updatedAt: new Date(),
+   294→      dependencies: '[]', verificationConfig: '{}', assignedTools: '[]',
+   295→      input: '{}', output: '{}', error: null, retryCount: 0, maxRetries: 3,
+   296→      startedAt: null, completedAt: null, parentTaskId: null, description: null, agentId: null,
+   297→    }))
+   298→    mockAgentFindMany.mockResolvedValue([])
+   299→    mockMissionAgentFindMany.mockResolvedValue([])
+   300→    mockMissionTaskFindMany.mockResolvedValue([])
+   301→    mockEventCreate.mockResolvedValue({})
+   302→
+   303→    await planMission('m1')
+   304→    // Build-related goals should create 4 tasks
+   305→    expect(mockMissionTaskCreate).toHaveBeenCalledTimes(4)
+   306→  })
+   307→
+   308→  it('generates analyze tasks for analyze-related goals', async () => {
+   309→    mockMissionFindUnique.mockResolvedValue({
+   310→      id: 'm1', status: 'draft', goal: 'Analyze the sales data',
+   311→      organizationId: 'o1', correlationId: 'c1',
+   312→    })
+   313→    mockMissionUpdate.mockResolvedValue({})
+   314→    mockMissionTaskCreate.mockImplementation(({ data }) => ({
+   315→      ...data, id: `task_${Math.random().toString(36).slice(2)}`,
+   316→      missionId: 'm1', createdAt: new Date(), updatedAt: new Date(),
+   317→      dependencies: '[]', verificationConfig: '{}', assignedTools: '[]',
+   318→      input: '{}', output: '{}', error: null, retryCount: 0, maxRetries: 3,
+   319→      startedAt: null, completedAt: null, parentTaskId: null, description: null, agentId: null,
+   320→    }))
+   321→    mockAgentFindMany.mockResolvedValue([])
+   322→    mockMissionAgentFindMany.mockResolvedValue([])
+   323→    mockMissionTaskFindMany.mockResolvedValue([])
+   324→    mockEventCreate.mockResolvedValue({})
+   325→
+   326→    await planMission('m1')
+   327→    // Analyze-related goals create 3 tasks
+   328→    expect(mockMissionTaskCreate).toHaveBeenCalledTimes(3)
+   329→  })
+   330→
+   331→  it('transitions mission to planning then approved', async () => {
+   332→    mockMissionFindUnique.mockResolvedValue({
+   333→      id: 'm1', status: 'draft', goal: 'test',
+   334→      organizationId: 'o1', correlationId: 'c1',
+   335→    })
+   336→    mockMissionUpdate.mockResolvedValue({})
+   337→    mockMissionTaskCreate.mockImplementation(({ data }) => ({
+   338→      ...data, id: `task_${Math.random().toString(36).slice(2)}`,
+   339→      missionId: 'm1', createdAt: new Date(), updatedAt: new Date(),
+   340→      dependencies: '[]', verificationConfig: '{}', assignedTools: '[]',
+   341→      input: '{}', output: '{}', error: null, retryCount: 0, maxRetries: 3,
+   342→      startedAt: null, completedAt: null, parentTaskId: null, description: null, agentId: null,
+   343→    }))
+   344→    mockAgentFindMany.mockResolvedValue([])
+   345→    mockMissionAgentFindMany.mockResolvedValue([])
+   346→    mockMissionTaskFindMany.mockResolvedValue([])
+   347→    mockEventCreate.mockResolvedValue({})
+   348→
+   349→    await planMission('m1')
+   350→    // First update: draft -> planning
+   351→    expect((mockMissionUpdate.mock.calls[0][0] as { data: { status: string } }).data.status).toBe('planning')
+   352→    // Last update: planning -> approved
+   353→    const lastCallIdx = mockMissionUpdate.mock.calls.length - 1
+   354→    expect((mockMissionUpdate.mock.calls[lastCallIdx][0] as { data: { status: string } }).data.status).toBe('approved')
+   355→  })
+   356→})
+   357→
+   358→// ============================================================
+   359→// executeMission
+   360→// ============================================================
+   361→
+   362→describe('executeMission', () => {
+   363→  it('transitions mission to executing', async () => {
+   364→    mockMissionFindUnique.mockResolvedValue({
+   365→      id: 'm1', status: 'approved', organizationId: 'o1', correlationId: 'c1',
+   366→    })
+   367→    mockMissionUpdate.mockResolvedValue({})
+   368→    mockMissionTaskFindMany.mockResolvedValue([
+   369→      { id: 't1', status: 'planned', dependencies: '[]' },
+   370→    ])
+   371→    mockMissionTaskUpdate.mockResolvedValue({})
+   372→    mockEventCreate.mockResolvedValue({})
+   373→
+   374→    await executeMission('m1')
+   375→    expect(mockMissionUpdate).toHaveBeenCalledWith(
+   376→      expect.objectContaining({ where: { id: 'm1' }, data: { status: 'executing' } }),
+   377→    )
+   378→  })
+   379→
+   380→  it('throws if mission not found', async () => {
+   381→    mockMissionFindUnique.mockResolvedValue(null)
+   382→    await expect(executeMission('nonexistent')).rejects.toThrow('not found')
+   383→  })
+   384→
+   385→  it('throws if mission is not approved', async () => {
+   386→    mockMissionFindUnique.mockResolvedValue({
+   387→      id: 'm1', status: 'draft', organizationId: 'o1', correlationId: 'c1',
+   388→    })
+   389→    await expect(executeMission('m1')).rejects.toThrow('must be approved')
+   390→  })
+   391→
+   392→  it('starts next executable tasks', async () => {
+   393→    mockMissionFindUnique.mockResolvedValue({
+   394→      id: 'm1', status: 'approved', organizationId: 'o1', correlationId: 'c1',
+   395→    })
+   396→    mockMissionUpdate.mockResolvedValue({})
+   397→    mockMissionTaskFindMany
+   398→      .mockResolvedValueOnce([{ id: 't1', status: 'planned', dependencies: '[]' }])
+   399→      .mockResolvedValueOnce([{ id: 't1', status: 'planned', dependencies: '[]' }])
+   400→    mockEventCreate.mockResolvedValue({})
+   401→
+   402→    await executeMission('m1')
+   403→    // Should update the task to running
+   404→    expect(mockMissionTaskUpdate).toHaveBeenCalledWith(
+   405→      expect.objectContaining({
+   406→        where: { id: 't1' },
+   407→        data: expect.objectContaining({ status: 'running' }),
+   408→      }),
+   409→    )
+   410→  })
+   411→})
+   412→
+   413→// ============================================================
+   414→// getNextExecutableTasks
+   415→// ============================================================
+   416→
+   417→describe('getNextExecutableTasks', () => {
+   418→  it('returns planned tasks with no dependencies', async () => {
+   419→    mockMissionTaskFindMany.mockResolvedValue([
+   420→      { id: 't1', status: 'planned', dependencies: '[]' },
+   421→      { id: 't2', status: 'planned', dependencies: '[]' },
+   422→    ])
+   423→    const tasks = await getNextExecutableTasks('m1')
+   424→    expect(tasks).toHaveLength(2)
+   425→  })
+   426→
+   427→  it('filters out running tasks', async () => {
+   428→    mockMissionTaskFindMany.mockResolvedValue([
+   429→      { id: 't1', status: 'running', dependencies: '[]' },
+   430→      { id: 't2', status: 'planned', dependencies: '[]' },
+   431→    ])
+   432→    const tasks = await getNextExecutableTasks('m1')
+   433→    expect(tasks).toHaveLength(1)
+   434→    expect(tasks[0].id).toBe('t2')
+   435→  })
+   436→
+   437→  it('filters out completed tasks', async () => {
+   438→    mockMissionTaskFindMany.mockResolvedValue([
+   439→      { id: 't1', status: 'completed', dependencies: '[]' },
+   440→      { id: 't2', status: 'planned', dependencies: '[]' },
+   441→    ])
+   442→    const tasks = await getNextExecutableTasks('m1')
+   443→    expect(tasks).toHaveLength(1)
+   444→  })
+   445→
+   446→  it('filters out failed tasks', async () => {
+   447→    mockMissionTaskFindMany.mockResolvedValue([
+   448→      { id: 't1', status: 'failed', dependencies: '[]' },
+   449→      { id: 't2', status: 'planned', dependencies: '[]' },
+   450→    ])
+   451→    const tasks = await getNextExecutableTasks('m1')
+   452→    expect(tasks).toHaveLength(1)
+   453→  })
+   454→
+   455→  it('filters out blocked tasks', async () => {
+   456→    mockMissionTaskFindMany.mockResolvedValue([
+   457→      { id: 't1', status: 'blocked', dependencies: '[]' },
+   458→      { id: 't2', status: 'planned', dependencies: '[]' },
+   459→    ])
+   460→    const tasks = await getNextExecutableTasks('m1')
+   461→    expect(tasks).toHaveLength(1)
+   462→  })
+   463→
+   464→  it('does not return tasks with unmet dependencies', async () => {
+   465→    mockMissionTaskFindMany.mockResolvedValue([
+   466→      { id: 't1', status: 'planned', dependencies: '[]' },
+   467→      { id: 't2', status: 'planned', dependencies: '["t1"]' },
+   468→    ])
+   469→    const tasks = await getNextExecutableTasks('m1')
+   470→    expect(tasks).toHaveLength(1)
+   471→    expect(tasks[0].id).toBe('t1')
+   472→  })
+   473→
+   474→  it('returns tasks with completed dependencies', async () => {
+   475→    mockMissionTaskFindMany.mockResolvedValue([
+   476→      { id: 't1', status: 'completed', dependencies: '[]' },
+   477→      { id: 't2', status: 'planned', dependencies: '["t1"]' },
+   478→    ])
+   479→    const tasks = await getNextExecutableTasks('m1')
+   480→    expect(tasks).toHaveLength(1)
+   481→    expect(tasks[0].id).toBe('t2')
+   482→  })
+   483→
+   484→  it('returns empty array when no tasks are executable', async () => {
+   485→    mockMissionTaskFindMany.mockResolvedValue([
+   486→      { id: 't1', status: 'running', dependencies: '[]' },
+   487→    ])
+   488→    const tasks = await getNextExecutableTasks('m1')
+   489→    expect(tasks).toHaveLength(0)
+   490→  })
+   491→
+   492→  it('filters out cancelled tasks', async () => {
+   493→    mockMissionTaskFindMany.mockResolvedValue([
+   494→      { id: 't1', status: 'cancelled', dependencies: '[]' },
+   495→      { id: 't2', status: 'planned', dependencies: '[]' },
+   496→    ])
+   497→    const tasks = await getNextExecutableTasks('m1')
+   498→    expect(tasks).toHaveLength(1)
+   499→  })
+   500→})
+   501→
+   502→// ============================================================
+   503→// handleTaskFailure
+   504→// ============================================================
+   505→
+   506→describe('handleTaskFailure', () => {
+   507→  it('retries task when retries remain', async () => {
+   508→    mockMissionTaskFindUnique.mockResolvedValue({
+   509→      id: 't1', missionId: 'm1', retryCount: 0, maxRetries: 3,
+   510→      agentId: null,
+   511→    })
+   512→    mockMissionFindUnique.mockResolvedValue({
+   513→      id: 'm1', organizationId: 'o1',
+   514→    })
+   515→    mockMissionTaskUpdate.mockResolvedValue({})
+   516→    mockEventCreate.mockResolvedValue({})
+   517→
+   518→    const result = await handleTaskFailure('t1', 'timeout error')
+   519→    expect(mockMissionTaskUpdate).toHaveBeenCalledWith(
+   520→      expect.objectContaining({
+   521→        data: expect.objectContaining({ status: 'retrying', retryCount: 1 }),
+   522→      }),
+   523→    )
+   524→  })
+   525→
+   526→  it('marks task as failed when max retries exceeded', async () => {
+   527→    mockMissionTaskFindUnique.mockResolvedValue({
+   528→      id: 't1', missionId: 'm1', retryCount: 3, maxRetries: 3,
+   529→      agentId: null,
+   530→    })
+   531→    mockMissionFindUnique.mockResolvedValue({
+   532→      id: 'm1', organizationId: 'o1',
+   533→    })
+   534→    mockMissionTaskUpdate.mockResolvedValue({})
+   535→    mockEventCreate.mockResolvedValue({})
+   536→
+   537→    await handleTaskFailure('t1', 'fatal error')
+   538→    expect(mockMissionTaskUpdate).toHaveBeenCalledWith(
+   539→      expect.objectContaining({
+   540→        data: expect.objectContaining({ status: 'failed' }),
+   541→      }),
+   542→    )
+   543→  })
+   544→
+   545→  it('creates approval for authorization errors on failure', async () => {
+   546→    mockMissionTaskFindUnique.mockResolvedValue({
+   547→      id: 't1', missionId: 'm1', retryCount: 3, maxRetries: 3,
+   548→      agentId: null,
+   549→    })
+   550→    mockMissionFindUnique.mockResolvedValue({
+   551→      id: 'm1', organizationId: 'o1',
+   552→    })
+   553→    mockMissionTaskUpdate.mockResolvedValue({})
+   554→    mockEventCreate.mockResolvedValue({})
+   555→    mockWorkflowApprovalCreate.mockResolvedValue({})
+   556→
+   557→    await handleTaskFailure('t1', 'unauthorized access denied')
+   558→    expect(mockWorkflowApprovalCreate).toHaveBeenCalledTimes(1)
+   559→  })
+   560→
+   561→  it('creates approval for budget errors on failure', async () => {
+   562→    mockMissionTaskFindUnique.mockResolvedValue({
+   563→      id: 't1', missionId: 'm1', retryCount: 3, maxRetries: 3,
+   564→      agentId: null,
+   565→    })
+   566→    mockMissionFindUnique.mockResolvedValue({
+   567→      id: 'm1', organizationId: 'o1',
+   568→    })
+   569→    mockMissionTaskUpdate.mockResolvedValue({})
+   570→    mockEventCreate.mockResolvedValue({})
+   571→    mockWorkflowApprovalCreate.mockResolvedValue({})
+   572→
+   573→    await handleTaskFailure('t1', 'budget exceeded limit')
+   574→    expect(mockWorkflowApprovalCreate).toHaveBeenCalledTimes(1)
+   575→    const callData = mockWorkflowApprovalCreate.mock.calls[0][0] as { data: { riskLevel: string } }
+   576→    expect(callData.data.riskLevel).toBe('critical')
+   577→  })
+   578→
+   579→  it('does not create approval for transient errors', async () => {
+   580→    mockMissionTaskFindUnique.mockResolvedValue({
+   581→      id: 't1', missionId: 'm1', retryCount: 3, maxRetries: 3,
+   582→      agentId: null,
+   583→    })
+   584→    mockMissionFindUnique.mockResolvedValue({
+   585→      id: 'm1', organizationId: 'o1',
+   586→    })
+   587→    mockMissionTaskUpdate.mockResolvedValue({})
+   588→    mockEventCreate.mockResolvedValue({})
+   589→    mockWorkflowApprovalCreate.mockResolvedValue({})
+   590→
+   591→    await handleTaskFailure('t1', 'some unknown error')
+   592→    expect(mockWorkflowApprovalCreate).not.toHaveBeenCalled()
+   593→  })
+   594→
+   595→  it('emits task.retrying event on retry', async () => {
+   596→    mockMissionTaskFindUnique.mockResolvedValue({
+   597→      id: 't1', missionId: 'm1', retryCount: 0, maxRetries: 3,
+   598→      agentId: null,
+   599→    })
+   600→    mockMissionFindUnique.mockResolvedValue({
+   601→      id: 'm1', organizationId: 'o1',
+   602→    })
+   603→    mockMissionTaskUpdate.mockResolvedValue({})
+   604→    mockEventCreate.mockResolvedValue({})
+   605→
+   606→    await handleTaskFailure('t1', 'error')
+   607→    const eventData = mockEventCreate.mock.calls[0][0] as { data: { eventType: string } }
+   608→    expect(eventData.data.eventType).toBe('task.retrying')
+   609→  })
+   610→
+   611→  it('emits task.failed event on final failure', async () => {
+   612→    mockMissionTaskFindUnique.mockResolvedValue({
+   613→      id: 't1', missionId: 'm1', retryCount: 3, maxRetries: 3,
+   614→      agentId: null,
+   615→    })
+   616→    mockMissionFindUnique.mockResolvedValue({
+   617→      id: 'm1', organizationId: 'o1',
+   618→    })
+   619→    mockMissionTaskUpdate.mockResolvedValue({})
+   620→    mockEventCreate.mockResolvedValue({})
+   621→
+   622→    await handleTaskFailure('t1', 'fatal')
+   623→    const eventData = mockEventCreate.mock.calls[0][0] as { data: { eventType: string } }
+   624→    expect(eventData.data.eventType).toBe('task.failed')
+   625→  })
+   626→
+   627→  it('stores the error message on the task', async () => {
+   628→    mockMissionTaskFindUnique.mockResolvedValue({
+   629→      id: 't1', missionId: 'm1', retryCount: 3, maxRetries: 3,
+   630→      agentId: null,
+   631→    })
+   632→    mockMissionFindUnique.mockResolvedValue({
+   633→      id: 'm1', organizationId: 'o1',
+   634→    })
+   635→    mockMissionTaskUpdate.mockResolvedValue({})
+   636→    mockEventCreate.mockResolvedValue({})
+   637→
+   638→    await handleTaskFailure('t1', 'specific error msg')
+   639→    const callData = mockMissionTaskUpdate.mock.calls[0][0] as { data: { error: string } }
+   640→    expect(callData.data.error).toBe('specific error msg')
+   641→  })
+   642→})
+   643→
+   644→// ============================================================
+   645→// completeMission
+   646→// ============================================================
+   647→
+   648→describe('completeMission', () => {
+   649→  it('creates outcomes from success criteria', async () => {
+   650→    mockMissionFindUnique.mockResolvedValue({
+   651→      id: 'm1', organizationId: 'o1', successCriteria: JSON.stringify(['criterion 1', 'criterion 2']),
+   652→    })
+   653→    mockMissionUpdate.mockResolvedValue({})
+   654→    mockOutcomeCreate.mockImplementation(({ data }) => ({
+   655→      ...data, id: 'out_1', createdAt: new Date(), updatedAt: new Date(),
+   656→    }))
+   657→    mockMissionAgentFindMany.mockResolvedValue([])
+   658→    mockEventCreate.mockResolvedValue({})
+   659→
+   660→    const outcomes = await completeMission('m1')
+   661→    expect(outcomes).toHaveLength(2)
+   662→    expect(mockOutcomeCreate).toHaveBeenCalledTimes(2)
+   663→  })
+   664→
+   665→  it('transitions mission to completed', async () => {
+   666→    mockMissionFindUnique.mockResolvedValue({
+   667→      id: 'm1', organizationId: 'o1', successCriteria: JSON.stringify(['done']),
+   668→    })
+   669→    mockMissionUpdate.mockResolvedValue({})
+   670→    mockOutcomeCreate.mockImplementation(({ data }) => ({
+   671→      ...data, id: 'out_1', createdAt: new Date(), updatedAt: new Date(),
+   672→    }))
+   673→    mockMissionAgentFindMany.mockResolvedValue([])
+   674→    mockEventCreate.mockResolvedValue({})
+   675→
+   676→    await completeMission('m1')
+   677→    // Last update should be to 'completed'
+   678→    const lastUpdate = mockMissionUpdate.mock.calls[mockMissionUpdate.mock.calls.length - 1]
+   679→    expect((lastUpdate[0] as { data: { status: string } }).data.status).toBe('completed')
+   680→  })
+   681→
+   682→  it('calculates actual cost from mission agents', async () => {
+   683→    mockMissionFindUnique.mockResolvedValue({
+   684→      id: 'm1', organizationId: 'o1', successCriteria: JSON.stringify(['done']),
+   685→    })
+   686→    mockMissionUpdate.mockResolvedValue({})
+   687→    mockOutcomeCreate.mockImplementation(({ data }) => ({
+   688→      ...data, id: 'out_1', createdAt: new Date(), updatedAt: new Date(),
+   689→    }))
+   690→    mockMissionAgentFindMany.mockResolvedValue([
+   691→      { costIncurred: 10 },
+   692→      { costIncurred: 25 },
+   693→    ])
+   694→    mockEventCreate.mockResolvedValue({})
+   695→
+   696→    await completeMission('m1')
+   697→    const lastUpdate = mockMissionUpdate.mock.calls[mockMissionUpdate.mock.calls.length - 1]
+   698→    expect((lastUpdate[0] as { data: { actualCost: number } }).data.actualCost).toBe(35)
+   699→  })
+   700→
+   701→  it('emits mission.completed event', async () => {
+   702→    mockMissionFindUnique.mockResolvedValue({
+   703→      id: 'm1', organizationId: 'o1', successCriteria: JSON.stringify(['done']),
+   704→    })
+   705→    mockMissionUpdate.mockResolvedValue({})
+   706→    mockOutcomeCreate.mockImplementation(({ data }) => ({
+   707→      ...data, id: 'out_1', createdAt: new Date(), updatedAt: new Date(),
+   708→    }))
+   709→    mockMissionAgentFindMany.mockResolvedValue([])
+   710→    mockEventCreate.mockResolvedValue({})
+   711→
+   712→    await completeMission('m1')
+   713→    expect(mockEventCreate).toHaveBeenCalledWith(
+   714→      expect.objectContaining({
+   715→        data: expect.objectContaining({ eventType: 'mission.completed' }),
+   716→      }),
+   717→    )
+   718→  })
+   719→
+   720→  it('throws if mission not found', async () => {
+   721→    mockMissionFindUnique.mockResolvedValue(null)
+   722→    await expect(completeMission('nonexistent')).rejects.toThrow('not found')
+   723→  })
+   724→
+   725→  it('first transitions to verifying', async () => {
+   726→    mockMissionFindUnique.mockResolvedValue({
+   727→      id: 'm1', organizationId: 'o1', successCriteria: JSON.stringify(['done']),
+   728→    })
+   729→    mockMissionUpdate.mockResolvedValue({})
+   730→    mockOutcomeCreate.mockImplementation(({ data }) => ({
+   731→      ...data, id: 'out_1', createdAt: new Date(), updatedAt: new Date(),
+   732→    }))
+   733→    mockMissionAgentFindMany.mockResolvedValue([])
+   734→    mockEventCreate.mockResolvedValue({})
+   735→
+   736→    await completeMission('m1')
+   737→    expect((mockMissionUpdate.mock.calls[0][0] as { data: { status: string } }).data.status).toBe('verifying')
+   738→  })
+   739→
+   740→  it('creates outcomes with correct initial values', async () => {
+   741→    mockMissionFindUnique.mockResolvedValue({
+   742→      id: 'm1', organizationId: 'o1', successCriteria: JSON.stringify(['obj1']),
+   743→    })
+   744→    mockMissionUpdate.mockResolvedValue({})
+   745→    mockOutcomeCreate.mockImplementation(({ data }) => ({
+   746→      ...data, id: 'out_1', createdAt: new Date(), updatedAt: new Date(),
+   747→    }))
+   748→    mockMissionAgentFindMany.mockResolvedValue([])
+   749→    mockEventCreate.mockResolvedValue({})
+   750→
+   751→    await completeMission('m1')
+   752→    const createData = mockOutcomeCreate.mock.calls[0][0] as { data: { status: string; progress: number; confidence: number } }
+   753→    expect(createData.data.status).toBe('in_progress')
+   754→    expect(createData.data.progress).toBe(0)
+   755→    expect(createData.data.confidence).toBe(0.5)
+   756→  })
+   757→})
+   758→

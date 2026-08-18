@@ -1,0 +1,875 @@
+     1→'use client'
+     2→
+     3→import { useEffect, useState, useCallback } from 'react'
+     4→import { motion } from 'framer-motion'
+     5→import {
+     6→  Workflow,
+     7→  Plus,
+     8→  Pencil,
+     9→  Trash2,
+    10→  Play,
+    11→  Clock,
+    12→  AlertCircle,
+    13→  Zap,
+    14→  Webhook,
+    15→  CalendarClock,
+    16→  Globe,
+    17→  History,
+    18→  Timer,
+    19→  CheckCircle2,
+    20→  XCircle,
+    21→  Loader2,
+    22→} from 'lucide-react'
+    23→import { Button } from '@/components/ui/button'
+    24→import { Badge } from '@/components/ui/badge'
+    25→import { Skeleton } from '@/components/ui/skeleton'
+    26→import {
+    27→  Dialog,
+    28→  DialogContent,
+    29→  DialogHeader,
+    30→  DialogTitle,
+    31→  DialogTrigger,
+    32→} from '@/components/ui/dialog'
+    33→import { Input } from '@/components/ui/input'
+    34→import { Label } from '@/components/ui/label'
+    35→import { Textarea } from '@/components/ui/textarea'
+    36→import {
+    37→  Select,
+    38→  SelectTrigger,
+    39→  SelectValue,
+    40→  SelectContent,
+    41→  SelectItem,
+    42→} from '@/components/ui/select'
+    43→import {
+    44→  Table,
+    45→  TableBody,
+    46→  TableCell,
+    47→  TableHead,
+    48→  TableHeader,
+    49→  TableRow,
+    50→} from '@/components/ui/table'
+    51→import { ScrollArea } from '@/components/ui/scroll-area'
+    52→import { useStore, useActiveOrg } from '@/lib/store'
+    53→import { cn } from '@/lib/utils'
+    54→import { parseJsonField, slugify, type WorkflowDto, type WorkflowRunDto } from '@/lib/types'
+    55→import { toast } from '@/hooks/use-toast'
+    56→
+    57→// ============================================================
+    58→// Animation Variants
+    59→// ============================================================
+    60→
+    61→const containerVariants = {
+    62→  hidden: { opacity: 0 },
+    63→  visible: {
+    64→    opacity: 1,
+    65→    transition: { staggerChildren: 0.06, delayChildren: 0.05 },
+    66→  },
+    67→}
+    68→
+    69→const itemVariants = {
+    70→  hidden: { opacity: 0, y: 20 },
+    71→  visible: {
+    72→    opacity: 1,
+    73→    y: 0,
+    74→    transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number,number,number,number] },
+    75→  },
+    76→}
+    77→
+    78→// ============================================================
+    79→// Configs
+    80→// ============================================================
+    81→
+    82→const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+    83→  draft:     { label: 'Draft',     color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+    84→  active:    { label: 'Active',    color: '#34d399', bg: 'rgba(52,211,153,0.12)' },
+    85→  paused:    { label: 'Paused',    color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+    86→  deprecated:{ label: 'Deprecated',color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+    87→  archived:  { label: 'Archived',  color: '#64748b', bg: 'rgba(100,116,139,0.12)' },
+    88→}
+    89→
+    90→const RUN_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: typeof Loader2 }> = {
+    91→  queued:     { label: 'Queued',    color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', icon: Clock },
+    92→  running:    { label: 'Running',   color: '#22d3ee', bg: 'rgba(34,211,238,0.12)',  icon: Loader2 },
+    93→  completed:  { label: 'Completed', color: '#34d399', bg: 'rgba(52,211,153,0.12)',  icon: CheckCircle2 },
+    94→  failed:     { label: 'Failed',    color: '#ef4444', bg: 'rgba(239,68,68,0.12)',   icon: XCircle },
+    95→  cancelled:  { label: 'Cancelled', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', icon: XCircle },
+    96→}
+    97→
+    98→const TRIGGER_CONFIG: Record<string, { label: string; icon: typeof Zap; color: string }> = {
+    99→  manual:   { label: 'Manual',   icon: Zap,           color: '#6366f1' },
+   100→  event:    { label: 'Event',    icon: Webhook,       color: '#a78bfa' },
+   101→  schedule: { label: 'Schedule', icon: CalendarClock, color: '#f59e0b' },
+   102→  api:      { label: 'API',      icon: Globe,         color: '#22d3ee' },
+   103→  webhook:  { label: 'Webhook',  icon: Webhook,       color: '#34d399' },
+   104→}
+   105→
+   106→const TRIGGER_TYPES = ['manual', 'event', 'schedule', 'api', 'webhook'] as const
+   107→
+   108→// ============================================================
+   109→// Helpers
+   110→// ============================================================
+   111→
+   112→function getStatusBadge(status: string) {
+   113→  const config = STATUS_CONFIG[status] ?? {
+   114→    label: status,
+   115→    color: '#94a3b8',
+   116→    bg: 'rgba(148,163,184,0.12)',
+   117→  }
+   118→  return (
+   119→    <Badge
+   120→      variant="secondary"
+   121→      className="text-[10px] font-medium border-0"
+   122→      style={{ color: config.color, backgroundColor: config.bg }}
+   123→    >
+   124→      {config.label}
+   125→    </Badge>
+   126→  )
+   127→}
+   128→
+   129→function getRunStatusBadge(status: string) {
+   130→  const config = RUN_STATUS_CONFIG[status] ?? {
+   131→    label: status,
+   132→    color: '#94a3b8',
+   133→    bg: 'rgba(148,163,184,0.12)',
+   134→    icon: Clock,
+   135→  }
+   136→  const Icon = config.icon
+   137→  return (
+   138→    <Badge
+   139→      variant="secondary"
+   140→      className="text-[10px] font-medium border-0 gap-1"
+   141→      style={{ color: config.color, backgroundColor: config.bg }}
+   142→    >
+   143→      {status === 'running' && <Icon className="w-3 h-3 animate-spin" />}
+   144→      {config.label}
+   145→    </Badge>
+   146→  )
+   147→}
+   148→
+   149→function getTriggerBadge(triggerType: string) {
+   150→  const config = TRIGGER_CONFIG[triggerType] ?? {
+   151→    label: triggerType,
+   152→    icon: Zap,
+   153→    color: '#94a3b8',
+   154→  }
+   155→  const Icon = config.icon
+   156→  return (
+   157→    <Badge
+   158→      variant="outline"
+   159→      className="text-[10px] font-medium gap-1"
+   160→      style={{
+   161→        color: config.color,
+   162→        borderColor: `${config.color}30`,
+   163→        backgroundColor: `${config.color}10`,
+   164→      }}
+   165→    >
+   166→      <Icon className="w-3 h-3" />
+   167→      {config.label}
+   168→    </Badge>
+   169→  )
+   170→}
+   171→
+   172→function formatDate(dateStr: string): string {
+   173→  return new Date(dateStr).toLocaleDateString('en-US', {
+   174→    month: 'short',
+   175→    day: 'numeric',
+   176→    year: 'numeric',
+   177→  })
+   178→}
+   179→
+   180→function formatDateTime(dateStr: string | null): string {
+   181→  if (!dateStr) return '—'
+   182→  return new Date(dateStr).toLocaleString('en-US', {
+   183→    month: 'short',
+   184→    day: 'numeric',
+   185→    hour: '2-digit',
+   186→    minute: '2-digit',
+   187→  })
+   188→}
+   189→
+   190→function getStepCount(definition: string): number {
+   191→  const parsed = parseJsonField<Record<string, unknown>>(definition, {})
+   192→  const steps = parsed?.steps as unknown[] | undefined
+   193→  if (Array.isArray(steps)) return steps.length
+   194→  return 0
+   195→}
+   196→
+   197→function formatDuration(startedAt: string | null, completedAt: string | null): string {
+   198→  if (!startedAt) return '—'
+   199→  const start = new Date(startedAt).getTime()
+   200→  const end = completedAt ? new Date(completedAt).getTime() : Date.now()
+   201→  const diffMs = end - start
+   202→  const diffSec = Math.floor(diffMs / 1000)
+   203→  if (diffSec < 60) return `${diffSec}s`
+   204→  const diffMin = Math.floor(diffSec / 60)
+   205→  const remainingSec = diffSec % 60
+   206→  if (diffMin < 60) return `${diffMin}m ${remainingSec}s`
+   207→  const diffHr = Math.floor(diffMin / 60)
+   208→  return `${diffHr}h ${diffMin % 60}m`
+   209→}
+   210→
+   211→const WORKFLOW_DEFINITION_PLACEHOLDER = `{
+   212→  "steps": [
+   213→    {
+   214→      "id": "step_1",
+   215→      "name": "Gather Data",
+   216→      "agentId": "agent_xxx",
+   217→      "type": "task"
+   218→    },
+   219→    {
+   220→      "id": "step_2",
+   221→      "name": "Process Results",
+   222→      "agentId": "agent_yyy",
+   223→      "type": "task",
+   224→      "dependsOn": ["step_1"]
+   225→    }
+   226→  ]
+   227→}`
+   228→
+   229→// ============================================================
+   230→// Sub-Components
+   231→// ============================================================
+   232→
+   233→function CreateWorkflowDialog({
+   234→  open,
+   235→  onOpenChange,
+   236→  onCreated,
+   237→  orgId,
+   238→}: {
+   239→  open: boolean
+   240→  onOpenChange: (open: boolean) => void
+   241→  onCreated: () => void
+   242→  orgId: string
+   243→}) {
+   244→  const [name, setName] = useState('')
+   245→  const [slug, setSlug] = useState('')
+   246→  const [triggerType, setTriggerType] = useState('manual')
+   247→  const [definition, setDefinition] = useState('')
+   248→  const [submitting, setSubmitting] = useState(false)
+   249→
+   250→  const handleNameChange = (val: string) => {
+   251→    setName(val)
+   252→    if (!slug || slug === slugify(name)) {
+   253→      setSlug(slugify(val))
+   254→    }
+   255→  }
+   256→
+   257→  const handleSubmit = async () => {
+   258→    if (!name.trim() || !slug.trim()) return
+   259→    setSubmitting(true)
+   260→    try {
+   261→      let parsedDef: Record<string, unknown> = {}
+   262→      if (definition.trim()) {
+   263→        try {
+   264→          parsedDef = JSON.parse(definition)
+   265→        } catch {
+   266→          toast({
+   267→            title: 'Invalid JSON',
+   268→            description: 'Please check your workflow definition JSON.',
+   269→            variant: 'destructive',
+   270→          })
+   271→          setSubmitting(false)
+   272→          return
+   273→        }
+   274→      }
+   275→
+   276→      const res = await fetch(`/api/workflows?organizationId=${orgId}`, {
+   277→        method: 'POST',
+   278→        headers: { 'Content-Type': 'application/json' },
+   279→        body: JSON.stringify({
+   280→          name: name.trim(),
+   281→          slug: slug.trim(),
+   282→          triggerType,
+   283→          definition: Object.keys(parsedDef).length > 0 ? parsedDef : undefined,
+   284→        }),
+   285→      })
+   286→      if (res.ok) {
+   287→        toast({ title: 'Workflow created', description: `${name} has been created.` })
+   288→        setName('')
+   289→        setSlug('')
+   290→        setTriggerType('manual')
+   291→        setDefinition('')
+   292→        onOpenChange(false)
+   293→        onCreated()
+   294→      } else {
+   295→        const json = await res.json().catch(() => ({}))
+   296→        toast({
+   297→          title: 'Failed to create workflow',
+   298→          description: json?.error?.message ?? 'An error occurred.',
+   299→          variant: 'destructive',
+   300→        })
+   301→      }
+   302→    } catch {
+   303→      toast({ title: 'Error', description: 'Network error.', variant: 'destructive' })
+   304→    } finally {
+   305→      setSubmitting(false)
+   306→    }
+   307→  }
+   308→
+   309→  return (
+   310→    <Dialog open={open} onOpenChange={onOpenChange}>
+   311→      <DialogContent className="glass-strong border-[rgba(99,102,241,0.18)] max-w-lg">
+   312→        <DialogHeader>
+   313→          <DialogTitle className="text-[#e2e8f0]">Create Workflow</DialogTitle>
+   314→        </DialogHeader>
+   315→        <div className="space-y-4 mt-2">
+   316→          <div className="space-y-2">
+   317→            <Label className="text-xs text-[#94a3b8]">Name</Label>
+   318→            <Input
+   319→              value={name}
+   320→              onChange={(e) => handleNameChange(e.target.value)}
+   321→              placeholder="e.g. Daily Report Generator"
+   322→              className="bg-[rgba(99,102,241,0.06)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] placeholder:text-[#64748b]"
+   323→            />
+   324→          </div>
+   325→          <div className="space-y-2">
+   326→            <Label className="text-xs text-[#94a3b8]">Slug</Label>
+   327→            <Input
+   328→              value={slug}
+   329→              onChange={(e) => setSlug(e.target.value)}
+   330→              placeholder="daily-report-generator"
+   331→              className="bg-[rgba(99,102,241,0.06)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] placeholder:text-[#64748b]"
+   332→            />
+   333→          </div>
+   334→          <div className="space-y-2">
+   335→            <Label className="text-xs text-[#94a3b8]">Trigger Type</Label>
+   336→            <Select value={triggerType} onValueChange={setTriggerType}>
+   337→              <SelectTrigger className="bg-[rgba(99,102,241,0.06)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0]">
+   338→                <SelectValue />
+   339→              </SelectTrigger>
+   340→              <SelectContent className="glass-strong border-[rgba(99,102,241,0.18)]">
+   341→                {TRIGGER_TYPES.map((t) => {
+   342→                  const cfg = TRIGGER_CONFIG[t]
+   343→                  return (
+   344→                    <SelectItem
+   345→                      key={t}
+   346→                      value={t}
+   347→                      className="text-[#e2e8f0] focus:bg-[rgba(99,102,241,0.12)] focus:text-white"
+   348→                    >
+   349→                      {cfg.label}
+   350→                    </SelectItem>
+   351→                  )
+   352→                })}
+   353→              </SelectContent>
+   354→            </Select>
+   355→          </div>
+   356→          <div className="space-y-2">
+   357→            <Label className="text-xs text-[#94a3b8]">Definition (JSON)</Label>
+   358→            <Textarea
+   359→              value={definition}
+   360→              onChange={(e) => setDefinition(e.target.value)}
+   361→              placeholder={WORKFLOW_DEFINITION_PLACEHOLDER}
+   362→              rows={8}
+   363→              className="bg-[rgba(99,102,241,0.06)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] placeholder:text-[#64748b] font-mono text-xs resize-none"
+   364→            />
+   365→          </div>
+   366→          <div className="flex justify-end gap-3 pt-2">
+   367→            <Button
+   368→              variant="outline"
+   369→              className="border-[rgba(99,102,241,0.15)] text-[#94a3b8] hover:text-[#e2e8f0]"
+   370→              onClick={() => onOpenChange(false)}
+   371→            >
+   372→              Cancel
+   373→            </Button>
+   374→            <Button
+   375→              className="btn-gradient text-white"
+   376→              onClick={handleSubmit}
+   377→              disabled={!name.trim() || !slug.trim() || submitting}
+   378→            >
+   379→              {submitting ? 'Creating...' : 'Create Workflow'}
+   380→            </Button>
+   381→          </div>
+   382→        </div>
+   383→      </DialogContent>
+   384→    </Dialog>
+   385→  )
+   386→}
+   387→
+   388→function WorkflowRunsDialog({
+   389→  workflow,
+   390→  open,
+   391→  onOpenChange,
+   392→  runs,
+   393→  loading,
+   394→}: {
+   395→  workflow: WorkflowDto | null
+   396→  open: boolean
+   397→  onOpenChange: (open: boolean) => void
+   398→  runs: WorkflowRunDto[]
+   399→  loading: boolean
+   400→}) {
+   401→  return (
+   402→    <Dialog open={open} onOpenChange={onOpenChange}>
+   403→      <DialogContent className="glass-strong border-[rgba(99,102,241,0.18)] max-w-2xl max-h-[80vh]">
+   404→        <DialogHeader>
+   405→          <DialogTitle className="text-[#e2e8f0] flex items-center gap-2">
+   406→            <History className="w-5 h-5 text-[#a78bfa]" />
+   407→            Recent Runs — {workflow?.name ?? 'Workflow'}
+   408→          </DialogTitle>
+   409→        </DialogHeader>
+   410→
+   411→        {loading ? (
+   412→          <div className="space-y-3 mt-4">
+   413→            {Array.from({ length: 4 }).map((_, i) => (
+   414→              <Skeleton key={i} className="h-12 rounded-lg" />
+   415→            ))}
+   416→          </div>
+   417→        ) : runs.length === 0 ? (
+   418→          <div className="flex flex-col items-center justify-center py-12">
+   419→            <Timer className="w-10 h-10 text-[#6366f1] mb-3 opacity-40" />
+   420→            <p className="text-sm font-medium text-[#94a3b8]">No runs yet</p>
+   421→            <p className="text-xs text-[#64748b] mt-1">
+   422→              Trigger this workflow to see run history.
+   423→            </p>
+   424→          </div>
+   425→        ) : (
+   426→          <ScrollArea className="max-h-[55vh] mt-2">
+   427→            <div className="space-y-2 pr-3">
+   428→              {runs.map((run) => (
+   429→                <div
+   430→                  key={run.id}
+   431→                  className="glass-card p-3.5 rounded-lg"
+   432→                >
+   433→                  <div className="flex items-center justify-between gap-3">
+   434→                    <div className="flex items-center gap-3 min-w-0">
+   435→                      {getRunStatusBadge(run.status)}
+   436→                      <div className="min-w-0">
+   437→                        <p className="text-xs font-mono text-[#64748b] truncate">
+   438→                          {run.id.slice(0, 12)}...
+   439→                        </p>
+   440→                      </div>
+   441→                    </div>
+   442→                    <div className="flex items-center gap-4 text-[11px] text-[#94a3b8] flex-shrink-0">
+   443→                      <span className="flex items-center gap-1">
+   444→                        <Clock className="w-3 h-3" />
+   445→                        {formatDateTime(run.startedAt)}
+   446→                      </span>
+   447→                      <span className="flex items-center gap-1">
+   448→                        <Timer className="w-3 h-3" />
+   449→                        {formatDuration(run.startedAt, run.completedAt)}
+   450→                      </span>
+   451→                    </div>
+   452→                  </div>
+   453→                  {run.error && (
+   454→                    <p className="text-[11px] text-[#ef4444] mt-2 bg-[rgba(239,68,68,0.06)] rounded px-2.5 py-1.5 font-mono truncate">
+   455→                      {run.error}
+   456→                    </p>
+   457→                  )}
+   458→                </div>
+   459→              ))}
+   460→            </div>
+   461→          </ScrollArea>
+   462→        )}
+   463→      </DialogContent>
+   464→    </Dialog>
+   465→  )
+   466→}
+   467→
+   468→// ============================================================
+   469→// Main WorkflowsView
+   470→// ============================================================
+   471→
+   472→export default function WorkflowsView() {
+   473→  const activeOrg = useActiveOrg()
+   474→  const isAuthenticated = useStore((s) => s.isAuthenticated)
+   475→
+   476→  const [workflows, setWorkflows] = useState<WorkflowDto[]>([])
+   477→  const [loading, setLoading] = useState(true)
+   478→  const [error, setError] = useState<string | null>(null)
+   479→  const [createOpen, setCreateOpen] = useState(false)
+   480→  const [runsWorkflow, setRunsWorkflow] = useState<WorkflowDto | null>(null)
+   481→  const [runsOpen, setRunsOpen] = useState(false)
+   482→  const [runsData, setRunsData] = useState<WorkflowRunDto[]>([])
+   483→  const [runsLoading, setRunsLoading] = useState(false)
+   484→  const [runningIds, setRunningIds] = useState<Set<string>>(new Set())
+   485→
+   486→  const fetchWorkflows = useCallback(async () => {
+   487→    if (!activeOrg?.id) return
+   488→    setLoading(true)
+   489→    setError(null)
+   490→    try {
+   491→      const res = await fetch(
+   492→        `/api/workflows?organizationId=${activeOrg.id}&limit=50`
+   493→      )
+   494→      if (res.ok) {
+   495→        const json = await res.json()
+   496→        setWorkflows(json.data ?? [])
+   497→      } else {
+   498→        setError('Failed to load workflows')
+   499→      }
+   500→    } catch {
+   501→      setError('Network error')
+   502→    } finally {
+   503→      setLoading(false)
+   504→    }
+   505→  }, [activeOrg?.id])
+   506→
+   507→  useEffect(() => {
+   508→    if (activeOrg?.id) fetchWorkflows()
+   509→  }, [activeOrg?.id, fetchWorkflows])
+   510→
+   511→  const handleRun = async (wf: WorkflowDto) => {
+   512→    setRunningIds((prev) => new Set(prev).add(wf.id))
+   513→    try {
+   514→      const res = await fetch(`/api/workflows/${wf.id}/runs`, {
+   515→        method: 'POST',
+   516→        headers: { 'Content-Type': 'application/json' },
+   517→        body: JSON.stringify({}),
+   518→      })
+   519→      if (res.ok) {
+   520→        toast({
+   521→          title: 'Workflow triggered',
+   522→          description: `${wf.name} has been queued for execution.`,
+   523→        })
+   524→      } else {
+   525→        toast({
+   526→          title: 'Failed to trigger workflow',
+   527→          variant: 'destructive',
+   528→        })
+   529→      }
+   530→    } catch {
+   531→      toast({ title: 'Error', description: 'Network error.', variant: 'destructive' })
+   532→    } finally {
+   533→      setRunningIds((prev) => {
+   534→        const next = new Set(prev)
+   535→        next.delete(wf.id)
+   536→        return next
+   537→      })
+   538→    }
+   539→  }
+   540→
+   541→  const handleViewRuns = async (wf: WorkflowDto) => {
+   542→    setRunsWorkflow(wf)
+   543→    setRunsData([])
+   544→    setRunsLoading(true)
+   545→    setRunsOpen(true)
+   546→    try {
+   547→      const res = await fetch(`/api/workflows/${wf.id}/runs?limit=20`)
+   548→      if (res.ok) {
+   549→        const json = await res.json()
+   550→        setRunsData(json.data ?? [])
+   551→      }
+   552→    } catch {
+   553→      setRunsData([])
+   554→    } finally {
+   555→      setRunsLoading(false)
+   556→    }
+   557→  }
+   558→
+   559→  const handleDelete = async (wf: WorkflowDto) => {
+   560→    try {
+   561→      const res = await fetch(
+   562→        `/api/workflows/${wf.id}?organizationId=${activeOrg!.id}`,
+   563→        { method: 'DELETE' }
+   564→      )
+   565→      if (res.ok) {
+   566→        toast({ title: 'Workflow deleted', description: `${wf.name} has been removed.` })
+   567→        fetchWorkflows()
+   568→      } else {
+   569→        toast({ title: 'Delete failed', variant: 'destructive' })
+   570→      }
+   571→    } catch {
+   572→      toast({ title: 'Error', description: 'Network error.', variant: 'destructive' })
+   573→    }
+   574→  }
+   575→
+   576→  // Auth guard
+   577→  if (!isAuthenticated) {
+   578→    return (
+   579→      <div className="space-y-6 animate-fade-in">
+   580→        <h1 className="text-2xl font-bold gradient-text">Workflows</h1>
+   581→        <motion.div
+   582→          initial={{ opacity: 0, y: 20 }}
+   583→          animate={{ opacity: 1, y: 0 }}
+   584→          className="glass-card p-8 rounded-xl flex flex-col items-center justify-center min-h-[40vh]"
+   585→        >
+   586→          <AlertCircle className="w-10 h-10 text-[#f59e0b] mb-3 opacity-60" />
+   587→          <p className="text-sm font-medium text-[#94a3b8]">
+   588→            Sign in to manage workflows
+   589→          </p>
+   590→        </motion.div>
+   591→      </div>
+   592→    )
+   593→  }
+   594→
+   595→  if (!activeOrg) {
+   596→    return (
+   597→      <div className="space-y-6 animate-fade-in">
+   598→        <h1 className="text-2xl font-bold gradient-text">Workflows</h1>
+   599→        <motion.div
+   600→          initial={{ opacity: 0, y: 20 }}
+   601→          animate={{ opacity: 1, y: 0 }}
+   602→          className="glass-card p-8 rounded-xl flex flex-col items-center justify-center min-h-[40vh]"
+   603→        >
+   604→          <Workflow className="w-10 h-10 text-[#6366f1] mb-3 opacity-40" />
+   605→          <p className="text-sm font-medium text-[#94a3b8]">
+   606→            Select an organization to manage workflows
+   607→          </p>
+   608→        </motion.div>
+   609→      </div>
+   610→    )
+   611→  }
+   612→
+   613→  return (
+   614→    <>
+   615→      <motion.div
+   616→        className="space-y-6 animate-fade-in"
+   617→        variants={containerVariants}
+   618→        initial="hidden"
+   619→        animate="visible"
+   620→      >
+   621→        {/* Header */}
+   622→        <motion.div
+   623→          variants={itemVariants}
+   624→          className="flex items-center justify-between"
+   625→        >
+   626→          <h1 className="text-2xl font-bold gradient-text">Workflows</h1>
+   627→          <Button
+   628→            className="btn-gradient text-white"
+   629→            onClick={() => setCreateOpen(true)}
+   630→          >
+   631→            <Plus className="w-4 h-4 mr-1.5" />
+   632→            Create Workflow
+   633→          </Button>
+   634→        </motion.div>
+   635→
+   636→        {/* Table */}
+   637→        {loading ? (
+   638→          <motion.div className="glass-card rounded-xl p-6" variants={itemVariants}>
+   639→            <div className="space-y-4">
+   640→              <Skeleton className="h-8 w-full" />
+   641→              {Array.from({ length: 5 }).map((_, i) => (
+   642→                <Skeleton key={i} className="h-12 w-full rounded-lg" />
+   643→              ))}
+   644→            </div>
+   645→          </motion.div>
+   646→        ) : error ? (
+   647→          <motion.div
+   648→            variants={itemVariants}
+   649→            className="glass-card p-8 rounded-xl text-center"
+   650→          >
+   651→            <AlertCircle className="w-10 h-10 text-[#ef4444] mx-auto mb-3 opacity-60" />
+   652→            <p className="text-sm font-medium text-[#e2e8f0]">Failed to load workflows</p>
+   653→            <p className="text-xs text-[#94a3b8] mt-1">{error}</p>
+   654→            <Button
+   655→              variant="outline"
+   656→              className="mt-4 border-[rgba(99,102,241,0.15)] text-[#94a3b8] hover:text-[#e2e8f0]"
+   657→              onClick={fetchWorkflows}
+   658→            >
+   659→              Try Again
+   660→            </Button>
+   661→          </motion.div>
+   662→        ) : workflows.length === 0 ? (
+   663→          <motion.div
+   664→            variants={itemVariants}
+   665→            className="glass-card p-8 rounded-xl flex flex-col items-center justify-center min-h-[35vh]"
+   666→          >
+   667→            <Workflow className="w-12 h-12 text-[#6366f1] mb-3 opacity-40" />
+   668→            <h3 className="text-base font-semibold text-[#e2e8f0]">
+   669→              No workflows yet
+   670→            </h3>
+   671→            <p className="text-sm text-[#94a3b8] mt-1.5 max-w-md text-center">
+   672→              Create your first workflow to orchestrate multi-step automations
+   673→              and connect your agents.
+   674→            </p>
+   675→            <Button
+   676→              className="btn-gradient mt-5 text-white"
+   677→              onClick={() => setCreateOpen(true)}
+   678→            >
+   679→              <Plus className="w-4 h-4 mr-1.5" />
+   680→              Create Workflow
+   681→            </Button>
+   682→          </motion.div>
+   683→        ) : (
+   684→          <motion.div
+   685→            className="glass-card rounded-xl overflow-hidden"
+   686→            variants={itemVariants}
+   687→          >
+   688→            {/* Desktop Table */}
+   689→            <div className="hidden md:block">
+   690→              <Table>
+   691→                <TableHeader>
+   692→                  <TableRow className="border-[rgba(99,102,241,0.08)] hover:bg-transparent">
+   693→                    <TableHead className="text-[10px] uppercase tracking-wider text-[#64748b]">Name</TableHead>
+   694→                    <TableHead className="text-[10px] uppercase tracking-wider text-[#64748b]">Status</TableHead>
+   695→                    <TableHead className="text-[10px] uppercase tracking-wider text-[#64748b]">Trigger</TableHead>
+   696→                    <TableHead className="text-[10px] uppercase tracking-wider text-[#64748b]">Steps</TableHead>
+   697→                    <TableHead className="text-[10px] uppercase tracking-wider text-[#64748b]">Created</TableHead>
+   698→                    <TableHead className="text-[10px] uppercase tracking-wider text-[#64748b] text-right">Actions</TableHead>
+   699→                  </TableRow>
+   700→                </TableHeader>
+   701→                <TableBody>
+   702→                  {workflows.map((wf) => {
+   703→                    const steps = getStepCount(wf.definition)
+   704→                    const isRunning = runningIds.has(wf.id)
+   705→                    return (
+   706→                      <TableRow
+   707→                        key={wf.id}
+   708→                        className="border-[rgba(99,102,241,0.06)] hover:bg-[rgba(99,102,241,0.04)] group"
+   709→                      >
+   710→                        <TableCell>
+   711→                          <div>
+   712→                            <p className="text-sm font-medium text-[#e2e8f0] group-hover:text-white transition-colors">
+   713→                              {wf.name}
+   714→                            </p>
+   715→                            <p className="text-[10px] text-[#64748b] font-mono mt-0.5">
+   716→                              {wf.slug}
+   717→                            </p>
+   718→                          </div>
+   719→                        </TableCell>
+   720→                        <TableCell>{getStatusBadge(wf.status)}</TableCell>
+   721→                        <TableCell>{getTriggerBadge(wf.triggerType)}</TableCell>
+   722→                        <TableCell>
+   723→                          <span className="text-sm text-[#94a3b8]">
+   724→                            {steps > 0 ? `${steps} step${steps !== 1 ? 's' : ''}` : '—'}
+   725→                            </span>
+   726→                        </TableCell>
+   727→                        <TableCell>
+   728→                          <span className="text-xs text-[#64748b]">
+   729→                            {formatDate(wf.createdAt)}
+   730→                          </span>
+   731→                        </TableCell>
+   732→                        <TableCell>
+   733→                          <div className="flex items-center justify-end gap-1">
+   734→                            <Button
+   735→                              variant="ghost"
+   736→                              size="sm"
+   737→                              className="h-7 w-7 p-0 text-[#94a3b8] hover:text-[#22d3ee] hover:bg-[rgba(34,211,238,0.08)]"
+   738→                              onClick={() => handleViewRuns(wf)}
+   739→                            >
+   740→                              <History className="w-3.5 h-3.5" />
+   741→                            </Button>
+   742→                            <Button
+   743→                              variant="ghost"
+   744→                              size="sm"
+   745→                              className={cn(
+   746→                                'h-7 w-7 p-0',
+   747→                                isRunning
+   748→                                  ? 'text-[#22d3ee] animate-pulse'
+   749→                                  : 'text-[#94a3b8] hover:text-[#34d399] hover:bg-[rgba(52,211,153,0.08)]'
+   750→                              )}
+   751→                              onClick={() => handleRun(wf)}
+   752→                              disabled={isRunning}
+   753→                            >
+   754→                              <Play className="w-3.5 h-3.5" />
+   755→                            </Button>
+   756→                            <Button
+   757→                              variant="ghost"
+   758→                              size="sm"
+   759→                              className="h-7 w-7 p-0 text-[#94a3b8] hover:text-[#e2e8f0] hover:bg-[rgba(99,102,241,0.08)]"
+   760→                            >
+   761→                              <Pencil className="w-3.5 h-3.5" />
+   762→                            </Button>
+   763→                            <Button
+   764→                              variant="ghost"
+   765→                              size="sm"
+   766→                              className="h-7 w-7 p-0 text-[#94a3b8] hover:text-[#ef4444] hover:bg-[rgba(239,68,68,0.08)]"
+   767→                              onClick={() => handleDelete(wf)}
+   768→                            >
+   769→                              <Trash2 className="w-3.5 h-3.5" />
+   770→                            </Button>
+   771→                          </div>
+   772→                        </TableCell>
+   773→                      </TableRow>
+   774→                    )
+   775→                  })}
+   776→                </TableBody>
+   777→              </Table>
+   778→            </div>
+   779→
+   780→            {/* Mobile Cards */}
+   781→            <div className="md:hidden p-4 space-y-3">
+   782→              {workflows.map((wf) => {
+   783→                const steps = getStepCount(wf.definition)
+   784→                const isRunning = runningIds.has(wf.id)
+   785→                return (
+   786→                  <div
+   787→                    key={wf.id}
+   788→                    className="glass-card p-4 rounded-lg"
+   789→                  >
+   790→                    <div className="flex items-start justify-between mb-2">
+   791→                      <div>
+   792→                        <p className="text-sm font-medium text-[#e2e8f0]">
+   793→                          {wf.name}
+   794→                        </p>
+   795→                        <p className="text-[10px] text-[#64748b] font-mono mt-0.5">
+   796→                          {wf.slug}
+   797→                        </p>
+   798→                      </div>
+   799→                      {getStatusBadge(wf.status)}
+   800→                    </div>
+   801→                    <div className="flex items-center gap-2 mb-3">
+   802→                      {getTriggerBadge(wf.triggerType)}
+   803→                      <span className="text-[10px] text-[#64748b]">
+   804→                        {steps > 0 ? `${steps} steps` : 'No steps'}
+   805→                      </span>
+   806→                      <span className="text-[10px] text-[#64748b]">
+   807→                        {formatDate(wf.createdAt)}
+   808→                      </span>
+   809→                    </div>
+   810→                    <div className="flex items-center gap-1.5 pt-2 border-t border-[rgba(99,102,241,0.08)]">
+   811→                      <Button
+   812→                        variant="ghost"
+   813→                        size="sm"
+   814→                        className="h-7 text-xs text-[#94a3b8] hover:text-[#22d3ee]"
+   815→                        onClick={() => handleViewRuns(wf)}
+   816→                      >
+   817→                        <History className="w-3 h-3 mr-1" />
+   818→                        Runs
+   819→                      </Button>
+   820→                      <Button
+   821→                        variant="ghost"
+   822→                        size="sm"
+   823→                        className="h-7 text-xs text-[#94a3b8] hover:text-[#34d399]"
+   824→                        onClick={() => handleRun(wf)}
+   825→                        disabled={isRunning}
+   826→                      >
+   827→                        <Play className="w-3 h-3 mr-1" />
+   828→                        {isRunning ? 'Running...' : 'Run'}
+   829→                      </Button>
+   830→                      <Button
+   831→                        variant="ghost"
+   832→                        size="sm"
+   833→                        className="h-7 text-xs text-[#94a3b8] hover:text-[#e2e8f0]"
+   834→                      >
+   835→                        <Pencil className="w-3 h-3 mr-1" />
+   836→                        Edit
+   837→                      </Button>
+   838→                      <Button
+   839→                        variant="ghost"
+   840→                        size="sm"
+   841→                        className="h-7 text-xs text-[#94a3b8] hover:text-[#ef4444]"
+   842→                        onClick={() => handleDelete(wf)}
+   843→                      >
+   844→                        <Trash2 className="w-3 h-3 mr-1" />
+   845→                        Delete
+   846→                      </Button>
+   847→                    </div>
+   848→                  </div>
+   849→                )
+   850→              })}
+   851→            </div>
+   852→          </motion.div>
+   853→        )}
+   854→      </motion.div>
+   855→
+   856→      {/* Create Dialog */}
+   857→      <CreateWorkflowDialog
+   858→        open={createOpen}
+   859→        onOpenChange={setCreateOpen}
+   860→        onCreated={fetchWorkflows}
+   861→        orgId={activeOrg.id}
+   862→      />
+   863→
+   864→      {/* Runs Dialog */}
+   865→      <WorkflowRunsDialog
+   866→        workflow={runsWorkflow}
+   867→        open={runsOpen}
+   868→        onOpenChange={setRunsOpen}
+   869→        runs={runsData}
+   870→        loading={runsLoading}
+   871→      />
+   872→    </>
+   873→  )
+   874→}
+   875→

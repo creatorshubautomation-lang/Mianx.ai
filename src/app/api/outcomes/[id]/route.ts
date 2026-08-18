@@ -6,7 +6,8 @@ import {
   NotFoundError,
 } from '@/lib/api-response'
 import { getUserIdFromRequest, requireOrgMember, requirePermission, Permissions } from '@/lib/authorization'
-import { toJsonField } from '@/lib/types'
+import { toJsonField, parseJsonField } from '@/lib/types'
+import { updateOutcomeProgress, assessOutcomeStatus } from '@/lib/outcome-engine'
 import type { OutcomeStatus } from '@/lib/types'
 
 type RouteContext = { params: Promise<{ id: string }> }
@@ -37,7 +38,7 @@ export async function GET(request: Request, context: RouteContext) {
   })
 }
 
-// PUT /api/outcomes/[id] — update progress
+// PUT /api/outcomes/[id] — update progress (wired to outcome-engine)
 export async function PUT(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
@@ -60,13 +61,20 @@ export async function PUT(request: Request, context: RouteContext) {
       evidence?: unknown[]
     }>(request)
 
+    // Use outcome-engine for metric updates (auto-calculates progress + confidence)
+    if (body.currentResult !== undefined || body.target !== undefined || body.baseline !== undefined) {
+      const metrics = body.currentResult
+        ? { baseline: body.baseline, target: body.target, currentResult: body.currentResult }
+        : undefined
+      await updateOutcomeProgress(id, metrics)
+      await assessOutcomeStatus(id)
+    }
+
+    // Apply non-metric updates directly
     const outcome = await db.outcome.update({
       where: { id },
       data: {
         ...(body.objective !== undefined ? { objective: body.objective } : {}),
-        ...(body.baseline !== undefined ? { baseline: toJsonField(body.baseline) } : {}),
-        ...(body.target !== undefined ? { target: toJsonField(body.target) } : {}),
-        ...(body.currentResult !== undefined ? { currentResult: toJsonField(body.currentResult) } : {}),
         ...(body.progress !== undefined ? { progress: body.progress } : {}),
         ...(body.confidence !== undefined ? { confidence: body.confidence } : {}),
         ...(body.status !== undefined ? { status: body.status } : {}),
