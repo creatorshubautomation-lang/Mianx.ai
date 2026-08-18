@@ -214,62 +214,63 @@ enum FailureClassification {
 // ============================================================
 
 model Profile {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  displayName String   @default("")
-  avatarUrl   String?
-  locale      String   @default("en")
-  timezone    String   @default("UTC")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?  // null = OAuth-only account, non-null = password account
+  displayName  String   @default("")
+  avatarUrl    String?
+  locale       String   @default("en")
+  timezone     String   @default("UTC")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  memberships  OrganizationMembership[]
-  missions    Mission[]
-  aiRuns      AiRun[]
+  memberships   OrganizationMembership[]
+  missions      Mission[]
+  aiRuns        AiRun[]
   uploadedFiles File[]
   notifications Notification[]
-  auditLogs   AuditLog[]  @relation("ActorLogs")
+  auditLogs     AuditLog[]               @relation("ActorLogs")
 }
 
 model Organization {
   id        String             @id @default(cuid())
   name      String
   slug      String             @unique
-  status    OrganizationStatus  @default(active)
+  status    OrganizationStatus @default(active)
   timezone  String             @default("UTC")
   locale    String             @default("en")
   currency  String             @default("USD")
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
 
-  memberships      OrganizationMembership[]
-  teams            Team[]
-  domains          OrganizationDomain[]
-  modules          OrganizationModule[]
-  agents           Agent[]
-  missions         Mission[]
-  workflows        Workflow[]
-  events           Event[]
-  subscriptions    Subscription[]
-  entitlements     Entitlement[]
-  usageRecords     UsageRecord[]
-  aiCostRecords    AiCostRecord[]
-  files            File[]
-  integrations     Integration[]
-  notifications    Notification[]
-  auditLogs        AuditLog[]
-  jobs             Job[]
-  settings         Setting[]
-  memories         AgentMemory[]
-  knowledgeSources KnowledgeSource[]
-  outcomes         Outcome[]
-  aiRuns          AiRun[]
-  workflowRuns    WorkflowRun[]
+  memberships       OrganizationMembership[]
+  teams             Team[]
+  domains           OrganizationDomain[]
+  modules           OrganizationModule[]
+  agents            Agent[]
+  missions          Mission[]
+  workflows         Workflow[]
+  events            Event[]
+  subscriptions     Subscription[]
+  entitlements      Entitlement[]
+  usageRecords      UsageRecord[]
+  aiCostRecords     AiCostRecord[]
+  files             File[]
+  integrations      Integration[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  jobs              Job[]
+  settings          Setting[]
+  memories          AgentMemory[]
+  knowledgeSources  KnowledgeSource[]
+  outcomes          Outcome[]
+  aiRuns            AiRun[]
+  workflowRuns      WorkflowRun[]
   workflowApprovals WorkflowApproval[]
-  invoices        Invoice[]
-  credits         Credit[]
-  trials          Trial[]
-  autonomyPolicy   AutonomyPolicy?
+  invoices          Invoice[]
+  credits           Credit[]
+  trials            Trial[]
+  autonomyPolicy    AutonomyPolicy?
 }
 
 model OrganizationMembership {
@@ -281,8 +282,8 @@ model OrganizationMembership {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  organization Organization              @relation(fields: [organizationId], references: [id])
-  user         Profile                   @relation(fields: [userId], references: [id])
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  user         Profile          @relation(fields: [userId], references: [id])
   roles        MembershipRole[]
   teamMembers  TeamMember[]
 
@@ -290,24 +291,24 @@ model OrganizationMembership {
 }
 
 model Team {
-  id             String @id @default(cuid())
+  id             String   @id @default(cuid())
   organizationId String
   name           String
   description    String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization              @relation(fields: [organizationId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
   members      TeamMember[]
 }
 
 model TeamMember {
-  id             String @id @default(cuid())
-  teamId        String
-  membershipId  String
-  createdAt      DateTime @default(now())
+  id           String   @id @default(cuid())
+  teamId       String
+  membershipId String
+  createdAt    DateTime @default(now())
 
-  team       Team                    @relation(fields: [teamId], references: [id])
+  team       Team                   @relation(fields: [teamId], references: [id])
   membership OrganizationMembership @relation(fields: [membershipId], references: [id])
 
   @@unique([teamId, membershipId])
@@ -355,13 +356,13 @@ model RolePermission {
 }
 
 model MembershipRole {
-  id            String   @id @default(cuid())
-  membershipId  String
-  roleId        String
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  membershipId String
+  roleId       String
+  createdAt    DateTime @default(now())
 
   membership OrganizationMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
-  role        Role                    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  role       Role                   @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([membershipId, roleId])
 }
@@ -371,32 +372,32 @@ model MembershipRole {
 // ============================================================
 
 model Domain {
-  id          String        @id @default(cuid())
+  id          String       @id @default(cuid())
   name        String
-  slug        String        @unique
-  version     String        @default("1.0.0")
+  slug        String       @unique
+  version     String       @default("1.0.0")
   description String?
-  status      DomainStatus  @default(draft)
-  manifest    String        @default("{}")
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  status      DomainStatus @default(draft)
+  manifest    String       @default("{}")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   organizationDomains OrganizationDomain[]
-  modules              Module[]
-  agents               Agent[]
-  workflows            Workflow[]
-  knowledgeSources     KnowledgeSource[]
+  modules             Module[]
+  agents              Agent[]
+  workflows           Workflow[]
+  knowledgeSources    KnowledgeSource[]
 }
 
 model OrganizationDomain {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   organizationId String
   domainId       String
-  status         String   @default("active")
-  configuration  String   @default("{}")
+  status         String    @default("active")
+  configuration  String    @default("{}")
   activatedAt    DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   domain       Domain       @relation(fields: [domainId], references: [id], onDelete: Cascade)
@@ -416,19 +417,19 @@ model Module {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  domain             Domain                @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  domain              Domain               @relation(fields: [domainId], references: [id], onDelete: Cascade)
   organizationModules OrganizationModule[]
 }
 
 model OrganizationModule {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   organizationId String
   moduleId       String
-  status         String   @default("active")
-  configuration  String   @default("{}")
+  status         String    @default("active")
+  configuration  String    @default("{}")
   activatedAt    DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   module       Module       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
@@ -460,54 +461,54 @@ model Mission {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  organization Organization     @relation(fields: [organizationId], references: [id])
-  user         Profile?          @relation(fields: [userId], references: [id])
-  tasks        MissionTask[]
-  agents       MissionAgent[]
-  outcomes     Outcome[]
+  organization  Organization       @relation(fields: [organizationId], references: [id])
+  user          Profile?           @relation(fields: [userId], references: [id])
+  tasks         MissionTask[]
+  agents        MissionAgent[]
+  outcomes      Outcome[]
   verifications Verification[]
-  events       Event[]
-  approvals    WorkflowApproval[]
+  events        Event[]
+  approvals     WorkflowApproval[]
 }
 
 model MissionTask {
-  id             String      @id @default(cuid())
-  missionId      String
-  parentTaskId   String?
-  title          String
-  description    String?
-  status         TaskStatus  @default(planned)
-  agentId        String?
-  assignedTools  String      @default("[]")
-  dependencies   String      @default("[]")
+  id                 String     @id @default(cuid())
+  missionId          String
+  parentTaskId       String?
+  title              String
+  description        String?
+  status             TaskStatus @default(planned)
+  agentId            String?
+  assignedTools      String     @default("[]")
+  dependencies       String     @default("[]")
   verificationConfig String     @default("{}")
-  input          String      @default("{}")
-  output         String      @default("{}")
-  error          String?
-  retryCount     Int         @default(0)
-  maxRetries     Int         @default(3)
-  startedAt      DateTime?
-  completedAt    DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  input              String     @default("{}")
+  output             String     @default("{}")
+  error              String?
+  retryCount         Int        @default(0)
+  maxRetries         Int        @default(3)
+  startedAt          DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
-  mission    Mission      @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  parent     MissionTask? @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
-  children   MissionTask[] @relation("TaskHierarchy")
-  agent      Agent?       @relation("TaskAgent", fields: [agentId], references: [id])
+  mission       Mission        @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  parent        MissionTask?   @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
+  children      MissionTask[]  @relation("TaskHierarchy")
+  agent         Agent?         @relation("TaskAgent", fields: [agentId], references: [id])
+  verifications Verification[]
 
   @@index([agentId])
-  verifications Verification[]
 }
 
 model MissionAgent {
-  id             String  @id @default(cuid())
-  missionId      String
-  agentId        String
-  role           String  @default("worker")
-  capabilitiesUsed String @default("[]")
-  costIncurred   Float   @default(0)
-  createdAt      DateTime @default(now())
+  id               String   @id @default(cuid())
+  missionId        String
+  agentId          String
+  role             String   @default("worker")
+  capabilitiesUsed String   @default("[]")
+  costIncurred     Float    @default(0)
+  createdAt        DateTime @default(now())
 
   mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
   agent   Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
@@ -521,21 +522,21 @@ model MissionAgent {
 
 model Outcome {
   id             String        @id @default(cuid())
-  organizationId  String
+  organizationId String
   missionId      String
-  objective     String
-  baseline      String         @default("{}")
-  target        String         @default("{}")
-  currentResult String         @default("{}")
-  progress      Float          @default(0)
-  confidence    Float          @default(0)
-  status        OutcomeStatus  @default(not_started)
-  evidence      String         @default("[]")
-  verifiedAt    DateTime?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  objective      String
+  baseline       String        @default("{}")
+  target         String        @default("{}")
+  currentResult  String        @default("{}")
+  progress       Float         @default(0)
+  confidence     Float         @default(0)
+  status         OutcomeStatus @default(not_started)
+  evidence       String        @default("[]")
+  verifiedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  mission     Mission     @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  mission      Mission      @relation(fields: [missionId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id])
 }
 
@@ -564,12 +565,12 @@ model Verification {
 // ============================================================
 
 model AutonomyPolicy {
-  id             String         @id @default(cuid())
-  organizationId String         @unique
-  level          AutonomyLevel  @default(balanced)
-  config         String         @default("{}")
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id             String        @id @default(cuid())
+  organizationId String        @unique
+  level          AutonomyLevel @default(balanced)
+  config         String        @default("{}")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id])
 }
@@ -594,29 +595,29 @@ model Agent {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  organization  Organization    @relation(fields: [organizationId], references: [id])
-  domain        Domain?         @relation(fields: [domainId], references: [id])
+  organization  Organization      @relation(fields: [organizationId], references: [id])
+  domain        Domain?           @relation(fields: [domainId], references: [id])
   tools         AgentTool[]
   skills        AgentSkill[]
   runs          AiRun[]
   memories      AgentMemory[]
-  missionTasks  MissionTask[]   @relation("TaskAgent")
+  missionTasks  MissionTask[]     @relation("TaskAgent")
   missionAgents MissionAgent[]
   delegations   AgentDelegation[] @relation("DelegateParent")
   delegatedTo   AgentDelegation[] @relation("DelegateChild")
 }
 
 model AgentTool {
-  id            String       @id @default(cuid())
+  id            String        @id @default(cuid())
   agentId       String
   toolKey       String
-  configuration String       @default("{}")
+  configuration String        @default("{}")
   riskLevel     ToolRiskLevel @default(READ)
-  enabled       Boolean      @default(true)
-  timeout       Int          @default(30000)
-  retryPolicy   String       @default("{}")
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  enabled       Boolean       @default(true)
+  timeout       Int           @default(30000)
+  retryPolicy   String        @default("{}")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
@@ -654,26 +655,26 @@ model AgentDelegation {
 // ============================================================
 
 model AiRun {
-  id             String    @id @default(cuid())
+  id             String  @id @default(cuid())
   organizationId String
   agentId        String
   userId         String?
-  model          String    @default("gpt-4o")
-  provider       String    @default("openai")
-  status         String    @default("pending")
-  inputTokens    Int       @default(0)
-  outputTokens   Int       @default(0)
-  totalTokens    Int       @default(0)
-  cost           Float?    
+  model          String  @default("gpt-4o")
+  provider       String  @default("openai")
+  status         String  @default("pending")
+  inputTokens    Int     @default(0)
+  outputTokens   Int     @default(0)
+  totalTokens    Int     @default(0)
+  cost           Float?
   durationMs     Int?
-    
-  correlationId  String?
-  createdAt      DateTime  @default(now())
-  completedAt    DateTime?
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  agent        Agent        @relation(fields: [agentId], references: [id])
-  user         Profile?     @relation(fields: [userId], references: [id])
+  correlationId String?
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  organization Organization   @relation(fields: [organizationId], references: [id])
+  agent        Agent          @relation(fields: [agentId], references: [id])
+  user         Profile?       @relation(fields: [userId], references: [id])
   messages     AiMessage[]
   toolCalls    AiToolCall[]
   costRecords  AiCostRecord[]
@@ -691,15 +692,15 @@ model AiMessage {
 }
 
 model AiToolCall {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   aiRunId     String
   aiMessageId String?
   toolKey     String
-  input       String   @default("{}")
+  input       String    @default("{}")
   output      String?
-  status      String   @default("pending")
+  status      String    @default("pending")
   error       String?
-  startedAt   DateTime @default(now())
+  startedAt   DateTime  @default(now())
   completedAt DateTime?
 
   run AiRun @relation(fields: [aiRunId], references: [id], onDelete: Cascade)
@@ -754,7 +755,7 @@ model KnowledgeSource {
   updatedAt      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id])
-  domain       Domain?       @relation(fields: [domainId], references: [id])
+  domain       Domain?      @relation(fields: [domainId], references: [id])
 }
 
 model Skill {
@@ -786,64 +787,64 @@ model Workflow {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization      @relation(fields: [organizationId], references: [id])
-  domain       Domain?             @relation(fields: [domainId], references: [id])
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  domain       Domain?       @relation(fields: [domainId], references: [id])
   runs         WorkflowRun[]
 }
 
 model WorkflowRun {
-  id              String             @id @default(cuid())
-  workflowId      String
-  organizationId  String
-  status          WorkflowRunStatus  @default(queued)
-  input           String             @default("{}")
-  output          String?
-  currentStep     String?
-  error           String?
-  startedAt       DateTime?
-  completedAt     DateTime?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-
-  workflow   Workflow            @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  organization Organization         @relation(fields: [organizationId], references: [id])
-  steps      WorkflowStepRun[]
-  approvals  WorkflowApproval[]
-  events     Event[]
-}
-
-model WorkflowStepRun {
-  id             String   @id @default(cuid())
-  workflowRunId  String
-  stepId         String
-  status         String   @default("pending")
-  attempt        Int      @default(1)
-  input          String   @default("{}")
+  id             String            @id @default(cuid())
+  workflowId     String
+  organizationId String
+  status         WorkflowRunStatus @default(queued)
+  input          String            @default("{}")
   output         String?
+  currentStep    String?
   error          String?
   startedAt      DateTime?
   completedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  workflow     Workflow           @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  steps        WorkflowStepRun[]
+  approvals    WorkflowApproval[]
+  events       Event[]
+}
+
+model WorkflowStepRun {
+  id            String    @id @default(cuid())
+  workflowRunId String
+  stepId        String
+  status        String    @default("pending")
+  attempt       Int       @default(1)
+  input         String    @default("{}")
+  output        String?
+  error         String?
+  startedAt     DateTime?
+  completedAt   DateTime?
 
   workflowRun WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
 }
 
 model WorkflowApproval {
-  id                String   @id @default(cuid())
-  workflowRunId     String?
-  missionId         String?
-  organizationId     String
-  requestedAction   String   @default("{}")
-  riskLevel         String   @default("medium")
-  requestedBy       String?
-  approvedBy        String?
-  decision          String?
-  reason            String?
-  expiresAt         DateTime?
-  createdAt         DateTime @default(now())
-  decidedAt         DateTime?
+  id              String    @id @default(cuid())
+  workflowRunId   String?
+  missionId       String?
+  organizationId  String
+  requestedAction String    @default("{}")
+  riskLevel       String    @default("medium")
+  requestedBy     String?
+  approvedBy      String?
+  decision        String?
+  reason          String?
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  decidedAt       DateTime?
 
-  workflowRun WorkflowRun? @relation(fields: [workflowRunId], references: [id])
-  mission     Mission?     @relation(fields: [missionId], references: [id])
+  workflowRun  WorkflowRun? @relation(fields: [workflowRunId], references: [id])
+  mission      Mission?     @relation(fields: [missionId], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])
 }
 
@@ -853,7 +854,7 @@ model Job {
   type           String
   payload        String      @default("{}")
   status         String      @default("pending")
-  priority       JobPriority  @default(normal)
+  priority       JobPriority @default(normal)
   scheduledAt    DateTime?
   attempts       Int         @default(0)
   createdAt      DateTime    @default(now())
@@ -867,37 +868,37 @@ model Job {
 
 model Event {
   id             String    @id @default(cuid())
-  eventType       String
-  eventVersion    String    @default("1.0")
-  organizationId  String?
-  domainId        String?
-  missionId       String?
-  workflowRunId   String?
-  sourceType      ActorType @default(system)
-  sourceId        String?
-  actorType       ActorType @default(system)
-  actorId         String?
-  correlationId   String?
-  causationId     String?
-  payload         String    @default("{}")
-  occurredAt      DateTime  @default(now())
-  createdAt       DateTime  @default(now())
+  eventType      String
+  eventVersion   String    @default("1.0")
+  organizationId String?
+  domainId       String?
+  missionId      String?
+  workflowRunId  String?
+  sourceType     ActorType @default(system)
+  sourceId       String?
+  actorType      ActorType @default(system)
+  actorId        String?
+  correlationId  String?
+  causationId    String?
+  payload        String    @default("{}")
+  occurredAt     DateTime  @default(now())
+  createdAt      DateTime  @default(now())
 
-  organization Organization?  @relation(fields: [organizationId], references: [id])
-  mission     Mission?        @relation(fields: [missionId], references: [id])
-  workflowRun WorkflowRun?     @relation(fields: [workflowRunId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  mission      Mission?      @relation(fields: [missionId], references: [id])
+  workflowRun  WorkflowRun?  @relation(fields: [workflowRunId], references: [id])
 }
 
 model OutboxEvent {
   id             String       @id @default(cuid())
   organizationId String?
-  eventType       String
-  payload         String       @default("{}")
-  status          OutboxStatus @default(pending)
-  attempts        Int          @default(0)
-  availableAt     DateTime?
-  publishedAt     DateTime?
-  createdAt       DateTime     @default(now())
+  eventType      String
+  payload        String       @default("{}")
+  status         OutboxStatus @default(pending)
+  attempts       Int          @default(0)
+  availableAt    DateTime?
+  publishedAt    DateTime?
+  createdAt      DateTime     @default(now())
 }
 
 // ============================================================
@@ -905,12 +906,12 @@ model OutboxEvent {
 // ============================================================
 
 model Plan {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  billingModel String @default("subscription")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  billingModel String   @default("subscription")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   versions PlanVersion[]
 }
@@ -927,43 +928,43 @@ model PlanVersion {
   aiAllowance      String?  @default("null")
   createdAt        DateTime @default(now())
 
-  plan        Plan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  plan          Plan           @relation(fields: [planId], references: [id], onDelete: Cascade)
   subscriptions Subscription[]
 }
 
 model Subscription {
   id                 String             @id @default(cuid())
   organizationId     String
-  planVersionId       String
+  planVersionId      String
   status             SubscriptionStatus @default(trialing)
   currentPeriodStart DateTime           @default(now())
   currentPeriodEnd   DateTime?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  planVersion  PlanVersion @relation(fields: [planVersionId], references: [id])
+  organization Organization       @relation(fields: [organizationId], references: [id])
+  planVersion  PlanVersion        @relation(fields: [planVersionId], references: [id])
   items        SubscriptionItem[]
-  entitlements  Entitlement[]
+  entitlements Entitlement[]
   invoices     Invoice[]
   credits      Credit[]
   trials       Trial[]
 }
 
 model SubscriptionItem {
-  id              String   @id @default(cuid())
-  subscriptionId  String
-  type            String   @default("base_plan")
-  referenceId     String?
-  quantity        Int?
-  unitAmount      Float?
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  subscriptionId String
+  type           String   @default("base_plan")
+  referenceId    String?
+  quantity       Int?
+  unitAmount     Float?
+  createdAt      DateTime @default(now())
 
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 }
 
 model Entitlement {
-  id             String           @id @default(cuid())
+  id             String            @id @default(cuid())
   organizationId String
   subscriptionId String
   featureId      String?
@@ -971,10 +972,10 @@ model Entitlement {
   resourceId     String?
   status         EntitlementStatus @default(enabled)
   limitValue     Float?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
-  organization Organization  @relation(fields: [organizationId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 }
 
@@ -1004,19 +1005,19 @@ model UsageMeter {
 }
 
 model Invoice {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   organizationId String
   subscriptionId String
-  periodStart    DateTime @default(now())
+  periodStart    DateTime  @default(now())
   periodEnd      DateTime?
-  lineItems      String   @default("[]")
-  subtotal       Float    @default(0)
-  discount       Float    @default(0)
-  tax            Float    @default(0)
-  total          Float    @default(0)
-  currency       String   @default("USD")
-  status         String   @default("draft")
-  issuedAt       DateTime @default(now())
+  lineItems      String    @default("[]")
+  subtotal       Float     @default(0)
+  discount       Float     @default(0)
+  tax            Float     @default(0)
+  total          Float     @default(0)
+  currency       String    @default("USD")
+  status         String    @default("draft")
+  issuedAt       DateTime  @default(now())
   dueAt          DateTime?
   paidAt         DateTime?
 
@@ -1025,16 +1026,16 @@ model Invoice {
 }
 
 model Credit {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   organizationId String
   subscriptionId String
-  amount         Float    @default(0)
-  currency       String   @default("USD")
-  type           String   @default("promotional")
+  amount         Float     @default(0)
+  currency       String    @default("USD")
+  type           String    @default("promotional")
   expiration     DateTime?
-  priority       Int      @default(0)
-  remaining      Float    @default(0)
-  createdAt      DateTime @default(now())
+  priority       Int       @default(0)
+  remaining      Float     @default(0)
+  createdAt      DateTime  @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id])
   subscription Subscription @relation(fields: [subscriptionId], references: [id])
@@ -1047,8 +1048,8 @@ model Trial {
   planId         String
   status         TrialStatus @default(started)
   durationDays   Int         @default(14)
-  features       String     @default("{}")
-  usageLimits    String     @default("{}")
+  features       String      @default("{}")
+  usageLimits    String      @default("{}")
   startsAt       DateTime    @default(now())
   endsAt         DateTime?
   convertedAt    DateTime?
@@ -1091,7 +1092,7 @@ model AuditLog {
   after          String?   @default("null")
   metadata       String?   @default("null")
   requestId      String?
-  correlationId   String?
+  correlationId  String?
   createdAt      DateTime  @default(now())
 
   organization Organization? @relation(fields: [organizationId], references: [id])
@@ -1119,41 +1120,41 @@ model File {
 }
 
 model Notification {
-  id               String   @id @default(cuid())
-  organizationId   String
-  recipientUserId  String
-  type             String
-  title            String
-  body             String?
-  data             String?  @default("null")
-  readAt           DateTime?
-  createdAt        DateTime @default(now())
+  id              String    @id @default(cuid())
+  organizationId  String
+  recipientUserId String
+  type            String
+  title           String
+  body            String?
+  data            String?   @default("null")
+  readAt          DateTime?
+  createdAt       DateTime  @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id])
-  recipient   Profile      @relation(fields: [recipientUserId], references: [id])
+  recipient    Profile      @relation(fields: [recipientUserId], references: [id])
 }
 
 model Setting {
-  id             String      @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String?
   scopeType      SettingScope @default(platform)
   scopeId        String?
   key            String
-  value          String      @default("{}")
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  value          String       @default("{}")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   organization Organization? @relation(fields: [organizationId], references: [id])
 }
 
 model ApiKey {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   organizationId String
   name           String
-  keyHash        String   @unique
-  scopes         String   @default("[]")
-  status         String   @default("active")
-  expiresAt       DateTime?
+  keyHash        String    @unique
+  scopes         String    @default("[]")
+  status         String    @default("active")
+  expiresAt      DateTime?
   lastUsedAt     DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 }

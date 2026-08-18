@@ -4,7 +4,9 @@
 // ============================================================
 
 import { db } from './db'
-import { ForbiddenError } from './api-response'
+import { ForbiddenError, UnauthorizedError } from './api-response'
+import { getServerSession } from 'next-auth'
+import { authOptions } from './auth'
 
 // ============================================================
 // Permission Constants
@@ -309,24 +311,36 @@ export async function isOrgOwner(
 }
 
 // ============================================================
-// Demo / Development Helpers
+// Server-Side Identity Resolution
 // ============================================================
 
 /**
- * For development: use a demo user ID when no auth is present.
- * In production, this should be replaced with real session-based auth.
+ * Get the authenticated user ID from the current request's NextAuth session.
+ * Throws UnauthorizedError if no valid session exists.
+ *
+ * This is the SINGLE source of truth for user identity in API routes.
+ * Never trust client-provided headers for authentication.
  */
-export function getDemoUserId(): string {
-  // This matches the seed data demo user ID
-  return 'demo_user_001'
+export async function getUserIdFromRequest(request: Request): Promise<string> {
+  const session = await getServerSession(authOptions)
+  const userId = (session?.user as Record<string, unknown> | undefined)?.id as string | undefined
+
+  if (!userId) {
+    throw new UnauthorizedError('Authentication required. Please sign in.')
+  }
+
+  return userId
 }
 
 /**
- * Get the current user ID from the request headers or fall back to demo user.
- * In production, this extracts from NextAuth session or Authorization header.
+ * Get the authenticated user ID from the NextAuth session.
+ * Returns null if not authenticated (instead of throwing).
+ * Useful for routes that behave differently for auth vs non-auth users.
  */
-export function getUserIdFromRequest(request: Request): string {
-  const authHeader = request.headers.get('x-user-id')
-  if (authHeader) return authHeader
-  return getDemoUserId()
+export async function getOptionalUserIdFromRequest(request: Request): Promise<string | null> {
+  try {
+    return await getUserIdFromRequest(request)
+  } catch {
+    return null
+  }
 }

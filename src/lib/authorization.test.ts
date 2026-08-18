@@ -5,10 +5,10 @@ import {
   hasPermission,
   requirePermission,
   isOrgMember,
-  getDemoUserId,
   getUserIdFromRequest,
+  getOptionalUserIdFromRequest,
 } from '@/lib/authorization'
-import { ForbiddenError } from '@/lib/api-response'
+import { ForbiddenError, UnauthorizedError } from '@/lib/api-response'
 
 // ============================================================
 // Mock db
@@ -22,6 +22,16 @@ vi.mock('@/lib/db', () => ({
       findUnique: (...args: unknown[]) => mockFindUnique(...args),
     },
   },
+}))
+
+// Mock NextAuth getServerSession
+const mockGetServerSession = vi.fn()
+vi.mock('next-auth', () => ({
+  getServerSession: (...args: unknown[]) => mockGetServerSession(...args),
+}))
+
+vi.mock('@/lib/auth', () => ({
+  authOptions: { providers: [] },
 }))
 
 beforeEach(() => {
@@ -404,45 +414,67 @@ describe('isOrgMember', () => {
 })
 
 // ============================================================
-// getDemoUserId
-// ============================================================
-
-describe('getDemoUserId', () => {
-  it('returns a string', () => {
-    expect(typeof getDemoUserId()).toBe('string')
-  })
-
-  it('returns the expected demo user ID', () => {
-    expect(getDemoUserId()).toBe('demo_user_001')
-  })
-
-  it('returns same value on repeated calls', () => {
-    expect(getDemoUserId()).toBe(getDemoUserId())
-  })
-})
-
-// ============================================================
-// getUserIdFromRequest
+// getUserIdFromRequest (Phase 2 — NextAuth-based)
 // ============================================================
 
 describe('getUserIdFromRequest', () => {
-  it('extracts user ID from x-user-id header', () => {
-    const req = new Request('http://localhost', {
-      headers: { 'x-user-id': 'user_123' },
+  it('returns user ID from valid session', async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: 'user_abc123', email: 'test@test.com', name: 'Test' },
     })
-    expect(getUserIdFromRequest(req)).toBe('user_123')
-  })
-
-  it('falls back to demo user when no header', () => {
     const req = new Request('http://localhost')
-    expect(getUserIdFromRequest(req)).toBe('demo_user_001')
+    const userId = await getUserIdFromRequest(req)
+    expect(userId).toBe('user_abc123')
   })
 
-  it('falls back to demo user when header is empty string', () => {
-    const req = new Request('http://localhost', {
-      headers: { 'x-user-id': '' },
+  it('throws UnauthorizedError when no session', async () => {
+    mockGetServerSession.mockResolvedValue(null)
+    const req = new Request('http://localhost')
+    await expect(getUserIdFromRequest(req)).rejects.toThrow(UnauthorizedError)
+  })
+
+  it('throws UnauthorizedError when session has no user', async () => {
+    mockGetServerSession.mockResolvedValue({ user: null })
+    const req = new Request('http://localhost')
+    await expect(getUserIdFromRequest(req)).rejects.toThrow(UnauthorizedError)
+  })
+
+  it('throws UnauthorizedError when session user has no id', async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { email: 'test@test.com', name: 'Test' },
     })
-    // Empty string is falsy, so falls back
-    expect(getUserIdFromRequest(req)).toBe('demo_user_001')
+    const req = new Request('http://localhost')
+    await expect(getUserIdFromRequest(req)).rejects.toThrow(UnauthorizedError)
+  })
+
+  it('ignores x-user-id header (no client-provided identity trust)', async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: 'real_user', email: 'test@test.com' },
+    })
+    const req = new Request('http://localhost', {
+      headers: { 'x-user-id': 'fake_user' },
+    })
+    // Should return the SESSION user, NOT the header user
+    const userId = await getUserIdFromRequest(req)
+    expect(userId).toBe('real_user')
+    expect(userId).not.toBe('fake_user')
+  })
+})
+
+describe('getOptionalUserIdFromRequest', () => {
+  it('returns user ID when session exists', async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: { id: 'user_123', email: 'test@test.com' },
+    })
+    const req = new Request('http://localhost')
+    const userId = await getOptionalUserIdFromRequest(req)
+    expect(userId).toBe('user_123')
+  })
+
+  it('returns null when no session', async () => {
+    mockGetServerSession.mockResolvedValue(null)
+    const req = new Request('http://localhost')
+    const userId = await getOptionalUserIdFromRequest(req)
+    expect(userId).toBeNull()
   })
 })

@@ -56,23 +56,29 @@ afterEach(() => {
 // ============================================================
 
 describe('parseHash / getCurrentRoute', () => {
-  it('returns home for empty hash', () => {
+  it('returns landing for empty hash', () => {
     currentHash = ''
     const route = getCurrentRoute()
-    expect(route.view).toBe('home')
+    expect(route.view).toBe('landing')
     expect(route.params).toEqual({})
   })
 
-  it('returns home for # alone', () => {
+  it('returns landing for # alone', () => {
     currentHash = '#'
     const route = getCurrentRoute()
-    expect(route.view).toBe('home')
+    expect(route.view).toBe('landing')
   })
 
-  it('returns home for #/ only', () => {
+  it('returns landing for #/ only', () => {
     currentHash = '#/'
     const route = getCurrentRoute()
-    expect(route.view).toBe('home')
+    expect(route.view).toBe('landing')
+  })
+
+  it('returns login for #/login', () => {
+    currentHash = '#/login'
+    const route = getCurrentRoute()
+    expect(route.view).toBe('login')
   })
 
   it('returns dashboard for #/dashboard', () => {
@@ -153,6 +159,13 @@ describe('parseHash / getCurrentRoute', () => {
     const route = getCurrentRoute()
     expect(route.view).toBe('home')
   })
+
+  it('returns landing for #/landing', () => {
+    currentHash = '#/landing'
+    const route = getCurrentRoute()
+    expect(route.view).toBe('landing')
+    expect(route.params).toEqual({})
+  })
 })
 
 // ============================================================
@@ -160,9 +173,14 @@ describe('parseHash / getCurrentRoute', () => {
 // ============================================================
 
 describe('navigate', () => {
-  it('sets hash to #/ for home', () => {
-    navigate('home')
+  it('sets empty hash for landing', () => {
+    navigate('landing')
     expect(currentHash).toBe('#/')
+  })
+
+  it('sets hash to #/home for home', () => {
+    navigate('home')
+    expect(currentHash).toBe('#/home')
   })
 
   it('sets hash to #/dashboard', () => {
@@ -253,6 +271,14 @@ describe('ALL_VIEWS', () => {
     expect(Array.isArray(ALL_VIEWS)).toBe(true)
   })
 
+  it('contains landing', () => {
+    expect(ALL_VIEWS).toContain('landing')
+  })
+
+  it('contains login', () => {
+    expect(ALL_VIEWS).toContain('login')
+  })
+
   it('contains home', () => {
     expect(ALL_VIEWS).toContain('home')
   })
@@ -305,8 +331,8 @@ describe('ALL_VIEWS', () => {
     expect(ALL_VIEWS).toContain('settings')
   })
 
-  it('has 12 views total', () => {
-    expect(ALL_VIEWS).toHaveLength(12)
+  it('has 14 views total', () => {
+    expect(ALL_VIEWS).toHaveLength(14)
   })
 })
 

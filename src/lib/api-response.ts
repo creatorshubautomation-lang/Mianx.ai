@@ -4,7 +4,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server'
-import type { ApiResponseEnvelope, ApiResponseMeta, ApiError, generateRequestId } from './types'
+import type { ApiResponseEnvelope, ApiResponseMeta, ApiError as ApiErrorType } from './types'
 
 type Envelope<T = unknown> = ApiResponseEnvelope<T>
 
@@ -57,7 +57,7 @@ export function error(
   details?: unknown,
   requestId?: string,
 ): NextResponse<Envelope<null>> {
-  const apiError: ApiError = { code, message }
+  const apiError: ApiErrorType = { code, message }
   if (details !== undefined) {
     apiError.details = details
   }
@@ -202,6 +202,13 @@ export class ForbiddenError extends ApiError {
   constructor(message: string = 'Insufficient permissions') {
     super('FORBIDDEN', message, 403)
     this.name = 'ForbiddenError'
+  }
+}
+
+export class UnauthorizedError extends ApiError {
+  constructor(message: string = 'Authentication required') {
+    super('UNAUTHORIZED', message, 401)
+    this.name = 'UnauthorizedError'
   }
 }
 
