@@ -7,24 +7,19 @@
 import { useStore } from './store'
 import type { ViewName } from './types'
 
-/** Route parameter extractors for parameterized views */
-const ROUTE_PARAM_PATTERNS: Record<string, RegExp> = {
-  'mission-detail': /^#\/missions\/([^/]+)$/,
-}
-
 /** Parse the current hash into a view name and params */
-function parseHash(): { view: ViewName; params: Record<string, string> } {
+export function parseHash(): { view: ViewName; params: Record<string, string> } {
   const hash = typeof window !== 'undefined' ? window.location.hash : ''
 
   if (!hash || hash === '#' || hash === '#/') {
-    return { view: 'home', params: {} }
+    return { view: 'landing', params: {} }
   }
 
   const path = hash.startsWith('#') ? hash.slice(1) : hash
   const segments = path.split('/').filter(Boolean)
 
   if (segments.length === 0) {
-    return { view: 'home', params: {} }
+    return { view: 'landing', params: {} }
   }
 
   const viewSegment = segments[0]
@@ -39,6 +34,8 @@ function parseHash(): { view: ViewName; params: Record<string, string> } {
 
   // Static view mapping
   const viewMap: Record<string, ViewName> = {
+    landing: 'landing',
+    login: 'login',
     dashboard: 'dashboard',
     missions: 'missions',
     agents: 'agents',
@@ -72,7 +69,7 @@ export function navigate(
   let hash = '#/'
   if (view === 'mission-detail' && params.missionId) {
     hash = `#/missions/${params.missionId}`
-  } else if (view !== 'home') {
+  } else if (view !== 'landing') {
     hash = `#/${view}`
   }
 
@@ -122,6 +119,8 @@ export function initRouter(): () => void {
  */
 export function getViewLabel(view: ViewName): string {
   const labels: Record<ViewName, string> = {
+    landing: 'Landing',
+    login: 'Login',
     home: 'Home',
     dashboard: 'Dashboard',
     missions: 'Missions',
@@ -141,6 +140,8 @@ export function getViewLabel(view: ViewName): string {
 
 /** All available view names for navigation menus */
 export const ALL_VIEWS: ViewName[] = [
+  'landing',
+  'login',
   'home',
   'dashboard',
   'missions',

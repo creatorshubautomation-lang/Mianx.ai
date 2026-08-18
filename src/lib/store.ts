@@ -52,16 +52,16 @@ export const useStore = create<StoreState>((set, get) => ({
       missions: [],
       activeMissionId: null,
       tasks: [],
-      currentView: 'home',
+      currentView: 'landing',
       viewParams: {},
     })
-    navigate('home')
+    navigate('landing')
   },
 
   // ============================================================
   // App State
   // ============================================================
-  currentView: 'home',
+  currentView: 'landing',
   viewParams: {},
   sidebarOpen: true,
   userMode: 'simple' as UserMode,

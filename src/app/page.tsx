@@ -5,12 +5,14 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { useStore, useCurrentView, useToasts } from '@/lib/store'
+import { useStore, useCurrentView, useToasts, useUser } from '@/lib/store'
 import { initRouter, navigate } from '@/lib/router'
 import type { ViewName, OrganizationDto, ProfileDto, UiToast } from '@/lib/types'
 import DashboardShell from '@/components/mianx/DashboardShell'
 
 // Lazy-loaded view components
+const LandingView = lazy(() => import('@/components/views/LandingView'))
+const LoginView = lazy(() => import('@/components/views/LoginView'))
 const HomeView = lazy(() => import('@/components/views/HomeView'))
 const DashboardView = lazy(() => import('@/components/views/DashboardView'))
 const MissionsView = lazy(() => import('@/components/views/MissionsView'))
@@ -25,8 +27,13 @@ const TrustCenterView = lazy(() => import('@/components/views/TrustCenterView'))
 const CommandCenterView = lazy(() => import('@/components/views/CommandCenterView'))
 const SettingsView = lazy(() => import('@/components/views/SettingsView'))
 
+// Public views (no auth required)
+const PUBLIC_VIEWS: ViewName[] = ['landing', 'login']
+
 // View name to lazy component mapping
 const VIEW_COMPONENTS: Record<ViewName, ReturnType<typeof lazy>> = {
+  landing: LandingView,
+  login: LoginView,
   home: HomeView,
   dashboard: DashboardView,
   missions: MissionsView,
@@ -57,13 +64,29 @@ function ViewLoadingFallback() {
   )
 }
 
-// View router that renders the correct lazy component based on current view
-function ViewRouter() {
+// View router for authenticated views (inside DashboardShell)
+function AuthViewRouter() {
   const currentView = useCurrentView()
   const Component = VIEW_COMPONENTS[currentView]
 
   return (
     <Suspense fallback={<ViewLoadingFallback />}>
+      <Component />
+    </Suspense>
+  )
+}
+
+// View router for public views (no shell)
+function PublicViewRouter() {
+  const currentView = useCurrentView()
+  const Component = VIEW_COMPONENTS[currentView]
+
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+      </div>
+    }>
       <Component />
     </Suspense>
   )
@@ -112,8 +135,12 @@ function ToastContainer() {
 }
 
 export default function AppPage() {
+  const isAuthenticated = useStore((s) => s.isAuthenticated)
+  const currentView = useCurrentView()
   const setUser = useStore((s) => s.setUser)
   const setOrganizations = useStore((s) => s.setOrganizations)
+
+  const isPublicView = PUBLIC_VIEWS.includes(currentView)
 
   const fetchOrganizations = useCallback(async () => {
     try {
@@ -124,7 +151,7 @@ export default function AppPage() {
         setOrganizations(orgs)
       }
     } catch {
-      // Organizations fetch failed — non-critical, app still works
+      // Organizations fetch failed — non-critical
     }
   }, [setOrganizations])
 
@@ -132,37 +159,46 @@ export default function AppPage() {
     // Initialize hash-based router
     const cleanupRouter = initRouter()
 
-    // Set demo user if not authenticated
     const store = useStore.getState()
-    if (!store.isAuthenticated) {
-      const demoUser: ProfileDto = {
-        id: 'demo-user-001',
-        email: 'demo@mianx.ai',
-        displayName: 'Alex Chen',
-        avatarUrl: null,
-        locale: 'en',
-        timezone: 'UTC',
-        createdAt: new Date().toISOString(),
-      }
-      setUser(demoUser)
-    }
 
-    // Fetch organizations
-    fetchOrganizations()
-
-    // Navigate to dashboard on first load if at home
-    if (store.currentView === 'home') {
-      navigate('dashboard')
+    // Fetch organizations only if authenticated
+    if (store.isAuthenticated) {
+      fetchOrganizations()
     }
 
     return () => {
       cleanupRouter()
     }
-  }, [setUser, fetchOrganizations])
+  }, [fetchOrganizations])
 
+  // If user is authenticated but on a public view, redirect to dashboard
+  useEffect(() => {
+    if (isAuthenticated && isPublicView) {
+      navigate('dashboard')
+    }
+  }, [isAuthenticated, isPublicView])
+
+  // If user is NOT authenticated and on a protected view, redirect to login
+  useEffect(() => {
+    if (!isAuthenticated && !isPublicView) {
+      navigate('login')
+    }
+  }, [isAuthenticated, isPublicView])
+
+  // Render public views without DashboardShell
+  if (isPublicView) {
+    return (
+      <>
+        <PublicViewRouter />
+        <ToastContainer />
+      </>
+    )
+  }
+
+  // Render authenticated views inside DashboardShell
   return (
     <DashboardShell>
-      <ViewRouter />
+      <AuthViewRouter />
       <ToastContainer />
     </DashboardShell>
   )
