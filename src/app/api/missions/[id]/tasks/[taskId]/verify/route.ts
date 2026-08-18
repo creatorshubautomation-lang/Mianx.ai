@@ -1,4 +1,5 @@
 // POST /api/missions/[id]/tasks/[taskId]/verify — Verify a task's output
+// Uses the real verification engine with 10 verification type executors
 
 import { db } from '@/lib/db'
 import {
@@ -8,7 +9,7 @@ import {
 } from '@/lib/api-response'
 import { getUserIdFromRequest, requireOrgMember, requirePermission, Permissions } from '@/lib/authorization'
 import { parseJsonField } from '@/lib/types'
-import { verifyTask } from '@/lib/mission-engine'
+import { runVerification } from '@/lib/verification-engine'
 
 type RouteContext = { params: Promise<{ id: string; taskId: string }> }
 
@@ -29,7 +30,12 @@ export async function POST(request: Request, context: RouteContext) {
     })
     if (!existingTask) throw new NotFoundError('Task')
 
-    const verification = await verifyTask(taskId)
+    // Use the real verification engine (10 verification type executors)
+    const verification = await runVerification({
+      missionTaskId: taskId,
+      missionId,
+      organizationId: mission.organizationId,
+    })
 
     return success({
       ...verification,
