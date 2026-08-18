@@ -16,6 +16,7 @@ import type {
   UiModal,
 } from './types'
 import { navigate } from './router'
+import { signOut } from 'next-auth/react'
 
 /**
  * Generate a unique ID for toasts and modals.
@@ -43,6 +44,7 @@ export const useStore = create<StoreState>((set, get) => ({
     }),
 
   logout: () => {
+    // Clear client state first
     set({
       user: null,
       isAuthenticated: false,
@@ -54,6 +56,10 @@ export const useStore = create<StoreState>((set, get) => ({
       tasks: [],
       currentView: 'landing',
       viewParams: {},
+    })
+    // Sign out from NextAuth (destroys session cookie)
+    signOut({ redirect: false }).catch(() => {
+      // Ignore signOut errors (e.g., if called during unmount)
     })
     navigate('landing')
   },

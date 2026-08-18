@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { useStore } from '@/lib/store'
 import { navigate } from '@/lib/router'
-import type { ProfileDto } from '@/lib/types'
+import { signIn } from 'next-auth/react'
 
 export default function LoginView() {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -27,39 +27,111 @@ export default function LoginView() {
     setLoading(true)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      if (isSignUp) {
+        // Registration flow
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            password,
+            displayName: name || undefined,
+          }),
+        })
 
-      const mockUser: ProfileDto = {
-        id: 'user-' + Date.now(),
-        email: email || 'demo@mianx.ai',
-        displayName: name || email.split('@')[0] || 'Alex Chen',
-        avatarUrl: null,
-        locale: 'en',
-        timezone: 'UTC',
-        createdAt: new Date().toISOString(),
+        const json = await res.json()
+
+        if (!res.ok) {
+          const msg = json?.error?.message || 'Registration failed. Please try again.'
+          setError(msg)
+          return
+        }
+
+        // After successful registration, sign in automatically
+        const signInRes = await signIn('credentials', {
+          email,
+          password,
+          redirect: false,
+        })
+
+        if (signInRes?.error) {
+          setError('Account created but sign-in failed. Please try signing in manually.')
+          return
+        }
+      } else {
+        // Login flow — use NextAuth
+        const signInRes = await signIn('credentials', {
+          email,
+          password,
+          redirect: false,
+        })
+
+        if (signInRes?.error) {
+          setError('Invalid email or password. Please try again.')
+          return
+        }
       }
 
-      setUser(mockUser)
-      navigate('dashboard')
+      // Fetch session to get user data
+      const sessionRes = await fetch('/api/auth/session')
+      const session = await sessionRes.json()
+
+      if (session?.user) {
+        setUser({
+          id: (session.user as Record<string, unknown>).id as string,
+          email: session.user.email ?? '',
+          displayName: (session.user as Record<string, unknown>).displayName as string || session.user.name || '',
+          avatarUrl: session.user.image ?? null,
+          locale: 'en',
+          timezone: 'UTC',
+          createdAt: new Date().toISOString(),
+        })
+        navigate('dashboard')
+      } else {
+        setError('Session could not be established. Please try again.')
+      }
     } catch {
-      setError('Something went wrong. Please try again.')
+      setError('Network error. Please check your connection and try again.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDemoLogin = () => {
-    const demoUser: ProfileDto = {
-      id: 'demo-user-001',
-      email: 'demo@mianx.ai',
-      displayName: 'Alex Chen',
-      avatarUrl: null,
-      locale: 'en',
-      timezone: 'UTC',
-      createdAt: new Date().toISOString(),
+  const handleDemoLogin = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const signInRes = await signIn('credentials', {
+        email: 'demo@mianx.ai',
+        password: 'demo1234',
+        redirect: false,
+      })
+
+      if (signInRes?.error) {
+        setError('Demo account not available. Please register a new account.')
+        return
+      }
+
+      const sessionRes = await fetch('/api/auth/session')
+      const session = await sessionRes.json()
+
+      if (session?.user) {
+        setUser({
+          id: (session.user as Record<string, unknown>).id as string,
+          email: session.user.email ?? '',
+          displayName: (session.user as Record<string, unknown>).displayName as string || session.user.name || 'Alex Chen',
+          avatarUrl: session.user.image ?? null,
+          locale: 'en',
+          timezone: 'UTC',
+          createdAt: new Date().toISOString(),
+        })
+        navigate('dashboard')
+      }
+    } catch {
+      setError('Network error. Please try again.')
+    } finally {
+      setLoading(false)
     }
-    setUser(demoUser)
-    navigate('dashboard')
   }
 
   return (
@@ -196,12 +268,12 @@ export default function LoginView() {
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder={isSignUp ? 'Min. 8 characters' : '••••••••'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="h-11 pl-10 pr-10 bg-white border-gray-200 focus:border-violet-400 focus:ring-violet-400/20"
                   required
-                  minLength={6}
+                  minLength={8}
                 />
                 <button
                   type="button"
@@ -249,6 +321,7 @@ export default function LoginView() {
           <Button
             variant="outline"
             onClick={handleDemoLogin}
+            disabled={loading}
             className="w-full h-11 border-gray-200 hover:bg-slate-50 font-medium text-slate-700"
           >
             Try Demo Account

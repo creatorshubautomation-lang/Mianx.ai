@@ -1,6 +1,6 @@
 'use client'
 
-import { lazy, useEffect, useCallback, Suspense } from 'react'
+import { lazy, useEffect, useCallback, useState, Suspense } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -9,6 +9,32 @@ import { useStore, useCurrentView, useToasts, useUser } from '@/lib/store'
 import { initRouter, navigate } from '@/lib/router'
 import type { ViewName, OrganizationDto, ProfileDto, UiToast } from '@/lib/types'
 import DashboardShell from '@/components/mianx/DashboardShell'
+
+/**
+ * Fetch the NextAuth session and restore user state.
+ * Called on mount to handle page refreshes.
+ */
+async function restoreSessionFromServer(setUser: (user: ProfileDto | null) => void): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/session')
+    const session = await res.json()
+    if (session?.user) {
+      setUser({
+        id: (session.user as Record<string, unknown>).id as string,
+        email: session.user.email ?? '',
+        displayName: (session.user as Record<string, unknown>).displayName as string || session.user.name || '',
+        avatarUrl: session.user.image ?? null,
+        locale: 'en',
+        timezone: 'UTC',
+        createdAt: new Date().toISOString(),
+      })
+      return true
+    }
+  } catch {
+    // Session fetch failed — user is not authenticated
+  }
+  return false
+}
 
 // Lazy-loaded view components
 const LandingView = lazy(() => import('@/components/views/LandingView'))
@@ -139,6 +165,7 @@ export default function AppPage() {
   const currentView = useCurrentView()
   const setUser = useStore((s) => s.setUser)
   const setOrganizations = useStore((s) => s.setOrganizations)
+  const [sessionChecked, setSessionChecked] = useState(false)
 
   const isPublicView = PUBLIC_VIEWS.includes(currentView)
 
@@ -151,7 +178,7 @@ export default function AppPage() {
         setOrganizations(orgs)
       }
     } catch {
-      // Organizations fetch failed — non-critical
+      // Organizations fetch failed — will retry on next auth state change
     }
   }, [setOrganizations])
 
@@ -159,31 +186,53 @@ export default function AppPage() {
     // Initialize hash-based router
     const cleanupRouter = initRouter()
 
-    const store = useStore.getState()
-
-    // Fetch organizations only if authenticated
-    if (store.isAuthenticated) {
-      fetchOrganizations()
-    }
+    // On mount, check for existing session (handles page refresh)
+    let cancelled = false
+    ;(async () => {
+      const hasSession = await restoreSessionFromServer(setUser)
+      if (!cancelled) {
+        setSessionChecked(true)
+        if (hasSession) {
+          fetchOrganizations()
+        }
+      }
+    })()
 
     return () => {
+      cancelled = true
       cleanupRouter()
     }
-  }, [fetchOrganizations])
+  }, [setUser, fetchOrganizations])
 
   // If user is authenticated but on a public view, redirect to dashboard
   useEffect(() => {
-    if (isAuthenticated && isPublicView) {
+    if (sessionChecked && isAuthenticated && isPublicView) {
       navigate('dashboard')
     }
-  }, [isAuthenticated, isPublicView])
+  }, [sessionChecked, isAuthenticated, isPublicView])
 
   // If user is NOT authenticated and on a protected view, redirect to login
   useEffect(() => {
-    if (!isAuthenticated && !isPublicView) {
+    if (sessionChecked && !isAuthenticated && !isPublicView) {
       navigate('login')
     }
-  }, [isAuthenticated, isPublicView])
+  }, [sessionChecked, isAuthenticated, isPublicView])
+
+  // Fetch organizations when auth state changes to authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchOrganizations()
+    }
+  }, [isAuthenticated, fetchOrganizations])
+
+  // Don't render auth-gated content until session check completes
+  if (!sessionChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   // Render public views without DashboardShell
   if (isPublicView) {

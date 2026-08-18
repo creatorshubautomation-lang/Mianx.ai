@@ -20,13 +20,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { navigate } from '@/lib/router'
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.08, duration: 0.45, ease: 'easeOut' },
-  }),
+function fadeUpDelay(i: number) {
+  return {
+    initial: { opacity: 0, y: 24 },
+    animate: { opacity: 1, y: 0, transition: { delay: i * 0.08, duration: 0.45, ease: 'easeOut' as const } },
+  }
 }
 
 const features = [
@@ -211,12 +209,8 @@ export default function LandingView() {
           <div className="absolute bottom-0 left-1/4 w-[400px] h-[400px] bg-amber-200/20 rounded-full blur-[100px]" aria-hidden="true" />
 
           <div className="relative mx-auto max-w-4xl text-center">
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              className="space-y-6"
-            >
-              <motion.div variants={fadeUp} custom={0} className="flex justify-center">
+            <div className="space-y-6">
+              <motion.div {...fadeUpDelay(0)} className="flex justify-center">
                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 border border-violet-200">
                   <Sparkles className="w-3 h-3" />
                   Now in Public Beta
@@ -224,8 +218,7 @@ export default function LandingView() {
               </motion.div>
 
               <motion.h1
-                variants={fadeUp}
-                custom={1}
+                {...fadeUpDelay(1)}
                 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 leading-tight"
               >
                 The{' '}
@@ -236,14 +229,13 @@ export default function LandingView() {
               </motion.h1>
 
               <motion.p
-                variants={fadeUp}
-                custom={2}
+                {...fadeUpDelay(2)}
                 className="mx-auto max-w-2xl text-lg text-slate-500 leading-relaxed"
               >
                 Set the goal. Mianx builds the plan, assembles the AI workforce, and delivers verified outcomes — for modern teams.
               </motion.p>
 
-              <motion.div variants={fadeUp} custom={3} className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <motion.div {...fadeUpDelay(3)} className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Button
                   size="lg"
                   onClick={() => navigate('login')}
@@ -265,10 +257,10 @@ export default function LandingView() {
                 </Button>
               </motion.div>
 
-              <motion.p variants={fadeUp} custom={4} className="text-xs text-slate-400">
+              <motion.p {...fadeUpDelay(4)} className="text-xs text-slate-400">
                 Free to start · No credit card required
               </motion.p>
-            </motion.div>
+            </div>
 
             {/* Stats bar */}
             <motion.div
