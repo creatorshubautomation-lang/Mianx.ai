@@ -1,0 +1,1721 @@
+     1→# MIANX.AI CORE --- DATA PLATFORM, TENANT ISOLATION & DATABASE ARCHITECTURE SPECIFICATION v1.0
+     2→
+     3→**Product:** Mianx.ai\
+     4→**Document:** Data Platform, Tenant Isolation & Database Architecture\
+     5→**Version:** 1.0\
+     6→**Status:** Architecture / Pre-Implementation\
+     7→**Purpose:** Define the shared data foundation for Mianx.ai Core and
+     8→every Domain OS, with strong tenant isolation, clear domain boundaries,
+     9→scalable PostgreSQL architecture, governed AI data, and operational
+    10→resilience.
+    11→
+    12→------------------------------------------------------------------------
+    13→
+    14→# 1. Purpose
+    15→
+    16→Mianx.ai is a multi-tenant, multi-domain SaaS platform.
+    17→
+    18→The data architecture must support:
+    19→
+    20→``` text
+    21→Mianx Platform
+    22→   ↓
+    23→Organizations / Tenants
+    24→   ↓
+    25→Brands / Sites / Branches
+    26→   ↓
+    27→Domains
+    28→   ↓
+    29→Domain Modules
+    30→   ↓
+    31→Business Data
+    32→```
+    33→
+    34→The same foundation must support:
+    35→
+    36→``` text
+    37→Poultry OS
+    38→Restaurant OS
+    39→Retail OS
+    40→Future Domain OSs
+    41→```
+    42→
+    43→without creating a separate database architecture for every domain.
+    44→
+    45→------------------------------------------------------------------------
+    46→
+    47→# 2. Data Constitution
+    48→
+    49→1.  Tenant isolation is a security boundary.
+    50→2.  Domain boundaries must be explicit.
+    51→3.  Every tenant-owned record must have an enforceable ownership path.
+    52→4.  Application authorization and database authorization complement each
+    53→    other.
+    54→5.  RLS is defense in depth, not a replacement for application
+    55→    authorization.
+    56→6.  Cross-tenant queries are prohibited unless explicitly part of
+    57→    trusted platform operations.
+    58→7.  AI data follows the same tenant and domain boundaries.
+    59→8.  Sensitive data is minimized and protected.
+    60→9.  Schema changes are migration-controlled.
+    61→10. Backups and disaster recovery are part of the architecture, not
+    62→    afterthoughts.
+    63→
+    64→------------------------------------------------------------------------
+    65→
+    66→# 3. Recommended Core Stack
+    67→
+    68→Conceptual foundation:
+    69→
+    70→``` text
+    71→PostgreSQL
+    72→   ├── Core relational data
+    73→   ├── RLS
+    74→   ├── Transactions
+    75→   ├── JSONB where justified
+    76→   ├── Full-text/search capabilities
+    77→   └── pgvector where justified
+    78→
+    79→Redis
+    80→   ├── Cache
+    81→   ├── Short-lived state
+    82→   ├── Rate limiting
+    83→   └── Queue/supporting coordination
+    84→
+    85→Object Storage
+    86→   ├── Documents
+    87→   ├── Images
+    88→   ├── Exports
+    89→   └── Large files
+    90→
+    91→Analytics / Warehouse
+    92→   └── Long-term analytical workloads
+    93→```
+    94→
+    95→PostgreSQL remains the system of record for transactional business data.
+    96→
+    97→Supabase provides managed PostgreSQL plus related services; its current
+    98→documentation confirms that each project provides a full PostgreSQL
+    99→database, with RLS available as the database-level authorization
+   100→mechanism. citeturn0search1turn0search0
+   101→
+   102→------------------------------------------------------------------------
+   103→
+   104→# 4. Database Philosophy
+   105→
+   106→Use PostgreSQL for authoritative transactional state.
+   107→
+   108→Do not turn PostgreSQL into:
+   109→
+   110→``` text
+   111→temporary cache
+   112→large binary-file store
+   113→unbounded event archive
+   114→uncontrolled AI transcript warehouse
+   115→```
+   116→
+   117→Use specialized storage where it provides a clear operational advantage.
+   118→
+   119→------------------------------------------------------------------------
+   120→
+   121→# 5. Logical Architecture
+   122→
+   123→``` text
+   124→                 MIANX DATA PLATFORM
+   125→                        │
+   126→          ┌─────────────┼─────────────┐
+   127→          ↓             ↓             ↓
+   128→       CORE DATA     DOMAIN DATA   PLATFORM DATA
+   129→          │             │             │
+   130→          ↓             ↓             ↓
+   131→     PostgreSQL     PostgreSQL      PostgreSQL
+   132→          │
+   133→     ┌────┼─────┐
+   134→     ↓    ↓     ↓
+   135→   Redis Files  AI/Search
+   136→```
+   137→
+   138→------------------------------------------------------------------------
+   139→
+   140→# 6. Physical Database Strategy
+   141→
+   142→Initial recommendation:
+   143→
+   144→``` text
+   145→One PostgreSQL platform
+   146→+
+   147→logical isolation by organization/domain
+   148→```
+   149→
+   150→This is simpler and more efficient for the initial multi-tenant SaaS.
+   151→
+   152→As scale or regulatory requirements grow, selected workloads may move
+   153→to:
+   154→
+   155→``` text
+   156→separate database
+   157→separate cluster
+   158→read replica
+   159→warehouse
+   160→region-specific deployment
+   161→```
+   162→
+   163→Do not prematurely create one database per customer.
+   164→
+   165→------------------------------------------------------------------------
+   166→
+   167→# 7. Tenant Hierarchy
+   168→
+   169→Recommended hierarchy:
+   170→
+   171→``` text
+   172→Platform
+   173→  ↓
+   174→Organization
+   175→  ↓
+   176→Brand
+   177→  ↓
+   178→Location / Branch / Site
+   179→  ↓
+   180→Domain
+   181→  ↓
+   182→Resource
+   183→```
+   184→
+   185→Not every domain needs every hierarchy level.
+   186→
+   187→For example:
+   188→
+   189→``` text
+   190→Poultry
+   191→Organization
+   192→ └── Farm
+   193→      └── House
+   194→           └── Flock
+   195→```
+   196→
+   197→Restaurant:
+   198→
+   199→``` text
+   200→Organization
+   201→ └── Brand
+   202→      └── Branch
+   203→           └── Restaurant Operations
+   204→```
+   205→
+   206→------------------------------------------------------------------------
+   207→
+   208→# 8. Organization
+   209→
+   210→Organization is the primary commercial and security tenant.
+   211→
+   212→Conceptual:
+   213→
+   214→``` text
+   215→organizations
+   216→ ├── id
+   217→ ├── name
+   218→ ├── status
+   219→ ├── default_locale
+   220→ ├── default_currency
+   221→ ├── created_at
+   222→ └── updated_at
+   223→```
+   224→
+   225→Every tenant-owned business record should have a reliable path back to
+   226→an organization.
+   227→
+   228→------------------------------------------------------------------------
+   229→
+   230→# 9. Organization Membership
+   231→
+   232→Separate:
+   233→
+   234→``` text
+   235→User
+   236→```
+   237→
+   238→from:
+   239→
+   240→``` text
+   241→Organization Membership
+   242→```
+   243→
+   244→Conceptual:
+   245→
+   246→``` text
+   247→users
+   248→organizations
+   249→organization_members
+   250→```
+   251→
+   252→Membership contains:
+   253→
+   254→``` text
+   255→user_id
+   256→organization_id
+   257→role
+   258→status
+   259→```
+   260→
+   261→A user may belong to multiple organizations.
+   262→
+   263→------------------------------------------------------------------------
+   264→
+   265→# 10. Domain Registry
+   266→
+   267→Mianx Core owns the domain registry.
+   268→
+   269→Conceptual:
+   270→
+   271→``` text
+   272→domains
+   273→ ├── id
+   274→ ├── key
+   275→ ├── name
+   276→ ├── version
+   277→ ├── status
+   278→ └── configuration
+   279→```
+   280→
+   281→Examples:
+   282→
+   283→``` text
+   284→poultry
+   285→restaurant
+   286→retail
+   287→```
+   288→
+   289→------------------------------------------------------------------------
+   290→
+   291→# 11. Organization Domain Activation
+   292→
+   293→A tenant may activate selected domains.
+   294→
+   295→``` text
+   296→organization_domains
+   297→ ├── organization_id
+   298→ ├── domain_id
+   299→ ├── status
+   300→ ├── configuration
+   301→ └── activated_at
+   302→```
+   303→
+   304→This connects:
+   305→
+   306→``` text
+   307→Billing
+   308→+
+   309→Entitlements
+   310→+
+   311→Domain Access
+   312→```
+   313→
+   314→------------------------------------------------------------------------
+   315→
+   316→# 12. Domain Data Boundary
+   317→
+   318→Domain-owned tables should clearly belong to their domain.
+   319→
+   320→Example:
+   321→
+   322→``` text
+   323→poultry_farms
+   324→poultry_houses
+   325→poultry_flocks
+   326→poultry_feed_batches
+   327→```
+   328→
+   329→Restaurant:
+   330→
+   331→``` text
+   332→restaurant_branches
+   333→restaurant_menu_items
+   334→restaurant_orders
+   335→restaurant_tables
+   336→```
+   337→
+   338→Avoid generic tables that become impossible to reason about.
+   339→
+   340→------------------------------------------------------------------------
+   341→
+   342→# 13. Core vs Domain Tables
+   343→
+   344→Core tables:
+   345→
+   346→``` text
+   347→organizations
+   348→users
+   349→organization_members
+   350→domains
+   351→organization_domains
+   352→subscriptions
+   353→entitlements
+   354→audit_logs
+   355→integrations
+   356→ai_agents
+   357→ai_runs
+   358→```
+   359→
+   360→Domain tables:
+   361→
+   362→``` text
+   363→poultry_flocks
+   364→poultry_farms
+   365→restaurant_orders
+   366→retail_products
+   367→```
+   368→
+   369→Core should not own domain-specific business rules.
+   370→
+   371→------------------------------------------------------------------------
+   372→
+   373→# 14. Tenant Isolation Model
+   374→
+   375→Primary model:
+   376→
+   377→``` text
+   378→organization_id
+   379→```
+   380→
+   381→Every tenant-owned table should either:
+   382→
+   383→1.  contain `organization_id`, or
+   384→2.  have an unambiguous foreign-key path to a table containing
+   385→    `organization_id`.
+   386→
+   387→For high-risk tables, direct organization ownership is preferred.
+   388→
+   389→------------------------------------------------------------------------
+   390→
+   391→# 15. Tenant Isolation Enforcement
+   392→
+   393→Use multiple layers:
+   394→
+   395→``` text
+   396→Frontend
+   397→ ↓
+   398→API Authorization
+   399→ ↓
+   400→Service Authorization
+   401→ ↓
+   402→Data Access Layer
+   403→ ↓
+   404→PostgreSQL RLS
+   405→```
+   406→
+   407→No single layer should be considered the only protection.
+   408→
+   409→Supabase's current guidance explicitly recommends RLS for exposed tables
+   410→and emphasizes that grants and RLS are separate controls: grants
+   411→determine whether a role can reach an object, while RLS determines which
+   412→rows are accessible. citeturn0search12turn0search0
+   413→
+   414→------------------------------------------------------------------------
+   415→
+   416→# 16. RLS Strategy
+   417→
+   418→For tables exposed through a client-facing Data API:
+   419→
+   420→``` text
+   421→Enable RLS
+   422→+
+   423→Create explicit policies
+   424→+
+   425→Grant least privilege
+   426→```
+   427→
+   428→Supabase currently recommends enabling RLS on tables in exposed schemas
+   429→and using policies for row-level authorization.
+   430→citeturn0search0turn0search12
+   431→
+   432→------------------------------------------------------------------------
+   433→
+   434→# 17. RLS Policy Model
+   435→
+   436→Conceptually:
+   437→
+   438→``` text
+   439→Authenticated User
+   440→       ↓
+   441→Organization Membership
+   442→       ↓
+   443→Organization ID
+   444→       ↓
+   445→Allowed Resource
+   446→```
+   447→
+   448→Example policy logic:
+   449→
+   450→``` text
+   451→user belongs to organization
+   452→AND
+   453→row.organization_id = organization
+   454→```
+   455→
+   456→Do not use authentication alone as authorization.
+   457→
+   458→------------------------------------------------------------------------
+   459→
+   460→# 18. RLS and UPDATE
+   461→
+   462→Update authorization must check both:
+   463→
+   464→``` text
+   465→existing row access
+   466→+
+   467→new row ownership
+   468→```
+   469→
+   470→In PostgreSQL RLS this means using appropriate `USING` and `WITH CHECK`
+   471→conditions for updates. Supabase's current RLS guidance explicitly calls
+   472→this out. citeturn0search0
+   473→
+   474→------------------------------------------------------------------------
+   475→
+   476→# 19. Authorization Data
+   477→
+   478→Authorization data should come from trusted sources.
+   479→
+   480→Do not use user-editable profile metadata as the authoritative source
+   481→for authorization.
+   482→
+   483→Supabase specifically warns that user-editable `raw_user_meta_data`
+   484→should not be used for authorization decisions; authorization metadata
+   485→belongs in trusted application-level data. citeturn18file0
+   486→
+   487→------------------------------------------------------------------------
+   488→
+   489→# 20. Service-Level Access
+   490→
+   491→Backend services may need elevated access for trusted operations.
+   492→
+   493→Rules:
+   494→
+   495→``` text
+   496→Service access
+   497→≠
+   498→frontend access
+   499→```
+   500→
+   501→Secrets and service credentials must remain server-side.
+   502→
+   503→Supabase documents that service-role/secret keys bypass RLS and
+   504→therefore must never be exposed in frontend applications.
+   505→citeturn0search11
+   506→
+   507→------------------------------------------------------------------------
+   508→
+   509→# 21. Database Schema Organization
+   510→
+   511→Recommended logical grouping:
+   512→
+   513→``` text
+   514→core
+   515→identity
+   516→billing
+   517→audit
+   518→integration
+   519→ai
+   520→analytics
+   521→poultry
+   522→restaurant
+   523→retail
+   524→```
+   525→
+   526→Whether these become PostgreSQL schemas or naming conventions is an
+   527→implementation decision, but ownership must remain explicit.
+   528→
+   529→------------------------------------------------------------------------
+   530→
+   531→# 22. IDs
+   532→
+   533→Use globally unique identifiers.
+   534→
+   535→Recommended default:
+   536→
+   537→``` text
+   538→UUID
+   539→```
+   540→
+   541→or another collision-resistant identifier strategy.
+   542→
+   543→Avoid exposing sequential database IDs where they create unnecessary
+   544→enumeration risk.
+   545→
+   546→------------------------------------------------------------------------
+   547→
+   548→# 23. Foreign Keys
+   549→
+   550→Use foreign keys for important relational integrity.
+   551→
+   552→Examples:
+   553→
+   554→``` text
+   555→organization_members.organization_id
+   556→→ organizations.id
+   557→
+   558→poultry_flocks.organization_id
+   559→→ organizations.id
+   560→```
+   561→
+   562→Do not rely only on application code for critical referential integrity.
+   563→
+   564→------------------------------------------------------------------------
+   565→
+   566→# 24. Delete Strategy
+   567→
+   568→Do not blindly cascade-delete business data.
+   569→
+   570→Define per entity:
+   571→
+   572→``` text
+   573→hard delete
+   574→soft delete
+   575→archive
+   576→retention
+   577→anonymization
+   578→```
+   579→
+   580→Financial/audit records may require different lifecycle rules from
+   581→temporary operational data.
+   582→
+   583→------------------------------------------------------------------------
+   584→
+   585→# 25. Timestamps
+   586→
+   587→Important tables should normally include:
+   588→
+   589→``` text
+   590→created_at
+   591→updated_at
+   592→```
+   593→
+   594→Additional lifecycle timestamps may include:
+   595→
+   596→``` text
+   597→deleted_at
+   598→archived_at
+   599→activated_at
+   600→completed_at
+   601→```
+   602→
+   603→Store timestamps consistently in UTC at the persistence layer.
+   604→
+   605→------------------------------------------------------------------------
+   606→
+   607→# 26. Concurrency
+   608→
+   609→Critical business updates should use appropriate concurrency controls.
+   610→
+   611→Options:
+   612→
+   613→``` text
+   614→transactions
+   615→row locks
+   616→optimistic versioning
+   617→unique constraints
+   618→idempotency
+   619→```
+   620→
+   621→Example:
+   622→
+   623→``` text
+   624→inventory update
+   625→+
+   626→concurrent order
+   627→```
+   628→
+   629→must not silently produce impossible inventory state.
+   630→
+   631→------------------------------------------------------------------------
+   632→
+   633→# 27. Transactions
+   634→
+   635→Use transactions for atomic business changes.
+   636→
+   637→Example:
+   638→
+   639→``` text
+   640→Create Purchase Request
+   641→+
+   642→Create Audit Record
+   643→+
+   644→Create Outbox Event
+   645→```
+   646→
+   647→All can be committed atomically where appropriate.
+   648→
+   649→------------------------------------------------------------------------
+   650→
+   651→# 28. JSONB
+   652→
+   653→JSONB is allowed for:
+   654→
+   655→``` text
+   656→flexible configuration
+   657→provider payloads
+   658→domain-specific metadata
+   659→integration settings
+   660→AI metadata
+   661→```
+   662→
+   663→Do not use JSONB as an excuse to avoid modeling stable relational
+   664→fields.
+   665→
+   666→------------------------------------------------------------------------
+   667→
+   668→# 29. Database Constraints
+   669→
+   670→Use database constraints for invariants.
+   671→
+   672→Examples:
+   673→
+   674→``` text
+   675→NOT NULL
+   676→UNIQUE
+   677→CHECK
+   678→FOREIGN KEY
+   679→```
+   680→
+   681→Business invariants that must never be violated should be enforced as
+   682→close to the data as practical.
+   683→
+   684→------------------------------------------------------------------------
+   685→
+   686→# 30. Indexing
+   687→
+   688→Index based on actual query patterns.
+   689→
+   690→Common multi-tenant index:
+   691→
+   692→``` text
+   693→(organization_id, created_at)
+   694→```
+   695→
+   696→Domain examples:
+   697→
+   698→``` text
+   699→(organization_id, farm_id)
+   700→(organization_id, status)
+   701→(organization_id, branch_id, created_at)
+   702→```
+   703→
+   704→Do not create indexes for every column.
+   705→
+   706→------------------------------------------------------------------------
+   707→
+   708→# 31. RLS Performance
+   709→
+   710→RLS can affect query performance, especially on large tables.
+   711→
+   712→Design policies and indexes together.
+   713→
+   714→Supabase's current documentation specifically recommends indexing
+   715→columns used by RLS policies and optimizing policy expressions for
+   716→performance. citeturn0search0
+   717→
+   718→------------------------------------------------------------------------
+   719→
+   720→# 32. Partitioning
+   721→
+   722→Partition only when data volume and access patterns justify it.
+   723→
+   724→Potential candidates:
+   725→
+   726→``` text
+   727→high-volume events
+   728→telemetry
+   729→audit history
+   730→transaction history
+   731→large time-series data
+   732→```
+   733→
+   734→Partition keys might include:
+   735→
+   736→``` text
+   737→time
+   738→organization
+   739→domain
+   740→```
+   741→
+   742→Do not partition every table prematurely.
+   743→
+   744→------------------------------------------------------------------------
+   745→
+   746→# 33. Read Scaling
+   747→
+   748→As demand grows:
+   749→
+   750→``` text
+   751→Primary
+   752→ ↓
+   753→Read Replicas
+   754→ ↓
+   755→Analytics / Warehouse
+   756→```
+   757→
+   758→Transactional writes remain on the authoritative primary.
+   759→
+   760→------------------------------------------------------------------------
+   761→
+   762→# 34. Analytics Boundary
+   763→
+   764→Do not run heavy analytical workloads against the transactional database
+   765→indefinitely.
+   766→
+   767→Architecture:
+   768→
+   769→``` text
+   770→PostgreSQL
+   771→ ↓
+   772→CDC / ETL / Events
+   773→ ↓
+   774→Analytics Store / Warehouse
+   775→```
+   776→
+   777→Operational dashboards may still use optimized transactional queries for
+   778→low-volume needs.
+   779→
+   780→------------------------------------------------------------------------
+   781→
+   782→# 35. Redis
+   783→
+   784→Redis is not the source of truth.
+   785→
+   786→Use it for:
+   787→
+   788→``` text
+   789→cache
+   790→rate limiting
+   791→short-lived sessions/state
+   792→distributed coordination
+   793→queue support
+   794→temporary AI state
+   795→```
+   796→
+   797→Never treat cached state as authoritative business records.
+   798→
+   799→------------------------------------------------------------------------
+   800→
+   801→# 36. Cache Rules
+   802→
+   803→Every cache should define:
+   804→
+   805→``` text
+   806→key
+   807→scope
+   808→TTL
+   809→invalidation
+   810→fallback
+   811→```
+   812→
+   813→Tenant-sensitive cache keys must include tenant scope where required.
+   814→
+   815→Example:
+   816→
+   817→``` text
+   818→org:{organization_id}:dashboard:{period}
+   819→```
+   820→
+   821→------------------------------------------------------------------------
+   822→
+   823→# 37. Object Storage
+   824→
+   825→Store large binary objects outside PostgreSQL.
+   826→
+   827→Examples:
+   828→
+   829→``` text
+   830→images
+   831→documents
+   832→PDFs
+   833→exports
+   834→attachments
+   835→AI artifacts
+   836→```
+   837→
+   838→Database stores metadata and secure object references.
+   839→
+   840→------------------------------------------------------------------------
+   841→
+   842→# 38. Object Storage Isolation
+   843→
+   844→Object paths should be tenant-aware.
+   845→
+   846→Example:
+   847→
+   848→``` text
+   849→organizations/{org_id}/documents/{object_id}
+   850→```
+   851→
+   852→Access should be controlled with:
+   853→
+   854→``` text
+   855→authorization
+   856→signed URLs
+   857→expiry
+   858→object policies
+   859→```
+   860→
+   861→------------------------------------------------------------------------
+   862→
+   863→# 39. Search
+   864→
+   865→Search architecture may combine:
+   866→
+   867→``` text
+   868→PostgreSQL full-text search
+   869→+
+   870→dedicated search engine where justified
+   871→```
+   872→
+   873→Start with PostgreSQL where it is sufficient.
+   874→
+   875→Do not introduce another search system without a real workload
+   876→requirement.
+   877→
+   878→------------------------------------------------------------------------
+   879→
+   880→# 40. Vector Data
+   881→
+   882→Mianx AI may use vector embeddings for:
+   883→
+   884→``` text
+   885→knowledge retrieval
+   886→semantic search
+   887→memory retrieval
+   888→document search
+   889→```
+   890→
+   891→PostgreSQL with pgvector is an appropriate initial option where the
+   892→workload fits.
+   893→
+   894→Supabase currently supports `pgvector` as a Postgres extension; current
+   895→platform guidance also notes that explicit extension version pinning is
+   896→deprecated in favor of the platform's default extension versions.
+   897→citeturn0search1turn0search13
+   898→
+   899→------------------------------------------------------------------------
+   900→
+   901→# 41. Vector Isolation
+   902→
+   903→Every vector record must preserve authorization scope.
+   904→
+   905→Conceptually:
+   906→
+   907→``` text
+   908→embedding
+   909→ ├── organization_id
+   910→ ├── domain
+   911→ ├── source_id
+   912→ ├── visibility
+   913→ └── embedding
+   914→```
+   915→
+   916→Similarity search must apply tenant/domain filters before returning
+   917→usable context.
+   918→
+   919→------------------------------------------------------------------------
+   920→
+   921→# 42. AI Memory Storage
+   922→
+   923→Memory should be separated logically into:
+   924→
+   925→``` text
+   926→session
+   927→conversation
+   928→user
+   929→organization
+   930→domain
+   931→agent
+   932→```
+   933→
+   934→Each record should include scope and ownership metadata.
+   935→
+   936→------------------------------------------------------------------------
+   937→
+   938→# 43. AI Knowledge Storage
+   939→
+   940→Knowledge records should preserve:
+   941→
+   942→``` text
+   943→source
+   944→organization
+   945→domain
+   946→document
+   947→version
+   948→visibility
+   949→chunk
+   950→embedding
+   951→metadata
+   952→```
+   953→
+   954→The model should be able to trace important answers back to authorized
+   955→sources.
+   956→
+   957→------------------------------------------------------------------------
+   958→
+   959→# 44. AI Data Retention
+   960→
+   961→Define separate retention policies for:
+   962→
+   963→``` text
+   964→conversation history
+   965→agent runs
+   966→tool calls
+   967→memory
+   968→knowledge documents
+   969→embeddings
+   970→AI cost telemetry
+   971→```
+   972→
+   973→Do not retain everything forever by default.
+   974→
+   975→------------------------------------------------------------------------
+   976→
+   977→# 45. Audit Data
+   978→
+   979→Audit logs are separate from ordinary application logs.
+   980→
+   981→Audit records should capture important:
+   982→
+   983→``` text
+   984→actor
+   985→organization
+   986→action
+   987→resource
+   988→before/after where appropriate
+   989→timestamp
+   990→request_id
+   991→```
+   992→
+   993→Audit records should have controlled retention and access.
+   994→
+   995→------------------------------------------------------------------------
+   996→
+   997→# 46. Sensitive Data
+   998→
+   999→Classify data:
+  1000→
+  1001→``` text
+  1002→Public
+  1003→Internal
+  1004→Confidential
+  1005→Restricted
+  1006→```
+  1007→
+  1008→Restricted information may include:
+  1009→
+  1010→``` text
+  1011→credentials
+  1012→financial secrets
+  1013→private customer information
+  1014→security material
+  1015→tokens
+  1016→```
+  1017→
+  1018→Sensitive values must not appear in ordinary logs.
+  1019→
+  1020→------------------------------------------------------------------------
+  1021→
+  1022→# 47. Secrets
+  1023→
+  1024→Secrets belong in a secrets-management system, not normal business
+  1025→tables.
+  1026→
+  1027→Examples:
+  1028→
+  1029→``` text
+  1030→API keys
+  1031→OAuth refresh tokens
+  1032→database credentials
+  1033→encryption keys
+  1034→webhook secrets
+  1035→```
+  1036→
+  1037→Applications should retrieve secrets securely at runtime.
+  1038→
+  1039→------------------------------------------------------------------------
+  1040→
+  1041→# 48. Encryption
+  1042→
+  1043→Use encryption:
+  1044→
+  1045→``` text
+  1046→in transit
+  1047→at rest
+  1048→```
+  1049→
+  1050→For highly sensitive application fields, consider application-level
+  1051→encryption where justified.
+  1052→
+  1053→Key management must be separate from encrypted data.
+  1054→
+  1055→------------------------------------------------------------------------
+  1056→
+  1057→# 49. Database Backups
+  1058→
+  1059→Backups should be:
+  1060→
+  1061→``` text
+  1062→automated
+  1063→monitored
+  1064→tested
+  1065→retained
+  1066→protected
+  1067→```
+  1068→
+  1069→A backup that has never been restored is not a proven recovery
+  1070→mechanism.
+  1071→
+  1072→Supabase documents daily database backups and point-in-time recovery on
+  1073→paid plans; however, storage objects are not included in database
+  1074→backups, so object-storage backup strategy must be handled separately.
+  1075→citeturn0search1
+  1076→
+  1077→------------------------------------------------------------------------
+  1078→
+  1079→# 50. Disaster Recovery
+  1080→
+  1081→Define:
+  1082→
+  1083→``` text
+  1084→RPO
+  1085→RTO
+  1086→backup frequency
+  1087→restore procedure
+  1088→failover strategy
+  1089→regional recovery
+  1090→```
+  1091→
+  1092→Different data classes may have different targets.
+  1093→
+  1094→------------------------------------------------------------------------
+  1095→
+  1096→# 51. Restore Testing
+  1097→
+  1098→At planned intervals:
+  1099→
+  1100→``` text
+  1101→Backup
+  1102→ ↓
+  1103→Restore
+  1104→ ↓
+  1105→Integrity checks
+  1106→ ↓
+  1107→Application verification
+  1108→ ↓
+  1109→Document result
+  1110→```
+  1111→
+  1112→Recovery testing belongs in the production operations process.
+  1113→
+  1114→------------------------------------------------------------------------
+  1115→
+  1116→# 52. Migration Strategy
+  1117→
+  1118→All production schema changes should be migration-controlled.
+  1119→
+  1120→Process:
+  1121→
+  1122→``` text
+  1123→Migration
+  1124→ ↓
+  1125→Review
+  1126→ ↓
+  1127→Test
+  1128→ ↓
+  1129→Staging
+  1130→ ↓
+  1131→Production
+  1132→```
+  1133→
+  1134→Avoid manual production schema changes that cannot be reproduced.
+  1135→
+  1136→------------------------------------------------------------------------
+  1137→
+  1138→# 53. Expand / Contract Migrations
+  1139→
+  1140→For risky changes:
+  1141→
+  1142→``` text
+  1143→Expand
+  1144→ ↓
+  1145→Deploy compatible code
+  1146→ ↓
+  1147→Backfill
+  1148→ ↓
+  1149→Switch reads/writes
+  1150→ ↓
+  1151→Contract
+  1152→```
+  1153→
+  1154→This avoids downtime from incompatible schema changes.
+  1155→
+  1156→------------------------------------------------------------------------
+  1157→
+  1158→# 54. Data Backfills
+  1159→
+  1160→Large backfills should be:
+  1161→
+  1162→``` text
+  1163→batched
+  1164→resumable
+  1165→observable
+  1166→rate-limited
+  1167→idempotent
+  1168→```
+  1169→
+  1170→Do not lock a large production table unnecessarily.
+  1171→
+  1172→------------------------------------------------------------------------
+  1173→
+  1174→# 55. Connection Management
+  1175→
+  1176→Application services should use appropriate connection pooling.
+  1177→
+  1178→For managed Supabase deployments, Supavisor provides connection pooling;
+  1179→the current documentation distinguishes direct connections from pooler
+  1180→modes and recommends choosing based on environment and workload.
+  1181→citeturn0search8
+  1182→
+  1183→------------------------------------------------------------------------
+  1184→
+  1185→# 56. Prisma / Data Access Layer
+  1186→
+  1187→If Mianx uses Prisma:
+  1188→
+  1189→``` text
+  1190→API
+  1191→ ↓
+  1192→Service Layer
+  1193→ ↓
+  1194→Repository / Data Access
+  1195→ ↓
+  1196→Prisma
+  1197→ ↓
+  1198→PostgreSQL
+  1199→```
+  1200→
+  1201→Do not allow arbitrary database access throughout application code.
+  1202→
+  1203→Centralize:
+  1204→
+  1205→``` text
+  1206→tenant scoping
+  1207→transactions
+  1208→common filters
+  1209→data access rules
+  1210→```
+  1211→
+  1212→------------------------------------------------------------------------
+  1213→
+  1214→# 57. Tenant Context
+  1215→
+  1216→The request context should establish:
+  1217→
+  1218→``` text
+  1219→user
+  1220→organization
+  1221→domain
+  1222→location
+  1223→permissions
+  1224→```
+  1225→
+  1226→The data access layer must not accept an organization ID blindly from
+  1227→user input.
+  1228→
+  1229→It should derive or validate tenant context from authenticated
+  1230→authorization.
+  1231→
+  1232→------------------------------------------------------------------------
+  1233→
+  1234→# 58. Cross-Tenant Operations
+  1235→
+  1236→Only trusted platform operations may intentionally cross tenant
+  1237→boundaries.
+  1238→
+  1239→Examples:
+  1240→
+  1241→``` text
+  1242→SaaS billing aggregation
+  1243→platform health
+  1244→global anonymized analytics
+  1245→support operations
+  1246→```
+  1247→
+  1248→These operations must be:
+  1249→
+  1250→``` text
+  1251→explicit
+  1252→audited
+  1253→privileged
+  1254→limited
+  1255→```
+  1256→
+  1257→------------------------------------------------------------------------
+  1258→
+  1259→# 59. Platform vs Tenant Data
+  1260→
+  1261→Separate:
+  1262→
+  1263→``` text
+  1264→Platform Data
+  1265→```
+  1266→
+  1267→from:
+  1268→
+  1269→``` text
+  1270→Tenant Business Data
+  1271→```
+  1272→
+  1273→Platform operators may see platform metrics without automatically
+  1274→receiving unrestricted business data.
+  1275→
+  1276→------------------------------------------------------------------------
+  1277→
+  1278→# 60. Global Configuration
+  1279→
+  1280→Some configuration is global:
+  1281→
+  1282→``` text
+  1283→feature definitions
+  1284→domain catalog
+  1285→system policies
+  1286→model catalog
+  1287→platform settings
+  1288→```
+  1289→
+  1290→Tenant overrides should be explicit:
+  1291→
+  1292→``` text
+  1293→Global Default
+  1294→ ↓
+  1295→Domain Default
+  1296→ ↓
+  1297→Organization Override
+  1298→```
+  1299→
+  1300→------------------------------------------------------------------------
+  1301→
+  1302→# 61. Multi-Brand Data
+  1303→
+  1304→An organization may own multiple brands.
+  1305→
+  1306→Data model:
+  1307→
+  1308→``` text
+  1309→Organization
+  1310→ ├── Brand A
+  1311→ │    ├── Location
+  1312→ │    └── Domain Data
+  1313→ └── Brand B
+  1314→      ├── Location
+  1315→      └── Domain Data
+  1316→```
+  1317→
+  1318→Permissions may be organization-wide, brand-specific or
+  1319→location-specific.
+  1320→
+  1321→------------------------------------------------------------------------
+  1322→
+  1323→# 62. Multi-Location Data
+  1324→
+  1325→A user may have:
+  1326→
+  1327→``` text
+  1328→organization access
+  1329→brand access
+  1330→location access
+  1331→```
+  1332→
+  1333→Policies must support scoped permissions without creating tenant
+  1334→leakage.
+  1335→
+  1336→------------------------------------------------------------------------
+  1337→
+  1338→# 63. Domain Data Sharing
+  1339→
+  1340→Cross-domain sharing should occur through explicit contracts.
+  1341→
+  1342→Example:
+  1343→
+  1344→``` text
+  1345→Restaurant
+  1346→ ↓
+  1347→Finance Core
+  1348→```
+  1349→
+  1350→not:
+  1351→
+  1352→``` text
+  1353→Restaurant directly reads arbitrary finance tables
+  1354→```
+  1355→
+  1356→Use:
+  1357→
+  1358→``` text
+  1359→service interfaces
+  1360→events
+  1361→read models
+  1362→approved views
+  1363→```
+  1364→
+  1365→------------------------------------------------------------------------
+  1366→
+  1367→# 64. Domain Data Ownership
+  1368→
+  1369→Each domain owns its business logic and canonical data.
+  1370→
+  1371→Example:
+  1372→
+  1373→``` text
+  1374→Poultry OS owns:
+  1375→flocks
+  1376→farms
+  1377→feed operations
+  1378→poultry workflows
+  1379→```
+  1380→
+  1381→Core may store:
+  1382→
+  1383→``` text
+  1384→organization
+  1385→billing
+  1386→identity
+  1387→entitlements
+  1388→AI infrastructure
+  1389→```
+  1390→
+  1391→------------------------------------------------------------------------
+  1392→
+  1393→# 65. Reporting / Read Models
+  1394→
+  1395→Cross-domain dashboards may use dedicated read models.
+  1396→
+  1397→``` text
+  1398→Domain Data
+  1399→ ↓
+  1400→Events / ETL
+  1401→ ↓
+  1402→Read Model
+  1403→ ↓
+  1404→Dashboard
+  1405→```
+  1406→
+  1407→This avoids tightly coupling domain databases to reporting queries.
+  1408→
+  1409→------------------------------------------------------------------------
+  1410→
+  1411→# 66. Event-Driven Data Integration
+  1412→
+  1413→Use the previously defined Event Platform for:
+  1414→
+  1415→``` text
+  1416→domain changes
+  1417→analytics
+  1418→AI triggers
+  1419→notifications
+  1420→integration synchronization
+  1421→```
+  1422→
+  1423→Database remains authoritative; events communicate facts about changes.
+  1424→
+  1425→------------------------------------------------------------------------
+  1426→
+  1427→# 67. Data Lineage
+  1428→
+  1429→Important analytical and AI data should preserve lineage.
+  1430→
+  1431→Example:
+  1432→
+  1433→``` text
+  1434→AI Recommendation
+  1435→ ↓
+  1436→Source Records
+  1437→ ↓
+  1438→Source Document
+  1439→ ↓
+  1440→Source Version
+  1441→```
+  1442→
+  1443→This improves explainability and debugging.
+  1444→
+  1445→------------------------------------------------------------------------
+  1446→
+  1447→# 68. Data Quality
+  1448→
+  1449→Critical data pipelines should monitor:
+  1450→
+  1451→``` text
+  1452→completeness
+  1453→validity
+  1454→uniqueness
+  1455→consistency
+  1456→timeliness
+  1457→referential integrity
+  1458→```
+  1459→
+  1460→Domain-specific data-quality rules belong to the domain.
+  1461→
+  1462→------------------------------------------------------------------------
+  1463→
+  1464→# 69. Data Lifecycle
+  1465→
+  1466→Generic lifecycle:
+  1467→
+  1468→``` text
+  1469→Create
+  1470→ ↓
+  1471→Active
+  1472→ ↓
+  1473→Updated
+  1474→ ↓
+  1475→Archived
+  1476→ ↓
+  1477→Retention
+  1478→ ↓
+  1479→Delete / Anonymize
+  1480→```
+  1481→
+  1482→Lifecycle differs by data class and legal/business requirement.
+  1483→
+  1484→------------------------------------------------------------------------
+  1485→
+  1486→# 70. Tenant Offboarding
+  1487→
+  1488→When an organization leaves Mianx:
+  1489→
+  1490→``` text
+  1491→Suspend
+  1492→ ↓
+  1493→Export if required
+  1494→ ↓
+  1495→Retention period
+  1496→ ↓
+  1497→Delete / Anonymize
+  1498→ ↓
+  1499→Remove credentials
+  1500→ ↓
+  1501→Verify cleanup
+  1502→```
+  1503→
+  1504→Offboarding must cover:
+  1505→
+  1506→``` text
+  1507→database
+  1508→objects
+  1509→AI memory
+  1510→AI knowledge
+  1511→vectors
+  1512→integrations
+  1513→webhooks
+  1514→cache
+  1515→search indexes
+  1516→backups according to retention policy
+  1517→```
+  1518→
+  1519→------------------------------------------------------------------------
+  1520→
+  1521→# 71. Tenant Onboarding
+  1522→
+  1523→Provisioning should create:
+  1524→
+  1525→``` text
+  1526→organization
+  1527→membership
+  1528→domain activation
+  1529→entitlements
+  1530→default configuration
+  1531→storage namespace
+  1532→integration state
+  1533→AI configuration
+  1534→```
+  1535→
+  1536→Avoid manually creating database structures per tenant.
+  1537→
+  1538→------------------------------------------------------------------------
+  1539→
+  1540→# 72. Tenant Health Data
+  1541→
+  1542→Core operational views can combine:
+  1543→
+  1544→``` text
+  1545→database activity
+  1546→API usage
+  1547→workflow health
+  1548→integration health
+  1549→AI usage
+  1550→billing
+  1551→```
+  1552→
+  1553→These are observability views, not necessarily source-of-truth business
+  1554→tables.
+  1555→
+  1556→------------------------------------------------------------------------
+  1557→
+  1558→# 73. Scaling Path
+  1559→
+  1560→Initial:
+  1561→
+  1562→``` text
+  1563→Single PostgreSQL platform
+  1564→+
+  1565→Redis
+  1566→+
+  1567→Object Storage
+  1568→```
+  1569→
+  1570→Growth:
+  1571→
+  1572→``` text
+  1573→Connection pooling
+  1574→+
+  1575→Read replicas
+  1576→+
+  1577→Partitioning
+  1578→+
+  1579→Analytics warehouse
+  1580→```
+  1581→
+  1582→Large-scale:
+  1583→
+  1584→``` text
+  1585→Regional data
+  1586→+
+  1587→Domain-specific clusters
+  1588→+
+  1589→Dedicated high-volume workloads
+  1590→```
+  1591→
+  1592→Migration should be driven by measured bottlenecks.
+  1593→
+  1594→------------------------------------------------------------------------
+  1595→
+  1596→# 74. Data Architecture Definition of Done
+  1597→
+  1598→``` text
+  1599→✓ Organization model
+  1600→✓ Membership model
+  1601→✓ Domain registry
+  1602→✓ Domain activation
+  1603→✓ Tenant ownership
+  1604→✓ RLS strategy
+  1605→✓ API grants strategy
+  1606→✓ Core/domain boundaries
+  1607→✓ IDs
+  1608→✓ Foreign keys
+  1609→✓ Constraints
+  1610→✓ Index strategy
+  1611→✓ Transactions
+  1612→✓ Concurrency
+  1613→✓ Redis role
+  1614→✓ Object storage
+  1615→✓ Search
+  1616→✓ Vector architecture
+  1617→✓ AI memory
+  1618→✓ AI knowledge
+  1619→✓ Audit data
+  1620→✓ Data classification
+  1621→✓ Secrets strategy
+  1622→✓ Encryption
+  1623→✓ Backups
+  1624→✓ Disaster recovery
+  1625→✓ Migration strategy
+  1626→✓ Connection pooling
+  1627→✓ Prisma/data access boundary
+  1628→✓ Cross-domain contracts
+  1629→✓ Data lifecycle
+  1630→✓ Tenant onboarding
+  1631→✓ Tenant offboarding
+  1632→✓ Scaling path
+  1633→```
+  1634→
+  1635→------------------------------------------------------------------------
+  1636→
+  1637→# 75. Implementation Order
+  1638→
+  1639→``` text
+  1640→1. Organization + membership
+  1641→2. Domain registry
+  1642→3. Tenant ownership model
+  1643→4. Core schemas
+  1644→5. Domain schemas
+  1645→6. Foreign keys / constraints
+  1646→7. RLS
+  1647→8. Authorization data model
+  1648→9. Data access layer
+  1649→10. Indexes
+  1650→11. Redis
+  1651→12. Object storage
+  1652→13. Search
+  1653→14. Vector / AI storage
+  1654→15. Audit
+  1655→16. Migrations
+  1656→17. Backups
+  1657→18. Restore testing
+  1658→19. Analytics boundary
+  1659→20. Scaling controls
+  1660→21. Tenant lifecycle automation
+  1661→```
+  1662→
+  1663→------------------------------------------------------------------------
+  1664→
+  1665→# 76. Final Data Principle
+  1666→
+  1667→> **One Mianx data foundation, strict tenant isolation, explicit domain
+  1668→> ownership, and a controlled path from transactional data to AI,
+  1669→> analytics and integrations.**
+  1670→
+  1671→``` text
+  1672→              MIANX DATA PLATFORM
+  1673→                       │
+  1674→                ORGANIZATION
+  1675→                       │
+  1676→          ┌────────────┼────────────┐
+  1677→          ↓            ↓            ↓
+  1678→       POULTRY      RESTAURANT    RETAIL
+  1679→          │            │            │
+  1680→          └────────────┼────────────┘
+  1681→                       ↓
+  1682→                CORE SERVICES
+  1683→                       ↓
+  1684→        AI | Analytics | Integrations
+  1685→```
+  1686→
+  1687→------------------------------------------------------------------------
+  1688→
+  1689→# 77. Next Technical Deliverable
+  1690→
+  1691→Next:
+  1692→
+  1693→# MIANX.AI CORE --- SECURITY, IDENTITY, RBAC/ABAC & GOVERNANCE SPECIFICATION v1.0
+  1694→
+  1695→It will define:
+  1696→
+  1697→-   Identity architecture
+  1698→-   Authentication
+  1699→-   Sessions
+  1700→-   MFA
+  1701→-   Organizations
+  1702→-   Roles
+  1703→-   Permissions
+  1704→-   RBAC
+  1705→-   ABAC
+  1706→-   Domain permissions
+  1707→-   Location/branch permissions
+  1708→-   Service identities
+  1709→-   AI identities
+  1710→-   API authorization
+  1711→-   RLS relationship
+  1712→-   Secrets
+  1713→-   Security policies
+  1714→-   Audit
+  1715→-   Security events
+  1716→-   Threat model
+  1717→-   Tenant isolation controls
+  1718→-   Data protection
+  1719→-   Admin/Super Admin security
+  1720→-   Incident/security response
+  1721→

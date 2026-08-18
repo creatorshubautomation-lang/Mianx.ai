@@ -1,0 +1,1274 @@
+     1→# MIANX.AI CORE --- SECURITY, IDENTITY & GOVERNANCE SPECIFICATION v1.0
+     2→
+     3→**Product:** Mianx.ai\
+     4→**Document:** Security, Identity & Governance\
+     5→**Version:** 1.0\
+     6→**Status:** Architecture / Pre-Implementation\
+     7→**Purpose:** Define the security, identity, authorization, policy and
+     8→governance foundation inherited by every Mianx.ai domain.
+     9→
+    10→------------------------------------------------------------------------
+    11→
+    12→# 1. Purpose
+    13→
+    14→Mianx.ai is a multi-tenant business operating system. Security therefore
+    15→cannot be implemented independently inside Poultry OS, Restaurant OS,
+    16→Retail OS, or future domains.
+    17→
+    18→The Core provides one security foundation:
+    19→
+    20→``` text
+    21→Identity
+    22→   ↓
+    23→Authentication
+    24→   ↓
+    25→Organization Membership
+    26→   ↓
+    27→Authorization
+    28→   ↓
+    29→Policy Engine
+    30→   ↓
+    31→Domain Access
+    32→   ↓
+    33→Data / AI / Workflow / Integrations
+    34→   ↓
+    35→Audit
+    36→```
+    37→
+    38→------------------------------------------------------------------------
+    39→
+    40→# 2. Security Constitution
+    41→
+    42→1.  Deny by default.
+    43→2.  Least privilege is the default.
+    44→3.  Authentication establishes identity.
+    45→4.  Authorization establishes what that identity may do.
+    46→5.  Organization context is always explicit and trusted.
+    47→6.  Backend authorization is authoritative.
+    48→7.  AI agents receive scoped capabilities, not unrestricted access.
+    49→8.  Secrets never enter user-visible interfaces or model context.
+    50→9.  Sensitive actions are auditable.
+    51→10. Security controls are inherited by every domain.
+    52→
+    53→------------------------------------------------------------------------
+    54→
+    55→# 3. Identity Model
+    56→
+    57→Core identity entities:
+    58→
+    59→``` text
+    60→users
+    61→organizations
+    62→organization_members
+    63→roles
+    64→permissions
+    65→sessions
+    66→credentials
+    67→```
+    68→
+    69→Conceptually:
+    70→
+    71→``` text
+    72→User
+    73→ ├── Membership → Organization A
+    74→ ├── Membership → Organization B
+    75→ └── Sessions
+    76→```
+    77→
+    78→A user identity is separate from any particular organization.
+    79→
+    80→------------------------------------------------------------------------
+    81→
+    82→# 4. Authentication
+    83→
+    84→Authentication answers:
+    85→
+    86→> Who are you?
+    87→
+    88→Supported architecture may include:
+    89→
+    90→``` text
+    91→email/password
+    92→passwordless
+    93→OAuth / social identity
+    94→enterprise SSO
+    95→API keys
+    96→service credentials
+    97→```
+    98→
+    99→The initial product may launch with a narrower set and expand later.
+   100→
+   101→------------------------------------------------------------------------
+   102→
+   103→# 5. Password Security
+   104→
+   105→If passwords are supported:
+   106→
+   107→-   Never store plaintext passwords.
+   108→-   Use a modern password hashing algorithm.
+   109→-   Apply rate limiting.
+   110→-   Support password reset.
+   111→-   Avoid account enumeration.
+   112→-   Log security-relevant authentication events.
+   113→
+   114→------------------------------------------------------------------------
+   115→
+   116→# 6. Session Architecture
+   117→
+   118→A session represents an authenticated user context.
+   119→
+   120→Conceptual:
+   121→
+   122→``` text
+   123→sessions
+   124→ ├── id
+   125→ ├── user_id
+   126→ ├── created_at
+   127→ ├── expires_at
+   128→ ├── last_seen_at
+   129→ ├── revoked_at
+   130→ └── metadata
+   131→```
+   132→
+   133→Sessions must support revocation.
+   134→
+   135→------------------------------------------------------------------------
+   136→
+   137→# 7. Session Security
+   138→
+   139→Important controls:
+   140→
+   141→``` text
+   142→secure cookies where applicable
+   143→HTTPS
+   144→expiration
+   145→revocation
+   146→idle timeout where appropriate
+   147→device/session visibility
+   148→re-authentication for sensitive actions
+   149→```
+   150→
+   151→Do not place long-lived secrets unnecessarily in browser storage.
+   152→
+   153→------------------------------------------------------------------------
+   154→
+   155→# 8. Organization Membership
+   156→
+   157→Membership connects a user to an organization.
+   158→
+   159→``` text
+   160→organization_members
+   161→ ├── organization_id
+   162→ ├── user_id
+   163→ ├── role_id
+   164→ ├── status
+   165→ └── permissions context
+   166→```
+   167→
+   168→A user can access an organization only through valid membership or an
+   169→explicitly authorized service context.
+   170→
+   171→------------------------------------------------------------------------
+   172→
+   173→# 9. Organization Roles
+   174→
+   175→Example roles:
+   176→
+   177→``` text
+   178→Owner
+   179→Admin
+   180→Manager
+   181→Operator
+   182→Viewer
+   183→```
+   184→
+   185→Roles are templates of permissions, not security boundaries by
+   186→themselves.
+   187→
+   188→------------------------------------------------------------------------
+   189→
+   190→# 10. RBAC
+   191→
+   192→Role-Based Access Control provides baseline permissions.
+   193→
+   194→Example:
+   195→
+   196→``` text
+   197→Farm Manager
+   198→ ├── poultry.farm.read
+   199→ ├── poultry.flock.read
+   200→ ├── poultry.flock.write
+   201→ └── poultry.report.read
+   202→```
+   203→
+   204→RBAC should cover common operational patterns.
+   205→
+   206→------------------------------------------------------------------------
+   207→
+   208→# 11. ABAC / Policy Conditions
+   209→
+   210→Some permissions require context.
+   211→
+   212→Examples:
+   213→
+   214→``` text
+   215→User can approve purchases
+   216→ONLY when:
+   217→organization matches
+   218→AND amount <= approval limit
+   219→AND user has approval capability
+   220→```
+   221→
+   222→This requires policy conditions beyond simple roles.
+   223→
+   224→------------------------------------------------------------------------
+   225→
+   226→# 12. Policy Engine
+   227→
+   228→Conceptual:
+   229→
+   230→``` text
+   231→Subject
+   232→   +
+   233→Action
+   234→   +
+   235→Resource
+   236→   +
+   237→Context
+   238→   ↓
+   239→Policy Engine
+   240→   ↓
+   241→Allow / Deny / Require Approval
+   242→```
+   243→
+   244→Context may include:
+   245→
+   246→``` text
+   247→organization
+   248→domain
+   249→resource
+   250→amount
+   251→location
+   252→time
+   253→risk level
+   254→workflow state
+   255→```
+   256→
+   257→------------------------------------------------------------------------
+   258→
+   259→# 13. Permission Naming
+   260→
+   261→Use predictable permission names.
+   262→
+   263→Example:
+   264→
+   265→``` text
+   266→domain.resource.action
+   267→```
+   268→
+   269→Examples:
+   270→
+   271→``` text
+   272→poultry.flock.read
+   273→poultry.flock.create
+   274→poultry.flock.update
+   275→poultry.flock.delete
+   276→poultry.purchase.approve
+   277→inventory.stock.write
+   278→```
+   279→
+   280→------------------------------------------------------------------------
+   281→
+   282→# 14. Permission Levels
+   283→
+   284→The platform may support:
+   285→
+   286→``` text
+   287→read
+   288→create
+   289→update
+   290→delete
+   291→approve
+   292→execute
+   293→export
+   294→admin
+   295→```
+   296→
+   297→Sensitive capabilities should be explicit rather than hidden inside
+   298→broad permissions.
+   299→
+   300→------------------------------------------------------------------------
+   301→
+   302→# 15. Resource Authorization
+   303→
+   304→Permission alone is not enough.
+   305→
+   306→Example:
+   307→
+   308→``` text
+   309→poultry.flock.read
+   310→```
+   311→
+   312→must still verify:
+   313→
+   314→``` text
+   315→flock.organization_id == active organization
+   316→```
+   317→
+   318→and any required farm/site scope.
+   319→
+   320→------------------------------------------------------------------------
+   321→
+   322→# 16. Scope Hierarchy
+   323→
+   324→Authorization may use:
+   325→
+   326→``` text
+   327→Platform
+   328→Organization
+   329→Brand
+   330→Location
+   331→Domain
+   332→Resource
+   333→```
+   334→
+   335→Example:
+   336→
+   337→``` text
+   338→Organization-wide manager
+   339→Farm-specific operator
+   340→Read-only reporting user
+   341→```
+   342→
+   343→------------------------------------------------------------------------
+   344→
+   345→# 17. Tenant Isolation
+   346→
+   347→Security boundary:
+   348→
+   349→``` text
+   350→User
+   351→ ↓
+   352→Organization Membership
+   353→ ↓
+   354→Organization Context
+   355→ ↓
+   356→RLS / Service Authorization
+   357→ ↓
+   358→Domain Resource
+   359→```
+   360→
+   361→Never trust:
+   362→
+   363→``` text
+   364→organization_id
+   365→```
+   366→
+   367→from an untrusted request body.
+   368→
+   369→------------------------------------------------------------------------
+   370→
+   371→# 18. Cross-Tenant Security
+   372→
+   373→Mandatory tests:
+   374→
+   375→``` text
+   376→A cannot read B
+   377→A cannot modify B
+   378→A cannot delete B
+   379→A cannot export B
+   380→A cannot access B files
+   381→A cannot access B AI memory
+   382→A cannot trigger B workflow
+   383→A cannot invoke B integration
+   384→```
+   385→
+   386→------------------------------------------------------------------------
+   387→
+   388→# 19. Domain Security
+   389→
+   390→Domains inherit Core security.
+   391→
+   392→Poultry should not create a second independent identity system.
+   393→
+   394→Instead:
+   395→
+   396→``` text
+   397→Mianx Identity
+   398→       ↓
+   399→Core Authorization
+   400→       ↓
+   401→Poultry Permissions
+   402→       ↓
+   403→Poultry Resources
+   404→```
+   405→
+   406→------------------------------------------------------------------------
+   407→
+   408→# 20. AI Security Principal
+   409→
+   410→Every AI agent should execute under an explicit principal.
+   411→
+   412→Conceptually:
+   413→
+   414→``` text
+   415→AI Agent
+   416→ ├── organization scope
+   417→ ├── domain scope
+   418→ ├── role/capability
+   419→ ├── tool permissions
+   420→ └── risk policy
+   421→```
+   422→
+   423→AI does not become an unrestricted administrator simply because it can
+   424→reason.
+   425→
+   426→------------------------------------------------------------------------
+   427→
+   428→# 21. AI Tool Authorization
+   429→
+   430→Before an AI tool executes:
+   431→
+   432→``` text
+   433→Agent Identity
+   434→ ↓
+   435→Requested Tool
+   436→ ↓
+   437→Organization Scope
+   438→ ↓
+   439→Permission
+   440→ ↓
+   441→Policy
+   442→ ↓
+   443→Risk Check
+   444→ ↓
+   445→Execute / Deny / Approval
+   446→```
+   447→
+   448→------------------------------------------------------------------------
+   449→
+   450→# 22. AI High-Risk Actions
+   451→
+   452→Examples:
+   453→
+   454→``` text
+   455→financial transfer
+   456→large purchase
+   457→delete business data
+   458→change user permissions
+   459→disconnect integration
+   460→send mass communication
+   461→```
+   462→
+   463→These may require:
+   464→
+   465→``` text
+   466→human approval
+   467→higher permission
+   468→step-up authentication
+   469→additional policy checks
+   470→```
+   471→
+   472→------------------------------------------------------------------------
+   473→
+   474→# 23. Human Approval
+   475→
+   476→For high-risk AI operations:
+   477→
+   478→``` text
+   479→AI Recommendation
+   480→ ↓
+   481→Policy
+   482→ ↓
+   483→Approval Request
+   484→ ↓
+   485→Human
+   486→ ├── Approve
+   487→ └── Reject
+   488→ ↓
+   489→Action
+   490→```
+   491→
+   492→Approval must be bound to the exact proposed action and scope.
+   493→
+   494→------------------------------------------------------------------------
+   495→
+   496→# 24. Step-Up Authentication
+   497→
+   498→Sensitive actions may require re-authentication.
+   499→
+   500→Examples:
+   501→
+   502→``` text
+   503→change owner
+   504→export sensitive data
+   505→rotate critical credentials
+   506→delete organization
+   507→approve high-value transaction
+   508→```
+   509→
+   510→------------------------------------------------------------------------
+   511→
+   512→# 25. MFA Readiness
+   513→
+   514→The architecture should support:
+   515→
+   516→``` text
+   517→TOTP
+   518→security keys / passkeys
+   519→backup codes
+   520→enterprise identity provider MFA
+   521→```
+   522→
+   523→MFA should be enforceable by organization policy when implemented.
+   524→
+   525→------------------------------------------------------------------------
+   526→
+   527→# 26. API Security
+   528→
+   529→API security inherits the same authorization system.
+   530→
+   531→``` text
+   532→API Credential
+   533→ ↓
+   534→Identity / Integration
+   535→ ↓
+   536→Organization Scope
+   537→ ↓
+   538→Scopes
+   539→ ↓
+   540→Policy
+   541→ ↓
+   542→Domain Service
+   543→```
+   544→
+   545→API keys should be:
+   546→
+   547→-   scoped
+   548→-   revocable
+   549→-   expirable where appropriate
+   550→-   auditable
+   551→
+   552→------------------------------------------------------------------------
+   553→
+   554→# 27. Integration Security
+   555→
+   556→External integrations receive only required capabilities.
+   557→
+   558→Example:
+   559→
+   560→``` text
+   561→WhatsApp Integration
+   562→ ├── message.send
+   563→ └── message.receive
+   564→```
+   565→
+   566→It should not automatically receive:
+   567→
+   568→``` text
+   569→database.admin
+   570→user.manage
+   571→financial.approve
+   572→```
+   573→
+   574→------------------------------------------------------------------------
+   575→
+   576→# 28. Secrets Management
+   577→
+   578→Secrets include:
+   579→
+   580→``` text
+   581→API keys
+   582→OAuth tokens
+   583→refresh tokens
+   584→database credentials
+   585→provider secrets
+   586→encryption keys
+   587→webhook secrets
+   588→```
+   589→
+   590→Rules:
+   591→
+   592→``` text
+   593→Never log secrets
+   594→Never expose secrets to frontend
+   595→Never put secrets in AI prompts
+   596→Never commit secrets to source control
+   597→Rotate where possible
+   598→Revoke when compromised
+   599→```
+   600→
+   601→------------------------------------------------------------------------
+   602→
+   603→# 29. Secret Access
+   604→
+   605→Application services should retrieve secrets only when needed.
+   606→
+   607→Prefer:
+   608→
+   609→``` text
+   610→Service
+   611→ ↓
+   612→Secret Manager
+   613→ ↓
+   614→Secret
+   615→ ↓
+   616→External Request
+   617→```
+   618→
+   619→rather than storing raw secrets throughout application configuration.
+   620→
+   621→------------------------------------------------------------------------
+   622→
+   623→# 30. Audit Logging
+   624→
+   625→Security-sensitive events must be auditable.
+   626→
+   627→Examples:
+   628→
+   629→``` text
+   630→login
+   631→logout
+   632→failed login
+   633→session revoked
+   634→role changed
+   635→permission changed
+   636→API key created
+   637→API key revoked
+   638→integration connected
+   639→integration disconnected
+   640→AI action approved
+   641→AI action executed
+   642→data export
+   643→organization setting changed
+   644→```
+   645→
+   646→------------------------------------------------------------------------
+   647→
+   648→# 31. Audit Integrity
+   649→
+   650→Audit records should be:
+   651→
+   652→``` text
+   653→append-oriented
+   654→timestamped
+   655→organization-scoped
+   656→actor-attributed
+   657→correlated
+   658→protected from ordinary mutation
+   659→```
+   660→
+   661→Administrative access to audit data must itself be audited.
+   662→
+   663→------------------------------------------------------------------------
+   664→
+   665→# 32. Security Event Severity
+   666→
+   667→Conceptual severity:
+   668→
+   669→``` text
+   670→INFO
+   671→LOW
+   672→MEDIUM
+   673→HIGH
+   674→CRITICAL
+   675→```
+   676→
+   677→Examples:
+   678→
+   679→``` text
+   680→INFO: successful login
+   681→MEDIUM: repeated failed login
+   682→HIGH: suspicious credential activity
+   683→CRITICAL: confirmed tenant isolation breach
+   684→```
+   685→
+   686→------------------------------------------------------------------------
+   687→
+   688→# 33. Security Incident Model
+   689→
+   690→Security incidents should have:
+   691→
+   692→``` text
+   693→incident_id
+   694→severity
+   695→status
+   696→detected_at
+   697→source
+   698→affected_scope
+   699→description
+   700→owner
+   701→actions
+   702→resolved_at
+   703→```
+   704→
+   705→Lifecycle:
+   706→
+   707→``` text
+   708→Detected
+   709→ ↓
+   710→Triaged
+   711→ ↓
+   712→Contained
+   713→ ↓
+   714→Remediated
+   715→ ↓
+   716→Resolved
+   717→ ↓
+   718→Reviewed
+   719→```
+   720→
+   721→------------------------------------------------------------------------
+   722→
+   723→# 34. Incident Response
+   724→
+   725→Prepare procedures for:
+   726→
+   727→``` text
+   728→credential compromise
+   729→tenant isolation failure
+   730→data exposure
+   731→malicious integration
+   732→account takeover
+   733→abusive API usage
+   734→AI unsafe action
+   735→suspicious admin activity
+   736→```
+   737→
+   738→------------------------------------------------------------------------
+   739→
+   740→# 35. Account Recovery
+   741→
+   742→Recovery must balance usability and security.
+   743→
+   744→Support architecture for:
+   745→
+   746→``` text
+   747→password reset
+   748→email verification
+   749→MFA recovery
+   750→session revocation
+   751→admin-assisted recovery
+   752→identity-provider recovery
+   753→```
+   754→
+   755→Sensitive ownership changes require stronger verification.
+   756→
+   757→------------------------------------------------------------------------
+   758→
+   759→# 36. Admin Security
+   760→
+   761→Mianx Platform Admin is a separate high-privilege security surface.
+   762→
+   763→Admin controls should include:
+   764→
+   765→``` text
+   766→strong authentication
+   767→restricted access
+   768→audit
+   769→least privilege
+   770→session controls
+   771→dangerous-action confirmation
+   772→```
+   773→
+   774→Platform administrators should not automatically have unrestricted
+   775→access to customer business data without an explicit authorized
+   776→mechanism.
+   777→
+   778→------------------------------------------------------------------------
+   779→
+   780→# 37. Support Access
+   781→
+   782→If support personnel need temporary access:
+   783→
+   784→``` text
+   785→Support Request
+   786→ ↓
+   787→Reason
+   788→ ↓
+   789→Scoped Permission
+   790→ ↓
+   791→Time Limit
+   792→ ↓
+   793→Access
+   794→ ↓
+   795→Audit
+   796→ ↓
+   797→Automatic Expiration
+   798→```
+   799→
+   800→Avoid permanent support backdoors.
+   801→
+   802→------------------------------------------------------------------------
+   803→
+   804→# 38. Data Export
+   805→
+   806→Exports should require authorization.
+   807→
+   808→For sensitive exports:
+   809→
+   810→``` text
+   811→Permission
+   812→ ↓
+   813→Policy
+   814→ ↓
+   815→Optional approval
+   816→ ↓
+   817→Generate export
+   818→ ↓
+   819→Audit
+   820→ ↓
+   821→Controlled download
+   822→```
+   823→
+   824→Export links should expire.
+   825→
+   826→------------------------------------------------------------------------
+   827→
+   828→# 39. Data Deletion
+   829→
+   830→Deletion policies must consider:
+   831→
+   832→``` text
+   833→business records
+   834→audit requirements
+   835→legal retention
+   836→dependencies
+   837→files
+   838→AI memory
+   839→events
+   840→backups
+   841→```
+   842→
+   843→A delete request should not silently bypass required retention.
+   844→
+   845→------------------------------------------------------------------------
+   846→
+   847→# 40. Privacy Boundaries
+   848→
+   849→Mianx should define access by:
+   850→
+   851→``` text
+   852→identity
+   853→organization
+   854→role
+   855→resource
+   856→purpose
+   857→domain
+   858→```
+   859→
+   860→Only necessary information should be presented to a user or agent.
+   861→
+   862→------------------------------------------------------------------------
+   863→
+   864→# 41. AI Data Minimization
+   865→
+   866→AI context should include only what the task requires.
+   867→
+   868→Example:
+   869→
+   870→``` text
+   871→User asks:
+   872→"Analyze flock 123."
+   873→```
+   874→
+   875→Agent should receive authorized flock-related context, not an
+   876→unrestricted dump of the entire organization database.
+   877→
+   878→------------------------------------------------------------------------
+   879→
+   880→# 42. Prompt Injection Defense
+   881→
+   882→External content may be untrusted.
+   883→
+   884→Treat as untrusted:
+   885→
+   886→``` text
+   887→uploaded documents
+   888→web content
+   889→customer messages
+   890→integration payloads
+   891→database text fields
+   892→```
+   893→
+   894→Never allow retrieved content to override system-level security
+   895→policies.
+   896→
+   897→------------------------------------------------------------------------
+   898→
+   899→# 43. Tool Safety
+   900→
+   901→Tools should declare:
+   902→
+   903→``` text
+   904→required permission
+   905→risk level
+   906→input schema
+   907→output schema
+   908→side effects
+   909→approval requirement
+   910→```
+   911→
+   912→Example:
+   913→
+   914→``` text
+   915→create_purchase_order
+   916→risk: HIGH
+   917→permission: poultry.purchase.create
+   918→approval: required above configured threshold
+   919→```
+   920→
+   921→------------------------------------------------------------------------
+   922→
+   923→# 44. Policy Engine Outcomes
+   924→
+   925→A policy decision may return:
+   926→
+   927→``` text
+   928→ALLOW
+   929→DENY
+   930→REQUIRE_APPROVAL
+   931→REQUIRE_STEP_UP_AUTH
+   932→```
+   933→
+   934→This gives workflows and AI a consistent security interface.
+   935→
+   936→------------------------------------------------------------------------
+   937→
+   938→# 45. Governance
+   939→
+   940→Governance controls:
+   941→
+   942→``` text
+   943→who may do what
+   944→where
+   945→to which resources
+   946→under what conditions
+   947→with what approval
+   948→for how long
+   949→```
+   950→
+   951→This becomes increasingly important as Mianx becomes autonomous.
+   952→
+   953→------------------------------------------------------------------------
+   954→
+   955→# 46. Feature and Policy Separation
+   956→
+   957→Feature flags answer:
+   958→
+   959→> Is this capability enabled?
+   960→
+   961→Permissions answer:
+   962→
+   963→> Is this actor allowed to use it?
+   964→
+   965→Policy answers:
+   966→
+   967→> Is this specific operation allowed under these conditions?
+   968→
+   969→These must remain separate concepts.
+   970→
+   971→------------------------------------------------------------------------
+   972→
+   973→# 47. Security Configuration
+   974→
+   975→Organization security settings may eventually include:
+   976→
+   977→``` text
+   978→MFA required
+   979→session duration
+   980→password policy
+   981→allowed integrations
+   982→API restrictions
+   983→export restrictions
+   984→AI autonomy limits
+   985→approval thresholds
+   986→```
+   987→
+   988→Configuration changes must be audited.
+   989→
+   990→------------------------------------------------------------------------
+   991→
+   992→# 48. AI Autonomy Levels
+   993→
+   994→A useful governance model:
+   995→
+   996→``` text
+   997→Level 0 — Observe
+   998→Level 1 — Recommend
+   999→Level 2 — Draft
+  1000→Level 3 — Execute low-risk actions
+  1001→Level 4 — Execute approved operational actions
+  1002→Level 5 — Highly autonomous within strict policy
+  1003→```
+  1004→
+  1005→Organizations can configure allowed autonomy by agent/domain.
+  1006→
+  1007→------------------------------------------------------------------------
+  1008→
+  1009→# 49. Risk Classification
+  1010→
+  1011→Actions can be classified:
+  1012→
+  1013→``` text
+  1014→LOW
+  1015→MEDIUM
+  1016→HIGH
+  1017→CRITICAL
+  1018→```
+  1019→
+  1020→Examples:
+  1021→
+  1022→``` text
+  1023→LOW:
+  1024→generate report
+  1025→
+  1026→MEDIUM:
+  1027→send individual notification
+  1028→
+  1029→HIGH:
+  1030→create large purchase
+  1031→
+  1032→CRITICAL:
+  1033→change organization ownership
+  1034→```
+  1035→
+  1036→Risk classification feeds policy and approval.
+  1037→
+  1038→------------------------------------------------------------------------
+  1039→
+  1040→# 50. Security Boundaries for Workflows
+  1041→
+  1042→A workflow cannot grant itself more permission.
+  1043→
+  1044→``` text
+  1045→Workflow
+  1046→ ↓
+  1047→Declared capability
+  1048→ ↓
+  1049→Policy
+  1050→ ↓
+  1051→Authorization
+  1052→ ↓
+  1053→Action
+  1054→```
+  1055→
+  1056→Workflow configuration is not a privilege escalation mechanism.
+  1057→
+  1058→------------------------------------------------------------------------
+  1059→
+  1060→# 51. Governance for Integrations
+  1061→
+  1062→An integration should declare:
+  1063→
+  1064→``` text
+  1065→data accessed
+  1066→actions available
+  1067→required scopes
+  1068→risk
+  1069→webhooks
+  1070→credential type
+  1071→retention
+  1072→```
+  1073→
+  1074→Organizations should be able to disconnect integrations.
+  1075→
+  1076→------------------------------------------------------------------------
+  1077→
+  1078→# 52. Governance for AI Agents
+  1079→
+  1080→Agent registration should include:
+  1081→
+  1082→``` text
+  1083→agent_id
+  1084→owner
+  1085→organization/domain scope
+  1086→purpose
+  1087→tools
+  1088→permissions
+  1089→autonomy level
+  1090→risk policy
+  1091→model policy
+  1092→audit policy
+  1093→```
+  1094→
+  1095→Agents should not be able to silently acquire new tools.
+  1096→
+  1097→------------------------------------------------------------------------
+  1098→
+  1099→# 53. Security Observability
+  1100→
+  1101→Monitor:
+  1102→
+  1103→``` text
+  1104→authentication failures
+  1105→authorization denials
+  1106→unusual API usage
+  1107→credential rotation
+  1108→integration failures
+  1109→AI policy denials
+  1110→high-risk actions
+  1111→admin actions
+  1112→tenant isolation errors
+  1113→security incidents
+  1114→```
+  1115→
+  1116→------------------------------------------------------------------------
+  1117→
+  1118→# 54. Security Testing
+  1119→
+  1120→Required testing categories:
+  1121→
+  1122→``` text
+  1123→authentication tests
+  1124→authorization tests
+  1125→RBAC tests
+  1126→ABAC/policy tests
+  1127→tenant isolation tests
+  1128→RLS tests
+  1129→API security tests
+  1130→session tests
+  1131→secret exposure tests
+  1132→AI tool authorization tests
+  1133→prompt-injection resilience tests
+  1134→integration security tests
+  1135→audit tests
+  1136→```
+  1137→
+  1138→------------------------------------------------------------------------
+  1139→
+  1140→# 55. Threat Modeling
+  1141→
+  1142→For every major feature, review:
+  1143→
+  1144→``` text
+  1145→Assets
+  1146→Actors
+  1147→Entry points
+  1148→Trust boundaries
+  1149→Threats
+  1150→Mitigations
+  1151→Detection
+  1152→Recovery
+  1153→```
+  1154→
+  1155→Especially for:
+  1156→
+  1157→``` text
+  1158→AI agents
+  1159→payments
+  1160→integrations
+  1161→file uploads
+  1162→admin functions
+  1163→cross-tenant operations
+  1164→```
+  1165→
+  1166→------------------------------------------------------------------------
+  1167→
+  1168→# 56. Security Definition of Done
+  1169→
+  1170→Security Core is ready when:
+  1171→
+  1172→``` text
+  1173→✓ Identity model exists
+  1174→✓ Authentication exists
+  1175→✓ Session model exists
+  1176→✓ Organization membership exists
+  1177→✓ RBAC exists
+  1178→✓ Policy engine exists
+  1179→✓ Resource authorization exists
+  1180→✓ Tenant isolation exists
+  1181→✓ RLS strategy exists
+  1182→✓ AI security principal exists
+  1183→✓ Tool authorization exists
+  1184→✓ High-risk approval exists
+  1185→✓ MFA architecture is ready
+  1186→✓ API security is integrated
+  1187→✓ Secrets are protected
+  1188→✓ Audit exists
+  1189→✓ Incident model exists
+  1190→✓ Admin security exists
+  1191→✓ Support access is scoped
+  1192→✓ Export/deletion policies exist
+  1193→✓ Security tests exist
+  1194→```
+  1195→
+  1196→------------------------------------------------------------------------
+  1197→
+  1198→# 57. Implementation Order
+  1199→
+  1200→Build in this order:
+  1201→
+  1202→``` text
+  1203→1. Identity model
+  1204→2. Authentication
+  1205→3. Sessions
+  1206→4. Organization membership
+  1207→5. RBAC
+  1208→6. Permission model
+  1209→7. Tenant isolation
+  1210→8. Resource authorization
+  1211→9. Policy engine
+  1212→10. Audit/security events
+  1213→11. API security
+  1214→12. Secret management
+  1215→13. AI security principal
+  1216→14. AI tool authorization
+  1217→15. Approval / step-up authentication
+  1218→16. Admin security
+  1219→17. Incident framework
+  1220→18. Security testing
+  1221→19. Governance controls
+  1222→```
+  1223→
+  1224→------------------------------------------------------------------------
+  1225→
+  1226→# 58. Final Security Principle
+  1227→
+  1228→> **Mianx.ai must be powerful enough to operate a business, but every
+  1229→> power must have an identity, a scope, a policy, and an audit trail.**
+  1230→
+  1231→``` text
+  1232→IDENTITY
+  1233→   ↓
+  1234→AUTHENTICATION
+  1235→   ↓
+  1236→ORGANIZATION
+  1237→   ↓
+  1238→AUTHORIZATION
+  1239→   ↓
+  1240→POLICY
+  1241→   ↓
+  1242→ACTION
+  1243→   ↓
+  1244→AUDIT
+  1245→```
+  1246→
+  1247→------------------------------------------------------------------------
+  1248→
+  1249→# 59. Next Technical Deliverable
+  1250→
+  1251→Next:
+  1252→
+  1253→# MIANX.AI CORE --- BILLING, SUBSCRIPTION & ENTITLEMENT PLATFORM SPECIFICATION v1.0
+  1254→
+  1255→It will define:
+  1256→
+  1257→-   SaaS plans
+  1258→-   Subscriptions
+  1259→-   Features
+  1260→-   Entitlements
+  1261→-   Usage metering
+  1262→-   AI usage/cost
+  1263→-   Domain activation
+  1264→-   Module activation
+  1265→-   Limits
+  1266→-   Trials
+  1267→-   Billing lifecycle
+  1268→-   Invoices
+  1269→-   Payment integration boundary
+  1270→-   Upgrade/downgrade
+  1271→-   Suspension
+  1272→-   Multi-domain packaging
+  1273→-   How Poultry OS becomes a commercial product
+  1274→

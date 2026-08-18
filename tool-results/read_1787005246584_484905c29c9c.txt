@@ -1,0 +1,1330 @@
+     1→# MIANX.AI CORE --- BILLING, SUBSCRIPTION & ENTITLEMENT PLATFORM SPECIFICATION v1.0
+     2→
+     3→**Product:** Mianx.ai\
+     4→**Document:** Billing, Subscription & Entitlement Platform\
+     5→**Version:** 1.0\
+     6→**Status:** Architecture / Pre-Implementation\
+     7→**Purpose:** Define the commercial SaaS foundation that controls plans,
+     8→subscriptions, domains, modules, usage, AI consumption, limits, trials,
+     9→billing lifecycle and customer entitlements.
+    10→
+    11→------------------------------------------------------------------------
+    12→
+    13→# 1. Purpose
+    14→
+    15→Mianx.ai must be commercially capable before individual Domain OS
+    16→products scale.
+    17→
+    18→The billing platform therefore belongs to **Mianx.ai Core**.
+    19→
+    20→``` text
+    21→Customer
+    22→   ↓
+    23→Organization
+    24→   ↓
+    25→Subscription
+    26→   ↓
+    27→Plan
+    28→   ↓
+    29→Entitlements
+    30→   ↓
+    31→Domains / Modules / Features
+    32→   ↓
+    33→Usage
+    34→   ↓
+    35→Billing
+    36→```
+    37→
+    38→The goal is to make every domain commercially configurable without
+    39→creating a separate billing system.
+    40→
+    41→------------------------------------------------------------------------
+    42→
+    43→# 2. Commercial Constitution
+    44→
+    45→1.  Billing is a Core platform capability.
+    46→2.  Subscription status determines commercial access.
+    47→3.  Authorization still determines security access.
+    48→4.  Entitlement determines whether a capability is commercially enabled.
+    49→5.  Feature flags are not billing.
+    50→6.  Usage metering must be independent from UI display.
+    51→7.  AI usage and AI cost must be measurable.
+    52→8.  Domain products must be packageable independently or together.
+    53→9.  Upgrade/downgrade must preserve data safely.
+    54→10. Billing failures must have controlled grace and suspension behavior.
+    55→
+    56→------------------------------------------------------------------------
+    57→
+    58→# 3. Commercial Model
+    59→
+    60→Mianx.ai can sell:
+    61→
+    62→``` text
+    63→Platform
+    64→Domains
+    65→Modules
+    66→Users / Seats
+    67→Usage
+    68→AI Consumption
+    69→Integrations
+    70→Add-ons
+    71→Services
+    72→```
+    73→
+    74→Example:
+    75→
+    76→``` text
+    77→Mianx Core
+    78→   +
+    79→Poultry OS
+    80→   +
+    81→Advanced Analytics
+    82→   +
+    83→AI Workforce
+    84→   +
+    85→Additional Users
+    86→```
+    87→
+    88→------------------------------------------------------------------------
+    89→
+    90→# 4. Core Commercial Entities
+    91→
+    92→Conceptual entities:
+    93→
+    94→``` text
+    95→plans
+    96→plan_versions
+    97→subscriptions
+    98→subscription_items
+    99→entitlements
+   100→features
+   101→feature_limits
+   102→usage_meters
+   103→usage_records
+   104→invoices
+   105→payments
+   106→credits
+   107→coupons
+   108→trials
+   109→billing_events
+   110→```
+   111→
+   112→------------------------------------------------------------------------
+   113→
+   114→# 5. Plan
+   115→
+   116→A plan defines a commercial package.
+   117→
+   118→Example:
+   119→
+   120→``` text
+   121→Starter
+   122→Growth
+   123→Professional
+   124→Enterprise
+   125→```
+   126→
+   127→A plan should define:
+   128→
+   129→``` text
+   130→name
+   131→description
+   132→billing model
+   133→included features
+   134→included domains
+   135→limits
+   136→usage allowances
+   137→seat allowances
+   138→AI allowance
+   139→```
+   140→
+   141→------------------------------------------------------------------------
+   142→
+   143→# 6. Plan Versioning
+   144→
+   145→Never mutate historical commercial meaning silently.
+   146→
+   147→Use:
+   148→
+   149→``` text
+   150→Plan
+   151→ ↓
+   152→Plan Version
+   153→```
+   154→
+   155→Example:
+   156→
+   157→``` text
+   158→Poultry Growth v1
+   159→Poultry Growth v2
+   160→```
+   161→
+   162→Existing subscriptions may remain attached to their current version
+   163→until migrated.
+   164→
+   165→------------------------------------------------------------------------
+   166→
+   167→# 7. Features
+   168→
+   169→Features represent capabilities.
+   170→
+   171→Examples:
+   172→
+   173→``` text
+   174→poultry.dashboard
+   175→poultry.flock_management
+   176→poultry.procurement
+   177→poultry.ai_assistant
+   178→advanced.analytics
+   179→api.access
+   180→whatsapp.integration
+   181→```
+   182→
+   183→Features are reusable commercial building blocks.
+   184→
+   185→------------------------------------------------------------------------
+   186→
+   187→# 8. Entitlements
+   188→
+   189→Entitlements answer:
+   190→
+   191→> Is this organization commercially allowed to use this capability?
+   192→
+   193→Possible states:
+   194→
+   195→``` text
+   196→enabled
+   197→disabled
+   198→limited
+   199→trial
+   200→expired
+   201→suspended
+   202→```
+   203→
+   204→Authorization answers whether the user may use it.
+   205→
+   206→Entitlement answers whether the organization has purchased it.
+   207→
+   208→Both checks may be required.
+   209→
+   210→------------------------------------------------------------------------
+   211→
+   212→# 9. Entitlement Resolution
+   213→
+   214→Conceptual:
+   215→
+   216→``` text
+   217→Request
+   218→ ↓
+   219→Organization
+   220→ ↓
+   221→Subscription
+   222→ ↓
+   223→Plan
+   224→ ↓
+   225→Entitlement
+   226→ ↓
+   227→User Permission
+   228→ ↓
+   229→Policy
+   230→ ↓
+   231→Allow / Deny
+   232→```
+   233→
+   234→This creates a clean separation between:
+   235→
+   236→``` text
+   237→commercial access
+   238→security access
+   239→operational policy
+   240→```
+   241→
+   242→------------------------------------------------------------------------
+   243→
+   244→# 10. Domain Entitlements
+   245→
+   246→Example:
+   247→
+   248→``` text
+   249→organization
+   250→ ├── Poultry OS = enabled
+   251→ ├── Restaurant OS = disabled
+   252→ └── Retail OS = trial
+   253→```
+   254→
+   255→This allows Mianx to sell multiple domain products under one platform
+   256→account.
+   257→
+   258→------------------------------------------------------------------------
+   259→
+   260→# 11. Module Entitlements
+   261→
+   262→A domain can contain modules.
+   263→
+   264→Example:
+   265→
+   266→``` text
+   267→Poultry OS
+   268→ ├── Farm Management = enabled
+   269→ ├── Flock Management = enabled
+   270→ ├── Procurement = enabled
+   271→ ├── Advanced Analytics = disabled
+   272→ └── AI Workforce = trial
+   273→```
+   274→
+   275→------------------------------------------------------------------------
+   276→
+   277→# 12. Feature Limits
+   278→
+   279→Entitlements may include limits.
+   280→
+   281→Examples:
+   282→
+   283→``` text
+   284→users <= 5
+   285→farms <= 3
+   286→active_flocks <= 100
+   287→api_calls <= 10,000/month
+   288→ai_tokens <= configured allowance
+   289→storage <= 20 GB
+   290→```
+   291→
+   292→Limits should be machine-readable.
+   293→
+   294→------------------------------------------------------------------------
+   295→
+   296→# 13. Usage Metering
+   297→
+   298→Usage should be captured independently from billing presentation.
+   299→
+   300→Conceptual:
+   301→
+   302→``` text
+   303→usage_meter
+   304→ ↓
+   305→usage_event
+   306→ ↓
+   307→aggregation
+   308→ ↓
+   309→billing calculation
+   310→```
+   311→
+   312→Examples:
+   313→
+   314→``` text
+   315→api.requests
+   316→ai.tokens
+   317→ai.runs
+   318→storage.bytes
+   319→messages.sent
+   320→orders.processed
+   321→users.active
+   322→```
+   323→
+   324→------------------------------------------------------------------------
+   325→
+   326→# 14. Usage Event
+   327→
+   328→A usage event may contain:
+   329→
+   330→``` text
+   331→id
+   332→organization_id
+   333→meter_key
+   334→quantity
+   335→unit
+   336→source
+   337→occurred_at
+   338→idempotency_key
+   339→metadata
+   340→```
+   341→
+   342→Usage events should be safely deduplicated.
+   343→
+   344→------------------------------------------------------------------------
+   345→
+   346→# 15. Idempotent Metering
+   347→
+   348→Billing must never double-charge because the same event was processed
+   349→twice.
+   350→
+   351→Use an idempotency key or equivalent deduplication mechanism.
+   352→
+   353→``` text
+   354→Usage Event
+   355→ ↓
+   356→Deduplication
+   357→ ↓
+   358→Accepted
+   359→ ↓
+   360→Aggregation
+   361→```
+   362→
+   363→------------------------------------------------------------------------
+   364→
+   365→# 16. AI Usage
+   366→
+   367→AI usage should be measured separately.
+   368→
+   369→Possible meters:
+   370→
+   371→``` text
+   372→ai.requests
+   373→ai.input_tokens
+   374→ai.output_tokens
+   375→ai.total_tokens
+   376→ai.tool_calls
+   377→ai.agent_runs
+   378→ai.embedding_usage
+   379→```
+   380→
+   381→------------------------------------------------------------------------
+   382→
+   383→# 17. AI Cost Tracking
+   384→
+   385→Mianx needs internal AI cost visibility.
+   386→
+   387→Conceptual:
+   388→
+   389→``` text
+   390→AI Request
+   391→ ↓
+   392→Model
+   393→ ↓
+   394→Provider
+   395→ ↓
+   396→Usage
+   397→ ↓
+   398→Estimated / actual cost
+   399→ ↓
+   400→Organization attribution
+   401→```
+   402→
+   403→This allows:
+   404→
+   405→``` text
+   406→customer revenue
+   407→-
+   408→AI cost
+   409→=
+   410→AI gross margin visibility
+   411→```
+   412→
+   413→------------------------------------------------------------------------
+   414→
+   415→# 18. AI Budget Controls
+   416→
+   417→Organizations may have:
+   418→
+   419→``` text
+   420→monthly AI budget
+   421→daily AI limit
+   422→per-agent limit
+   423→per-user limit
+   424→per-domain limit
+   425→```
+   426→
+   427→When a limit is reached:
+   428→
+   429→``` text
+   430→warn
+   431→ ↓
+   432→restrict
+   433→ ↓
+   434→require upgrade / approval
+   435→```
+   436→
+   437→The exact behavior is configurable.
+   438→
+   439→------------------------------------------------------------------------
+   440→
+   441→# 19. Seats
+   442→
+   443→Seat-based billing may include:
+   444→
+   445→``` text
+   446→licensed seats
+   447→active seats
+   448→invited seats
+   449→additional seats
+   450→```
+   451→
+   452→The product must clearly define which count is billable.
+   453→
+   454→------------------------------------------------------------------------
+   455→
+   456→# 20. Add-ons
+   457→
+   458→Add-ons allow customers to purchase capabilities without changing the
+   459→entire plan.
+   460→
+   461→Examples:
+   462→
+   463→``` text
+   464→Extra AI
+   465→Extra storage
+   466→Extra users
+   467→Advanced analytics
+   468→Premium integration
+   469→Additional domain
+   470→```
+   471→
+   472→------------------------------------------------------------------------
+   473→
+   474→# 21. Trials
+   475→
+   476→Trial model:
+   477→
+   478→``` text
+   479→Trial Started
+   480→ ↓
+   481→Trial Active
+   482→ ↓
+   483→Trial Ending
+   484→ ↓
+   485→Converted
+   486→OR
+   487→Expired
+   488→```
+   489→
+   490→Trial configuration may include:
+   491→
+   492→``` text
+   493→duration
+   494→features
+   495→usage limits
+   496→seat limits
+   497→conversion behavior
+   498→```
+   499→
+   500→------------------------------------------------------------------------
+   501→
+   502→# 22. Trial Entitlements
+   503→
+   504→Trial features should be represented as normal entitlements with a trial
+   505→state.
+   506→
+   507→This avoids creating a second feature-access system.
+   508→
+   509→------------------------------------------------------------------------
+   510→
+   511→# 23. Subscription Lifecycle
+   512→
+   513→Recommended states:
+   514→
+   515→``` text
+   516→trialing
+   517→active
+   518→past_due
+   519→grace_period
+   520→paused
+   521→cancelled
+   522→expired
+   523→suspended
+   524→```
+   525→
+   526→State transitions must be explicit.
+   527→
+   528→------------------------------------------------------------------------
+   529→
+   530→# 24. Subscription Activation
+   531→
+   532→Activation flow:
+   533→
+   534→``` text
+   535→Plan Selected
+   536→ ↓
+   537→Checkout / Commercial Confirmation
+   538→ ↓
+   539→Payment Confirmation
+   540→ ↓
+   541→Subscription Created
+   542→ ↓
+   543→Entitlements Generated
+   544→ ↓
+   545→Domain Enabled
+   546→ ↓
+   547→Customer Ready
+   548→```
+   549→
+   550→Do not grant permanent paid access based solely on a client-side success
+   551→page.
+   552→
+   553→------------------------------------------------------------------------
+   554→
+   555→# 25. Upgrade
+   556→
+   557→Upgrade should normally be immediate or follow configured commercial
+   558→rules.
+   559→
+   560→Flow:
+   561→
+   562→``` text
+   563→Current Plan
+   564→ ↓
+   565→Select New Plan
+   566→ ↓
+   567→Calculate Difference
+   568→ ↓
+   569→Payment / Billing Adjustment
+   570→ ↓
+   571→Update Subscription
+   572→ ↓
+   573→Update Entitlements
+   574→ ↓
+   575→Audit
+   576→```
+   577→
+   578→------------------------------------------------------------------------
+   579→
+   580→# 26. Downgrade
+   581→
+   582→Downgrade requires special care.
+   583→
+   584→If the customer currently exceeds the new limits:
+   585→
+   586→``` text
+   587→Current usage > new limit
+   588→```
+   589→
+   590→Options may include:
+   591→
+   592→``` text
+   593→block downgrade
+   594→schedule downgrade
+   595→allow downgrade but restrict new creation
+   596→request cleanup
+   597→```
+   598→
+   599→Never silently delete customer data to satisfy a lower plan.
+   600→
+   601→------------------------------------------------------------------------
+   602→
+   603→# 27. Cancellation
+   604→
+   605→Cancellation should define:
+   606→
+   607→``` text
+   608→immediate
+   609→end-of-period
+   610→scheduled cancellation
+   611→```
+   612→
+   613→Customer data retention must be separate from subscription cancellation.
+   614→
+   615→------------------------------------------------------------------------
+   616→
+   617→# 28. Payment Failure
+   618→
+   619→Payment failure lifecycle:
+   620→
+   621→``` text
+   622→Payment Failed
+   623→ ↓
+   624→Retry
+   625→ ↓
+   626→Past Due
+   627→ ↓
+   628→Grace Period
+   629→ ↓
+   630→Restricted
+   631→ ↓
+   632→Suspended
+   633→```
+   634→
+   635→The exact timeline is a commercial policy.
+   636→
+   637→------------------------------------------------------------------------
+   638→
+   639→# 29. Grace Period
+   640→
+   641→During grace:
+   642→
+   643→``` text
+   644→existing data remains accessible
+   645→critical read operations may continue
+   646→new premium actions may be restricted
+   647→billing reminders are shown
+   648→```
+   649→
+   650→Do not destroy customer data because of a temporary payment failure.
+   651→
+   652→------------------------------------------------------------------------
+   653→
+   654→# 30. Suspension
+   655→
+   656→Suspension may restrict:
+   657→
+   658→``` text
+   659→new operational writes
+   660→premium modules
+   661→AI usage
+   662→API access
+   663→automation
+   664→```
+   665→
+   666→Read-only access may be retained depending on policy.
+   667→
+   668→------------------------------------------------------------------------
+   669→
+   670→# 31. Entitlement Enforcement
+   671→
+   672→Every premium operation should be checked through a common entitlement
+   673→service.
+   674→
+   675→Conceptual:
+   676→
+   677→``` text
+   678→EntitlementService.can(
+   679→    organization,
+   680→    feature,
+   681→    quantity/context
+   682→)
+   683→```
+   684→
+   685→This prevents domain-specific billing logic from being scattered across
+   686→applications.
+   687→
+   688→------------------------------------------------------------------------
+   689→
+   690→# 32. Feature Access Contract
+   691→
+   692→A feature check can return:
+   693→
+   694→``` text
+   695→allowed
+   696→reason
+   697→limit
+   698→current_usage
+   699→remaining
+   700→reset_at
+   701→```
+   702→
+   703→Example:
+   704→
+   705→``` text
+   706→AI usage:
+   707→allowed = true
+   708→remaining = 72,000 tokens
+   709→reset_at = next billing cycle
+   710→```
+   711→
+   712→------------------------------------------------------------------------
+   713→
+   714→# 33. Commercial vs Security Checks
+   715→
+   716→Always separate:
+   717→
+   718→``` text
+   719→Entitlement
+   720→+
+   721→Authorization
+   722→+
+   723→Policy
+   724→```
+   725→
+   726→Example:
+   727→
+   728→``` text
+   729→Customer purchased Procurement
+   730→BUT
+   731→employee lacks purchase.approve permission
+   732→```
+   733→
+   734→Result:
+   735→
+   736→``` text
+   737→DENY
+   738→```
+   739→
+   740→If:
+   741→
+   742→``` text
+   743→employee has permission
+   744→BUT
+   745→Procurement not included in plan
+   746→```
+   747→
+   748→Result:
+   749→
+   750→``` text
+   751→DENY
+   752→```
+   753→
+   754→------------------------------------------------------------------------
+   755→
+   756→# 34. Billing Events
+   757→
+   758→Core billing events may include:
+   759→
+   760→``` text
+   761→subscription.created
+   762→subscription.activated
+   763→subscription.upgraded
+   764→subscription.downgraded
+   765→subscription.cancelled
+   766→payment.succeeded
+   767→payment.failed
+   768→invoice.created
+   769→invoice.paid
+   770→invoice.failed
+   771→trial.started
+   772→trial.ended
+   773→entitlement.changed
+   774→usage.threshold.reached
+   775→```
+   776→
+   777→All events should be versioned.
+   778→
+   779→------------------------------------------------------------------------
+   780→
+   781→# 35. Invoices
+   782→
+   783→Invoice data should contain:
+   784→
+   785→``` text
+   786→invoice_id
+   787→organization_id
+   788→subscription_id
+   789→period_start
+   790→period_end
+   791→line_items
+   792→subtotal
+   793→discount
+   794→tax
+   795→total
+   796→currency
+   797→status
+   798→issued_at
+   799→due_at
+   800→paid_at
+   801→```
+   802→
+   803→Historical invoices must remain reproducible.
+   804→
+   805→------------------------------------------------------------------------
+   806→
+   807→# 36. Invoice Line Items
+   808→
+   809→Line items can represent:
+   810→
+   811→``` text
+   812→base plan
+   813→domain
+   814→module
+   815→seats
+   816→usage
+   817→AI
+   818→add-ons
+   819→credits
+   820→discounts
+   821→tax
+   822→```
+   823→
+   824→------------------------------------------------------------------------
+   825→
+   826→# 37. Credits
+   827→
+   828→Credits may be used for:
+   829→
+   830→``` text
+   831→AI credits
+   832→usage credits
+   833→promotional credits
+   834→service credits
+   835→```
+   836→
+   837→Credit rules must define:
+   838→
+   839→``` text
+   840→amount
+   841→currency/unit
+   842→expiration
+   843→priority
+   844→applicability
+   845→```
+   846→
+   847→------------------------------------------------------------------------
+   848→
+   849→# 38. Coupons / Discounts
+   850→
+   851→Discounts may be:
+   852→
+   853→``` text
+   854→percentage
+   855→fixed amount
+   856→trial extension
+   857→specific feature
+   858→specific plan
+   859→specific billing period
+   860→```
+   861→
+   862→Discount abuse prevention should be considered.
+   863→
+   864→------------------------------------------------------------------------
+   865→
+   866→# 39. Tax
+   867→
+   868→Billing architecture should support:
+   869→
+   870→``` text
+   871→tax jurisdiction
+   872→tax rate
+   873→tax amount
+   874→tax ID where required
+   875→```
+   876→
+   877→Tax calculation can be implemented through a dedicated provider or
+   878→jurisdiction-specific service later.
+   879→
+   880→------------------------------------------------------------------------
+   881→
+   882→# 40. Payment Provider Boundary
+   883→
+   884→Payment processing should be abstracted behind a billing provider
+   885→interface.
+   886→
+   887→``` text
+   888→Mianx Billing
+   889→      ↓
+   890→Payment Provider Adapter
+   891→      ↓
+   892→External Provider
+   893→```
+   894→
+   895→This avoids coupling the whole platform to one provider.
+   896→
+   897→------------------------------------------------------------------------
+   898→
+   899→# 41. Payment Security
+   900→
+   901→Mianx should avoid storing raw payment credentials where possible.
+   902→
+   903→Prefer provider-hosted or tokenized payment mechanisms.
+   904→
+   905→Sensitive payment data must remain outside ordinary application logs and
+   906→AI context.
+   907→
+   908→------------------------------------------------------------------------
+   909→
+   910→# 42. Billing Webhooks
+   911→
+   912→External billing providers may send events.
+   913→
+   914→Flow:
+   915→
+   916→``` text
+   917→Provider
+   918→ ↓
+   919→Webhook
+   920→ ↓
+   921→Signature Verification
+   922→ ↓
+   923→Idempotency
+   924→ ↓
+   925→Billing Event
+   926→ ↓
+   927→Subscription Update
+   928→ ↓
+   929→Entitlement Update
+   930→```
+   931→
+   932→Never trust an unsigned billing webhook.
+   933→
+   934→------------------------------------------------------------------------
+   935→
+   936→# 43. Billing Reconciliation
+   937→
+   938→Periodic reconciliation should compare:
+   939→
+   940→``` text
+   941→Mianx subscription state
+   942→vs
+   943→payment provider state
+   944→```
+   945→
+   946→Differences should create reconciliation tasks rather than silently
+   947→changing customer state.
+   948→
+   949→------------------------------------------------------------------------
+   950→
+   951→# 44. Usage Thresholds
+   952→
+   953→Usage can trigger:
+   954→
+   955→``` text
+   956→warning
+   957→80%
+   958→90%
+   959→100%
+   960→overage
+   961→restriction
+   962→```
+   963→
+   964→Notifications should be configurable.
+   965→
+   966→------------------------------------------------------------------------
+   967→
+   968→# 45. Overage
+   969→
+   970→Mianx may support:
+   971→
+   972→``` text
+   973→hard limit
+   974→soft limit
+   975→automatic overage billing
+   976→prepaid credits
+   977→```
+   978→
+   979→Each meter must explicitly declare its behavior.
+   980→
+   981→Never accidentally create unlimited billable usage.
+   982→
+   983→------------------------------------------------------------------------
+   984→
+   985→# 46. Domain Packaging
+   986→
+   987→The commercial system should support:
+   988→
+   989→``` text
+   990→Core
+   991→Core + Poultry
+   992→Core + Restaurant
+   993→Core + Retail
+   994→Core + Poultry + Restaurant
+   995→Enterprise Multi-Domain
+   996→```
+   997→
+   998→This is a major strategic advantage of the Mianx architecture.
+   999→
+  1000→------------------------------------------------------------------------
+  1001→
+  1002→# 47. Poultry Commercial Example
+  1003→
+  1004→Example package:
+  1005→
+  1006→``` text
+  1007→MIANX CORE
+  1008→+
+  1009→POULTRY STARTER
+  1010→```
+  1011→
+  1012→Includes:
+  1013→
+  1014→``` text
+  1015→Farm Management
+  1016→Shed Management
+  1017→Flock Management
+  1018→Basic Reports
+  1019→Basic AI Assistant
+  1020→```
+  1021→
+  1022→Growth package:
+  1023→
+  1024→``` text
+  1025→Everything in Starter
+  1026→+
+  1027→Advanced Analytics
+  1028→Procurement
+  1029→Inventory
+  1030→AI Workforce
+  1031→Automation
+  1032→```
+  1033→
+  1034→Enterprise:
+  1035→
+  1036→``` text
+  1037→Everything in Growth
+  1038→+
+  1039→Multi-site
+  1040→Advanced Governance
+  1041→API
+  1042→Custom integrations
+  1043→Advanced AI
+  1044→Dedicated support
+  1045→```
+  1046→
+  1047→These are architectural examples; final pricing and packaging are
+  1048→commercial decisions.
+  1049→
+  1050→------------------------------------------------------------------------
+  1051→
+  1052→# 48. Multi-Domain Customer
+  1053→
+  1054→A customer could eventually have:
+  1055→
+  1056→``` text
+  1057→Organization: ABC Group
+  1058→
+  1059→Subscriptions:
+  1060→ ├── Poultry OS
+  1061→ ├── Restaurant OS
+  1062→ └── Retail OS
+  1063→
+  1064→Shared:
+  1065→ ├── Users
+  1066→ ├── Identity
+  1067→ ├── Billing
+  1068→ ├── AI
+  1069→ ├── Integrations
+  1070→ └── Governance
+  1071→```
+  1072→
+  1073→This is the core of Mianx.ai's multi-domain strategy.
+  1074→
+  1075→------------------------------------------------------------------------
+  1076→
+  1077→# 49. Commercial Dashboard
+  1078→
+  1079→Customer billing UI should show:
+  1080→
+  1081→``` text
+  1082→Current Plan
+  1083→Subscription Status
+  1084→Renewal Date
+  1085→Domains
+  1086→Modules
+  1087→Seats
+  1088→Usage
+  1089→AI Usage
+  1090→Invoices
+  1091→Payment Method
+  1092→Upgrade / Downgrade
+  1093→```
+  1094→
+  1095→------------------------------------------------------------------------
+  1096→
+  1097→# 50. Admin Billing Dashboard
+  1098→
+  1099→Mianx Command Center should show:
+  1100→
+  1101→``` text
+  1102→MRR
+  1103→ARR
+  1104→Active subscriptions
+  1105→Trials
+  1106→Conversion
+  1107→Churn
+  1108→Past due
+  1109→Suspended
+  1110→Revenue by domain
+  1111→Revenue by plan
+  1112→AI cost
+  1113→AI gross margin
+  1114→Usage
+  1115→```
+  1116→
+  1117→------------------------------------------------------------------------
+  1118→
+  1119→# 51. Billing Analytics
+  1120→
+  1121→Important metrics:
+  1122→
+  1123→``` text
+  1124→MRR
+  1125→ARR
+  1126→ARPU
+  1127→trial conversion
+  1128→paid conversion
+  1129→churn
+  1130→expansion
+  1131→contraction
+  1132→net revenue retention
+  1133→gross revenue retention
+  1134→AI cost per customer
+  1135→AI cost as % of revenue
+  1136→```
+  1137→
+  1138→------------------------------------------------------------------------
+  1139→
+  1140→# 52. Commercial Observability
+  1141→
+  1142→Monitor:
+  1143→
+  1144→``` text
+  1145→failed payments
+  1146→webhook failures
+  1147→entitlement mismatches
+  1148→usage ingestion failures
+  1149→invoice failures
+  1150→subscription state mismatches
+  1151→billing provider latency
+  1152→reconciliation differences
+  1153→```
+  1154→
+  1155→------------------------------------------------------------------------
+  1156→
+  1157→# 53. Entitlement Caching
+  1158→
+  1159→Entitlements may be cached for performance.
+  1160→
+  1161→But:
+  1162→
+  1163→``` text
+  1164→cache ≠ source of truth
+  1165→```
+  1166→
+  1167→Important subscription changes must invalidate or refresh entitlement
+  1168→caches.
+  1169→
+  1170→------------------------------------------------------------------------
+  1171→
+  1172→# 54. Billing Data Security
+  1173→
+  1174→Billing data must follow:
+  1175→
+  1176→``` text
+  1177→organization isolation
+  1178→least privilege
+  1179→audit
+  1180→encrypted transport
+  1181→restricted admin access
+  1182→no secrets in logs
+  1183→no payment secrets in AI
+  1184→```
+  1185→
+  1186→------------------------------------------------------------------------
+  1187→
+  1188→# 55. Billing Failure Safety
+  1189→
+  1190→A billing subsystem failure should not accidentally:
+  1191→
+  1192→``` text
+  1193→delete data
+  1194→grant unlimited access
+  1195→suspend every customer
+  1196→double charge
+  1197→double meter usage
+  1198→```
+  1199→
+  1200→Fail-safe behavior must be designed explicitly.
+  1201→
+  1202→------------------------------------------------------------------------
+  1203→
+  1204→# 56. Commercial Data Model
+  1205→
+  1206→High-level:
+  1207→
+  1208→``` text
+  1209→Organization
+  1210→    │
+  1211→    ├── Subscription
+  1212→    │      └── Plan Version
+  1213→    │             └── Features
+  1214→    │
+  1215→    ├── Entitlements
+  1216→    │
+  1217→    ├── Usage
+  1218→    │
+  1219→    ├── Invoices
+  1220→    │
+  1221→    └── Payments
+  1222→```
+  1223→
+  1224→------------------------------------------------------------------------
+  1225→
+  1226→# 57. Billing Definition of Done
+  1227→
+  1228→Billing Core is ready when:
+  1229→
+  1230→``` text
+  1231→✓ Plans defined
+  1232→✓ Plan versions defined
+  1233→✓ Features defined
+  1234→✓ Entitlements defined
+  1235→✓ Limits defined
+  1236→✓ Usage meters defined
+  1237→✓ Usage idempotency defined
+  1238→✓ AI usage metering defined
+  1239→✓ AI cost tracking defined
+  1240→✓ Trials defined
+  1241→✓ Subscription lifecycle defined
+  1242→✓ Upgrade defined
+  1243→✓ Downgrade defined
+  1244→✓ Cancellation defined
+  1245→✓ Payment failure defined
+  1246→✓ Invoices defined
+  1247→✓ Provider boundary defined
+  1248→✓ Webhooks secured
+  1249→✓ Reconciliation defined
+  1250→✓ Domain packaging defined
+  1251→✓ Poultry commercial package possible
+  1252→✓ Billing dashboards defined
+  1253→```
+  1254→
+  1255→------------------------------------------------------------------------
+  1256→
+  1257→# 58. Implementation Order
+  1258→
+  1259→``` text
+  1260→1. Commercial entity model
+  1261→2. Plans
+  1262→3. Features
+  1263→4. Entitlements
+  1264→5. Subscription lifecycle
+  1265→6. Usage meters
+  1266→7. Usage ingestion
+  1267→8. AI cost tracking
+  1268→9. Trials
+  1269→10. Invoice model
+  1270→11. Payment provider abstraction
+  1271→12. Billing webhooks
+  1272→13. Reconciliation
+  1273→14. Customer billing UI
+  1274→15. Admin billing UI
+  1275→16. Domain packaging
+  1276→17. Billing security tests
+  1277→18. Production billing controls
+  1278→```
+  1279→
+  1280→------------------------------------------------------------------------
+  1281→
+  1282→# 59. Final Commercial Principle
+  1283→
+  1284→> **Mianx.ai should be able to launch a new Domain OS as a commercial
+  1285→> product without building a new billing system.**
+  1286→
+  1287→``` text
+  1288→ONE BILLING CORE
+  1289→       ↓
+  1290→ONE ENTITLEMENT ENGINE
+  1291→       ↓
+  1292→ONE USAGE PLATFORM
+  1293→       ↓
+  1294→MANY COMMERCIAL PRODUCTS
+  1295→       ↓
+  1296→Poultry OS
+  1297→Restaurant OS
+  1298→Retail OS
+  1299→Future OSs
+  1300→```
+  1301→
+  1302→------------------------------------------------------------------------
+  1303→
+  1304→# 60. Next Technical Deliverable
+  1305→
+  1306→Next:
+  1307→
+  1308→# MIANX.AI CORE --- OBSERVABILITY, LOGGING, MONITORING & OPERATIONS SPECIFICATION v1.0
+  1309→
+  1310→It will define:
+  1311→
+  1312→-   Application logging
+  1313→-   Structured logs
+  1314→-   Metrics
+  1315→-   Tracing
+  1316→-   Error tracking
+  1317→-   AI observability
+  1318→-   Cost observability
+  1319→-   Tenant health
+  1320→-   Domain health
+  1321→-   Database monitoring
+  1322→-   Queue/job monitoring
+  1323→-   Integration monitoring
+  1324→-   Security monitoring
+  1325→-   Alerting
+  1326→-   Incident management
+  1327→-   SLO/SLA foundation
+  1328→-   Mianx Command Center operational dashboard
+  1329→-   Production readiness
+  1330→

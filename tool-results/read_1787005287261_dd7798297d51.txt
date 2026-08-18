@@ -1,0 +1,1382 @@
+     1→# MIANX.AI CORE --- INTEGRATION, API & EVENT PLATFORM SPECIFICATION v1.0
+     2→
+     3→**Product:** Mianx.ai\
+     4→**Document:** Integration, API & Event Platform\
+     5→**Version:** 1.0\
+     6→**Status:** Architecture / Pre-Implementation\
+     7→**Purpose:** Define the shared connectivity layer that allows Mianx.ai
+     8→Core, Domain OS products, customers, partners, external software,
+     9→devices and AI agents to communicate through secure, versioned and
+    10→observable contracts.
+    11→
+    12→------------------------------------------------------------------------
+    13→
+    14→# 1. Purpose
+    15→
+    16→Mianx.ai must not become a collection of isolated Domain OS
+    17→applications.
+    18→
+    19→The platform needs one integration foundation:
+    20→
+    21→``` text
+    22→Mianx Core
+    23→    ↓
+    24→API + Event Platform
+    25→    ↓
+    26→┌───────────────┬───────────────┬───────────────┐
+    27→│ Domain OS     │ External Apps │ AI Workforce  │
+    28→└───────────────┴───────────────┴───────────────┘
+    29→```
+    30→
+    31→This layer provides:
+    32→
+    33→-   APIs
+    34→-   Events
+    35→-   Webhooks
+    36→-   Queues
+    37→-   Integrations
+    38→-   OAuth
+    39→-   API keys
+    40→-   Idempotency
+    41→-   Retries
+    42→-   Rate limits
+    43→-   Versioning
+    44→-   Developer / partner contracts
+    45→
+    46→------------------------------------------------------------------------
+    47→
+    48→# 2. Integration Constitution
+    49→
+    50→1.  Every external interface must have an explicit contract.
+    51→2.  Authentication and authorization are mandatory.
+    52→3.  Tenant isolation applies to every API and event.
+    53→4.  Events must be versioned.
+    54→5.  Side-effecting operations should support idempotency.
+    55→6.  Webhooks must be authenticated and replay-resistant.
+    56→7.  External failures must not corrupt internal business state.
+    57→8.  Retries must be bounded and intentional.
+    58→9.  APIs should remain backward compatible where promised.
+    59→10. Integration activity must be observable and auditable.
+    60→
+    61→------------------------------------------------------------------------
+    62→
+    63→# 3. Integration Architecture
+    64→
+    65→``` text
+    66→Client / Domain / Partner
+    67→        ↓
+    68→API Gateway
+    69→        ↓
+    70→Authentication
+    71→        ↓
+    72→Authorization
+    73→        ↓
+    74→Rate Limit
+    75→        ↓
+    76→API Contract
+    77→        ↓
+    78→Domain Service
+    79→        ↓
+    80→Database / Workflow
+    81→        ↓
+    82→Event / Webhook
+    83→```
+    84→
+    85→For asynchronous work:
+    86→
+    87→``` text
+    88→Producer
+    89→   ↓
+    90→Event / Queue
+    91→   ↓
+    92→Consumer
+    93→   ↓
+    94→Workflow / Worker
+    95→   ↓
+    96→Result
+    97→```
+    98→
+    99→------------------------------------------------------------------------
+   100→
+   101→# 4. API Gateway
+   102→
+   103→The API Gateway is the common entry point for public and internal HTTP
+   104→APIs.
+   105→
+   106→Responsibilities:
+   107→
+   108→``` text
+   109→routing
+   110→authentication
+   111→authorization context
+   112→rate limiting
+   113→request validation
+   114→request size limits
+   115→correlation IDs
+   116→API versioning
+   117→observability
+   118→abuse protection
+   119→```
+   120→
+   121→Business logic remains in domain services.
+   122→
+   123→------------------------------------------------------------------------
+   124→
+   125→# 5. API Styles
+   126→
+   127→Mianx should support clear contracts for:
+   128→
+   129→``` text
+   130→REST / HTTP APIs
+   131→Webhooks
+   132→Event APIs
+   133→Internal service interfaces
+   134→AI tool interfaces
+   135→```
+   136→
+   137→GraphQL or other interfaces can be introduced later only where justified
+   138→by product needs.
+   139→
+   140→------------------------------------------------------------------------
+   141→
+   142→# 6. API Naming
+   143→
+   144→Use predictable resource-oriented naming.
+   145→
+   146→Example:
+   147→
+   148→``` text
+   149→GET    /api/v1/poultry/flocks
+   150→GET    /api/v1/poultry/flocks/{id}
+   151→POST   /api/v1/poultry/flocks
+   152→PATCH  /api/v1/poultry/flocks/{id}
+   153→DELETE /api/v1/poultry/flocks/{id}
+   154→```
+   155→
+   156→Domain-specific API namespaces should remain clearly separated.
+   157→
+   158→------------------------------------------------------------------------
+   159→
+   160→# 7. API Versioning
+   161→
+   162→Public contracts should be versioned.
+   163→
+   164→Example:
+   165→
+   166→``` text
+   167→/api/v1/...
+   168→/api/v2/...
+   169→```
+   170→
+   171→Breaking changes require a deliberate migration strategy.
+   172→
+   173→Do not silently change the meaning of an existing version.
+   174→
+   175→------------------------------------------------------------------------
+   176→
+   177→# 8. API Contract
+   178→
+   179→Every public endpoint should define:
+   180→
+   181→``` text
+   182→method
+   183→path
+   184→authentication
+   185→authorization
+   186→request schema
+   187→response schema
+   188→errors
+   189→idempotency behavior
+   190→rate limits
+   191→pagination
+   192→version
+   193→```
+   194→
+   195→OpenAPI can be used as a machine-readable HTTP contract.
+   196→
+   197→------------------------------------------------------------------------
+   198→
+   199→# 9. Request Validation
+   200→
+   201→Validate at the boundary:
+   202→
+   203→``` text
+   204→content type
+   205→schema
+   206→required fields
+   207→types
+   208→ranges
+   209→permissions
+   210→resource ownership
+   211→```
+   212→
+   213→Never rely solely on frontend validation.
+   214→
+   215→------------------------------------------------------------------------
+   216→
+   217→# 10. Standard Response Envelope
+   218→
+   219→Where appropriate, responses should have predictable structure.
+   220→
+   221→Example:
+   222→
+   223→``` json
+   224→{
+   225→  "data": {},
+   226→  "meta": {},
+   227→  "request_id": "..."
+   228→}
+   229→```
+   230→
+   231→Errors should use stable machine-readable codes.
+   232→
+   233→------------------------------------------------------------------------
+   234→
+   235→# 11. Error Contract
+   236→
+   237→Example:
+   238→
+   239→``` json
+   240→{
+   241→  "error": {
+   242→    "code": "FLOCK_NOT_FOUND",
+   243→    "message": "Flock could not be found.",
+   244→    "request_id": "..."
+   245→  }
+   246→}
+   247→```
+   248→
+   249→Do not expose internal stack traces or secrets.
+   250→
+   251→------------------------------------------------------------------------
+   252→
+   253→# 12. Pagination
+   254→
+   255→Collection APIs should support a consistent pagination strategy.
+   256→
+   257→Possible metadata:
+   258→
+   259→``` text
+   260→next_cursor
+   261→previous_cursor
+   262→has_more
+   263→```
+   264→
+   265→Cursor-based pagination is preferred for large or frequently changing
+   266→collections.
+   267→
+   268→------------------------------------------------------------------------
+   269→
+   270→# 13. Filtering and Sorting
+   271→
+   272→APIs may support controlled:
+   273→
+   274→``` text
+   275→filter
+   276→sort
+   277→search
+   278→date ranges
+   279→status
+   280→```
+   281→
+   282→Do not expose arbitrary database query syntax.
+   283→
+   284→------------------------------------------------------------------------
+   285→
+   286→# 14. Idempotency
+   287→
+   288→Side-effecting API operations should support idempotency.
+   289→
+   290→Example:
+   291→
+   292→``` text
+   293→POST /purchase-requests
+   294→Idempotency-Key: abc123
+   295→```
+   296→
+   297→Repeated delivery of the same request should not accidentally create
+   298→duplicate business actions.
+   299→
+   300→------------------------------------------------------------------------
+   301→
+   302→# 15. Idempotency Storage
+   303→
+   304→An idempotency record can track:
+   305→
+   306→``` text
+   307→key
+   308→organization_id
+   309→endpoint
+   310→request_hash
+   311→status
+   312→response
+   313→created_at
+   314→expires_at
+   315→```
+   316→
+   317→The key must be scoped appropriately.
+   318→
+   319→------------------------------------------------------------------------
+   320→
+   321→# 16. Rate Limiting
+   322→
+   323→Limits may apply by:
+   324→
+   325→``` text
+   326→organization
+   327→user
+   328→API key
+   329→IP
+   330→endpoint
+   331→integration
+   332→agent
+   333→```
+   334→
+   335→Rate-limit responses should be machine-readable.
+   336→
+   337→------------------------------------------------------------------------
+   338→
+   339→# 17. API Quotas
+   340→
+   341→Separate:
+   342→
+   343→``` text
+   344→rate limit
+   345→```
+   346→
+   347→from:
+   348→
+   349→``` text
+   350→commercial quota
+   351→```
+   352→
+   353→Example:
+   354→
+   355→``` text
+   356→100 requests/minute
+   357→```
+   358→
+   359→is an operational limit.
+   360→
+   361→``` text
+   362→100,000 API calls/month
+   363→```
+   364→
+   365→is a commercial entitlement.
+   366→
+   367→------------------------------------------------------------------------
+   368→
+   369→# 18. Authentication
+   370→
+   371→Supported authentication patterns may include:
+   372→
+   373→``` text
+   374→Session / application authentication
+   375→OAuth 2.0
+   376→API keys
+   377→service credentials
+   378→signed webhooks
+   379→```
+   380→
+   381→The exact mechanism depends on the integration type.
+   382→
+   383→------------------------------------------------------------------------
+   384→
+   385→# 19. API Keys
+   386→
+   387→API keys should have:
+   388→
+   389→``` text
+   390→owner
+   391→organization
+   392→name
+   393→scope
+   394→created_at
+   395→expires_at
+   396→last_used_at
+   397→status
+   398→```
+   399→
+   400→Never store recoverable plaintext API keys when avoidable.
+   401→
+   402→Display secret material only at creation or through secure provider
+   403→mechanisms.
+   404→
+   405→------------------------------------------------------------------------
+   406→
+   407→# 20. OAuth
+   408→
+   409→For integrations requiring user authorization:
+   410→
+   411→``` text
+   412→Authorization Request
+   413→ ↓
+   414→User Consent
+   415→ ↓
+   416→Authorization Code
+   417→ ↓
+   418→Token Exchange
+   419→ ↓
+   420→Encrypted Token Storage
+   421→ ↓
+   422→Integration
+   423→```
+   424→
+   425→Scopes must be minimal.
+   426→
+   427→------------------------------------------------------------------------
+   428→
+   429→# 21. Integration Registry
+   430→
+   431→Every integration should be registered.
+   432→
+   433→Conceptual:
+   434→
+   435→``` text
+   436→integrations
+   437→ ├── id
+   438→ ├── key
+   439→ ├── name
+   440→ ├── provider
+   441→ ├── type
+   442→ ├── version
+   443→ ├── status
+   444→ ├── capabilities
+   445→ ├── auth_type
+   446→ └── health_policy
+   447→```
+   448→
+   449→------------------------------------------------------------------------
+   450→
+   451→# 22. Integration Types
+   452→
+   453→Examples:
+   454→
+   455→``` text
+   456→Accounting
+   457→Payments
+   458→Messaging
+   459→Email
+   460→CRM
+   461→ERP
+   462→POS
+   463→E-commerce
+   464→Delivery
+   465→Cloud Storage
+   466→Identity
+   467→AI Provider
+   468→Analytics
+   469→Hardware / IoT
+   470→```
+   471→
+   472→------------------------------------------------------------------------
+   473→
+   474→# 23. Integration Connection
+   475→
+   476→An organization may have multiple connections.
+   477→
+   478→``` text
+   479→Organization
+   480→   ↓
+   481→Integration
+   482→   ↓
+   483→Connection
+   484→```
+   485→
+   486→Connection state may be:
+   487→
+   488→``` text
+   489→pending
+   490→active
+   491→reauthorization_required
+   492→error
+   493→disabled
+   494→revoked
+   495→```
+   496→
+   497→------------------------------------------------------------------------
+   498→
+   499→# 24. Integration Credentials
+   500→
+   501→Credentials must be:
+   502→
+   503→``` text
+   504→encrypted
+   505→access-controlled
+   506→redacted from logs
+   507→excluded from AI context
+   508→rotatable
+   509→revocable
+   510→```
+   511→
+   512→------------------------------------------------------------------------
+   513→
+   514→# 25. Webhooks
+   515→
+   516→Mianx should support both:
+   517→
+   518→``` text
+   519→Outbound webhooks
+   520→Inbound webhooks
+   521→```
+   522→
+   523→Outbound:
+   524→
+   525→``` text
+   526→Mianx
+   527→ ↓
+   528→Customer / Partner endpoint
+   529→```
+   530→
+   531→Inbound:
+   532→
+   533→``` text
+   534→External Provider
+   535→ ↓
+   536→Mianx webhook endpoint
+   537→```
+   538→
+   539→------------------------------------------------------------------------
+   540→
+   541→# 26. Webhook Security
+   542→
+   543→Inbound webhooks should use:
+   544→
+   545→``` text
+   546→signature verification
+   547→timestamp validation
+   548→replay protection
+   549→idempotency
+   550→schema validation
+   551→rate limiting
+   552→```
+   553→
+   554→Never trust a webhook merely because it came to a known URL.
+   555→
+   556→------------------------------------------------------------------------
+   557→
+   558→# 27. Webhook Delivery
+   559→
+   560→Outbound webhook lifecycle:
+   561→
+   562→``` text
+   563→Event Created
+   564→ ↓
+   565→Delivery Attempt
+   566→ ↓
+   567→Success
+   568→OR
+   569→Retry
+   570→ ↓
+   571→Retry Exhausted
+   572→ ↓
+   573→Dead Letter / Failed
+   574→```
+   575→
+   576→------------------------------------------------------------------------
+   577→
+   578→# 28. Webhook Retries
+   579→
+   580→Use bounded retry with backoff.
+   581→
+   582→Example conceptual:
+   583→
+   584→``` text
+   585→Attempt 1
+   586→Attempt 2
+   587→Attempt 3
+   588→Attempt 4
+   589→...
+   590→```
+   591→
+   592→The exact schedule is configurable.
+   593→
+   594→Do not retry forever.
+   595→
+   596→------------------------------------------------------------------------
+   597→
+   598→# 29. Webhook Event Envelope
+   599→
+   600→Example:
+   601→
+   602→``` json
+   603→{
+   604→  "id": "evt_123",
+   605→  "type": "poultry.flock.created",
+   606→  "version": "1",
+   607→  "occurred_at": "...",
+   608→  "organization_id": "...",
+   609→  "data": {}
+   610→}
+   611→```
+   612→
+   613→Sensitive data should not be placed into events unless required.
+   614→
+   615→------------------------------------------------------------------------
+   616→
+   617→# 30. Event Bus
+   618→
+   619→Internal domain communication should use events where asynchronous
+   620→decoupling is valuable.
+   621→
+   622→Example:
+   623→
+   624→``` text
+   625→Flock Created
+   626→ ↓
+   627→Event Bus
+   628→ ├── Analytics
+   629→ ├── Notification
+   630→ ├── AI
+   631→ └── Audit
+   632→```
+   633→
+   634→The producer should not need to know every consumer.
+   635→
+   636→------------------------------------------------------------------------
+   637→
+   638→# 31. Event Naming
+   639→
+   640→Use stable, domain-oriented event names.
+   641→
+   642→Examples:
+   643→
+   644→``` text
+   645→organization.created
+   646→subscription.activated
+   647→poultry.flock.created
+   648→poultry.flock.updated
+   649→poultry.alert.created
+   650→```
+   651→
+   652→Event names should describe facts that occurred.
+   653→
+   654→------------------------------------------------------------------------
+   655→
+   656→# 32. Event Versioning
+   657→
+   658→Events should be versioned.
+   659→
+   660→Example:
+   661→
+   662→``` text
+   663→poultry.flock.created.v1
+   664→```
+   665→
+   666→or a version field inside the envelope.
+   667→
+   668→Consumers should not assume fields will never evolve.
+   669→
+   670→------------------------------------------------------------------------
+   671→
+   672→# 33. Event Schema Registry
+   673→
+   674→Maintain schemas for important events.
+   675→
+   676→Schema should define:
+   677→
+   678→``` text
+   679→event type
+   680→version
+   681→required fields
+   682→optional fields
+   683→types
+   684→compatibility rules
+   685→```
+   686→
+   687→------------------------------------------------------------------------
+   688→
+   689→# 34. Event Ordering
+   690→
+   691→Do not assume global event ordering.
+   692→
+   693→Where ordering matters, define an explicit ordering key, such as:
+   694→
+   695→``` text
+   696→organization_id
+   697→resource_id
+   698→```
+   699→
+   700→Consumers should tolerate duplicate or delayed events.
+   701→
+   702→------------------------------------------------------------------------
+   703→
+   704→# 35. At-Least-Once Delivery
+   705→
+   706→The event platform should generally assume events may be delivered more
+   707→than once.
+   708→
+   709→Therefore consumers must be idempotent.
+   710→
+   711→``` text
+   712→Event
+   713→ ↓
+   714→Deduplication
+   715→ ↓
+   716→Process
+   717→```
+   718→
+   719→------------------------------------------------------------------------
+   720→
+   721→# 36. Transactional Outbox
+   722→
+   723→When a business transaction must reliably produce an event:
+   724→
+   725→``` text
+   726→Database Transaction
+   727→ ├── Business Change
+   728→ └── Outbox Record
+   729→```
+   730→
+   731→Then:
+   732→
+   733→``` text
+   734→Outbox
+   735→ ↓
+   736→Publisher
+   737→ ↓
+   738→Event Bus
+   739→```
+   740→
+   741→This reduces the risk of committing business data while losing the
+   742→corresponding event.
+   743→
+   744→------------------------------------------------------------------------
+   745→
+   746→# 37. Dead-Letter Queue
+   747→
+   748→Failed messages should eventually enter a controlled dead-letter path.
+   749→
+   750→Operators should be able to see:
+   751→
+   752→``` text
+   753→event
+   754→failure reason
+   755→attempt count
+   756→first failed
+   757→last failed
+   758→consumer
+   759→```
+   760→
+   761→Do not silently discard business events.
+   762→
+   763→------------------------------------------------------------------------
+   764→
+   765→# 38. Queue Processing
+   766→
+   767→Workers should support:
+   768→
+   769→``` text
+   770→retry
+   771→backoff
+   772→timeout
+   773→concurrency limits
+   774→idempotency
+   775→dead-letter handling
+   776→observability
+   777→```
+   778→
+   779→------------------------------------------------------------------------
+   780→
+   781→# 39. Durable Workflows
+   782→
+   783→Long-running processes should use a durable workflow mechanism where
+   784→appropriate.
+   785→
+   786→Examples:
+   787→
+   788→``` text
+   789→multi-step onboarding
+   790→large data import
+   791→AI approval process
+   792→integration synchronization
+   793→billing reconciliation
+   794→```
+   795→
+   796→A workflow should survive transient failures without relying on a user's
+   797→browser remaining open.
+   798→
+   799→------------------------------------------------------------------------
+   800→
+   801→# 40. Integration Sync
+   802→
+   803→For synchronization:
+   804→
+   805→``` text
+   806→Schedule / Trigger
+   807→ ↓
+   808→Fetch
+   809→ ↓
+   810→Validate
+   811→ ↓
+   812→Transform
+   813→ ↓
+   814→Authorize
+   815→ ↓
+   816→Upsert
+   817→ ↓
+   818→Emit Events
+   819→ ↓
+   820→Record Sync State
+   821→```
+   822→
+   823→------------------------------------------------------------------------
+   824→
+   825→# 41. Sync State
+   826→
+   827→Track:
+   828→
+   829→``` text
+   830→last_started_at
+   831→last_success_at
+   832→last_failure_at
+   833→cursor
+   834→records_processed
+   835→records_failed
+   836→sync_lag
+   837→```
+   838→
+   839→------------------------------------------------------------------------
+   840→
+   841→# 42. Data Mapping
+   842→
+   843→External schemas should not leak directly into domain models.
+   844→
+   845→Use:
+   846→
+   847→``` text
+   848→External Schema
+   849→ ↓
+   850→Adapter / Mapper
+   851→ ↓
+   852→Mianx Domain Contract
+   853→```
+   854→
+   855→This protects the core domain from provider-specific changes.
+   856→
+   857→------------------------------------------------------------------------
+   858→
+   859→# 43. Integration Adapter
+   860→
+   861→Each integration adapter should isolate provider-specific behavior.
+   862→
+   863→``` text
+   864→Mianx Integration Interface
+   865→          ↓
+   866→Provider Adapter
+   867→          ↓
+   868→External API
+   869→```
+   870→
+   871→------------------------------------------------------------------------
+   872→
+   873→# 44. Integration Health
+   874→
+   875→Every connection should expose health where possible:
+   876→
+   877→``` text
+   878→connected
+   879→authenticated
+   880→last_success
+   881→latency
+   882→error_rate
+   883→sync_lag
+   884→rate_limit_status
+   885→```
+   886→
+   887→------------------------------------------------------------------------
+   888→
+   889→# 45. Integration Failure Isolation
+   890→
+   891→One failed integration must not bring down the entire Domain OS.
+   892→
+   893→Use:
+   894→
+   895→``` text
+   896→timeouts
+   897→circuit breakers where appropriate
+   898→queues
+   899→fallbacks
+   900→partial failure handling
+   901→```
+   902→
+   903→------------------------------------------------------------------------
+   904→
+   905→# 46. Circuit Breaking
+   906→
+   907→For repeatedly failing external dependencies:
+   908→
+   909→``` text
+   910→Closed
+   911→ ↓ failures
+   912→Open
+   913→ ↓ wait
+   914→Half-Open
+   915→ ↓ test
+   916→Closed / Open
+   917→```
+   918→
+   919→This protects Mianx resources from dependency failure storms.
+   920→
+   921→------------------------------------------------------------------------
+   922→
+   923→# 47. AI Tool Interface
+   924→
+   925→AI tools should use the same integration contracts.
+   926→
+   927→``` text
+   928→AI Agent
+   929→ ↓
+   930→Tool Registry
+   931→ ↓
+   932→Authorized Tool
+   933→ ↓
+   934→Integration / Domain Service
+   935→```
+   936→
+   937→AI should not bypass API/service security simply because it is internal.
+   938→
+   939→------------------------------------------------------------------------
+   940→
+   941→# 48. AI Tool Events
+   942→
+   943→Tool executions should produce telemetry and, where appropriate:
+   944→
+   945→``` text
+   946→tool.called
+   947→tool.succeeded
+   948→tool.failed
+   949→tool.denied
+   950→```
+   951→
+   952→High-risk actions should also generate audit records.
+   953→
+   954→------------------------------------------------------------------------
+   955→
+   956→# 49. Domain Integration Contract
+   957→
+   958→Every Domain OS should expose standardized integration surfaces:
+   959→
+   960→``` text
+   961→Domain API
+   962→Domain Events
+   963→Domain Webhooks
+   964→Domain Tools
+   965→Domain Data Export
+   966→Domain Import
+   967→```
+   968→
+   969→Example:
+   970→
+   971→``` text
+   972→Poultry OS
+   973→ ├── /api/v1/poultry/...
+   974→ ├── poultry.flock.*
+   975→ ├── poultry.alert.*
+   976→ └── poultry tools
+   977→```
+   978→
+   979→------------------------------------------------------------------------
+   980→
+   981→# 50. Multi-Tenant Event Isolation
+   982→
+   983→Every tenant-scoped event must carry enough information for consumers to
+   984→enforce isolation.
+   985→
+   986→Conceptually:
+   987→
+   988→``` text
+   989→organization_id
+   990→domain
+   991→resource_id
+   992→```
+   993→
+   994→Consumers must never assume an event belongs to the current tenant
+   995→merely because it arrived through a shared queue.
+   996→
+   997→------------------------------------------------------------------------
+   998→
+   999→# 51. Partner Platform
+  1000→
+  1001→Future Mianx partners can build:
+  1002→
+  1003→``` text
+  1004→integrations
+  1005→apps
+  1006→agents
+  1007→skills
+  1008→reports
+  1009→connectors
+  1010→```
+  1011→
+  1012→Partner access must use documented APIs and scopes.
+  1013→
+  1014→------------------------------------------------------------------------
+  1015→
+  1016→# 52. Developer Platform
+  1017→
+  1018→A future developer portal may provide:
+  1019→
+  1020→``` text
+  1021→API documentation
+  1022→API keys
+  1023→OAuth apps
+  1024→Webhook configuration
+  1025→Event schemas
+  1026→SDKs
+  1027→Sandbox
+  1028→Usage
+  1029→Logs
+  1030→```
+  1031→
+  1032→------------------------------------------------------------------------
+  1033→
+  1034→# 53. Integration Marketplace
+  1035→
+  1036→Marketplace entries can include:
+  1037→
+  1038→``` text
+  1039→integration name
+  1040→provider
+  1041→category
+  1042→capabilities
+  1043→permissions
+  1044→pricing
+  1045→version
+  1046→support status
+  1047→installation flow
+  1048→```
+  1049→
+  1050→Installed marketplace integrations still inherit Mianx governance.
+  1051→
+  1052→------------------------------------------------------------------------
+  1053→
+  1054→# 54. Integration Permissions
+  1055→
+  1056→Permissions should be explicit.
+  1057→
+  1058→Examples:
+  1059→
+  1060→``` text
+  1061→poultry.flock.read
+  1062→poultry.flock.write
+  1063→poultry.procurement.read
+  1064→poultry.procurement.create
+  1065→analytics.read
+  1066→```
+  1067→
+  1068→An integration should receive only required scopes.
+  1069→
+  1070→------------------------------------------------------------------------
+  1071→
+  1072→# 55. Data Export
+  1073→
+  1074→Organizations should have controlled export capabilities.
+  1075→
+  1076→Exports should support:
+  1077→
+  1078→``` text
+  1079→authorization
+  1080→scope
+  1081→format
+  1082→large-job processing
+  1083→progress
+  1084→audit
+  1085→download expiry
+  1086→```
+  1087→
+  1088→Large exports should run asynchronously.
+  1089→
+  1090→------------------------------------------------------------------------
+  1091→
+  1092→# 56. Data Import
+  1093→
+  1094→Import pipeline:
+  1095→
+  1096→``` text
+  1097→Upload / External Source
+  1098→ ↓
+  1099→Validate
+  1100→ ↓
+  1101→Preview
+  1102→ ↓
+  1103→Map
+  1104→ ↓
+  1105→Approve
+  1106→ ↓
+  1107→Process
+  1108→ ↓
+  1109→Report
+  1110→```
+  1111→
+  1112→Never silently import malformed data.
+  1113→
+  1114→------------------------------------------------------------------------
+  1115→
+  1116→# 57. Bulk APIs
+  1117→
+  1118→Bulk operations should define:
+  1119→
+  1120→``` text
+  1121→maximum batch size
+  1122→partial failure behavior
+  1123→idempotency
+  1124→async option
+  1125→progress
+  1126→result reporting
+  1127→```
+  1128→
+  1129→------------------------------------------------------------------------
+  1130→
+  1131→# 58. API Security
+  1132→
+  1133→Required controls include:
+  1134→
+  1135→``` text
+  1136→authentication
+  1137→authorization
+  1138→tenant isolation
+  1139→input validation
+  1140→rate limiting
+  1141→request size limits
+  1142→audit for sensitive operations
+  1143→secret protection
+  1144→```
+  1145→
+  1146→------------------------------------------------------------------------
+  1147→
+  1148→# 59. API Observability
+  1149→
+  1150→Track:
+  1151→
+  1152→``` text
+  1153→request count
+  1154→latency
+  1155→status
+  1156→errors
+  1157→organization
+  1158→integration
+  1159→API version
+  1160→rate limits
+  1161→trace_id
+  1162→```
+  1163→
+  1164→Avoid high-cardinality telemetry where it creates operational cost
+  1165→without value.
+  1166→
+  1167→------------------------------------------------------------------------
+  1168→
+  1169→# 60. Integration Cost
+  1170→
+  1171→Some integrations create usage costs.
+  1172→
+  1173→Track where relevant:
+  1174→
+  1175→``` text
+  1176→provider calls
+  1177→messages
+  1178→storage
+  1179→AI calls
+  1180→transaction fees
+  1181→```
+  1182→
+  1183→Cost attribution should connect to the Core billing and observability
+  1184→systems.
+  1185→
+  1186→------------------------------------------------------------------------
+  1187→
+  1188→# 61. API Deprecation
+  1189→
+  1190→Deprecation lifecycle:
+  1191→
+  1192→``` text
+  1193→Announce
+  1194→ ↓
+  1195→Document replacement
+  1196→ ↓
+  1197→Monitor usage
+  1198→ ↓
+  1199→Migration period
+  1200→ ↓
+  1201→Disable
+  1202→```
+  1203→
+  1204→Do not remove widely used APIs without visibility into consumers.
+  1205→
+  1206→------------------------------------------------------------------------
+  1207→
+  1208→# 62. Contract Testing
+  1209→
+  1210→Critical integrations should have contract tests for:
+  1211→
+  1212→``` text
+  1213→authentication
+  1214→request schema
+  1215→response schema
+  1216→events
+  1217→webhooks
+  1218→error behavior
+  1219→idempotency
+  1220→```
+  1221→
+  1222→------------------------------------------------------------------------
+  1223→
+  1224→# 63. Integration Testing
+  1225→
+  1226→Test:
+  1227→
+  1228→``` text
+  1229→happy path
+  1230→timeout
+  1231→rate limit
+  1232→invalid credentials
+  1233→provider outage
+  1234→duplicate webhook
+  1235→duplicate event
+  1236→partial failure
+  1237→schema change
+  1238→retry
+  1239→recovery
+  1240→```
+  1241→
+  1242→------------------------------------------------------------------------
+  1243→
+  1244→# 64. Integration Security Testing
+  1245→
+  1246→Required:
+  1247→
+  1248→``` text
+  1249→signature validation
+  1250→OAuth scope validation
+  1251→API key leakage prevention
+  1252→tenant isolation
+  1253→replay protection
+  1254→SSRF protections where applicable
+  1255→payload validation
+  1256→permission boundaries
+  1257→```
+  1258→
+  1259→------------------------------------------------------------------------
+  1260→
+  1261→# 65. Integration Definition of Done
+  1262→
+  1263→``` text
+  1264→✓ API Gateway
+  1265→✓ API contracts
+  1266→✓ Versioning
+  1267→✓ Authentication
+  1268→✓ Authorization
+  1269→✓ API keys
+  1270→✓ OAuth
+  1271→✓ Rate limiting
+  1272→✓ Idempotency
+  1273→✓ Webhooks
+  1274→✓ Webhook security
+  1275→✓ Event Bus
+  1276→✓ Event schemas
+  1277→✓ Event versioning
+  1278→✓ Outbox
+  1279→✓ Queues
+  1280→✓ Retries
+  1281→✓ Dead letters
+  1282→✓ Durable workflows
+  1283→✓ Integration registry
+  1284→✓ Connection management
+  1285→✓ Provider adapters
+  1286→✓ Sync state
+  1287→✓ AI tool interfaces
+  1288→✓ Domain integration contracts
+  1289→✓ Marketplace foundation
+  1290→✓ Developer platform foundation
+  1291→✓ Contract tests
+  1292→✓ Integration observability
+  1293→```
+  1294→
+  1295→------------------------------------------------------------------------
+  1296→
+  1297→# 66. Implementation Order
+  1298→
+  1299→``` text
+  1300→1. API contracts
+  1301→2. API Gateway
+  1302→3. Auth integration
+  1303→4. API versioning
+  1304→5. Idempotency
+  1305→6. Rate limits
+  1306→7. Event envelope
+  1307→8. Event schema strategy
+  1308→9. Event bus
+  1309→10. Transactional outbox
+  1310→11. Queue workers
+  1311→12. Webhooks
+  1312→13. Integration registry
+  1313→14. OAuth / API keys
+  1314→15. Provider adapters
+  1315→16. Sync framework
+  1316→17. Durable workflows
+  1317→18. AI tool integration
+  1318→19. Developer platform
+  1319→20. Marketplace foundation
+  1320→21. Contract testing
+  1321→22. Production hardening
+  1322→```
+  1323→
+  1324→------------------------------------------------------------------------
+  1325→
+  1326→# 67. Final Integration Principle
+  1327→
+  1328→> **Every future Mianx Domain OS should plug into the same API, event,
+  1329→> integration and developer foundation instead of inventing its own
+  1330→> connectivity architecture.**
+  1331→
+  1332→``` text
+  1333→             MIANX CORE
+  1334→                 │
+  1335→      API + EVENT PLATFORM
+  1336→                 │
+  1337→     ┌───────────┼───────────┐
+  1338→     ↓           ↓           ↓
+  1339→  Poultry     Restaurant    Retail
+  1340→     ↓           ↓           ↓
+  1341→  External    External     External
+  1342→  Systems     Systems      Systems
+  1343→
+  1344→                 +
+  1345→          AI Workforce
+  1346→                 +
+  1347→        Partner Ecosystem
+  1348→```
+  1349→
+  1350→------------------------------------------------------------------------
+  1351→
+  1352→# 68. Next Technical Deliverable
+  1353→
+  1354→Next:
+  1355→
+  1356→# MIANX.AI CORE --- DATA PLATFORM, TENANT ISOLATION & DATABASE ARCHITECTURE SPECIFICATION v1.0
+  1357→
+  1358→It will define:
+  1359→
+  1360→-   PostgreSQL architecture
+  1361→-   Multi-tenant data model
+  1362→-   Organization / tenant boundaries
+  1363→-   Domain data boundaries
+  1364→-   Schemas
+  1365→-   IDs
+  1366→-   Relationships
+  1367→-   Row-Level Security strategy
+  1368→-   Prisma/data-access boundaries
+  1369→-   Redis
+  1370→-   Object storage
+  1371→-   Search
+  1372→-   Vector data
+  1373→-   Migrations
+  1374→-   Backups
+  1375→-   Disaster recovery
+  1376→-   Data lifecycle
+  1377→-   Audit data
+  1378→-   AI memory/knowledge storage
+  1379→-   Analytics
+  1380→-   Data partitioning/scaling
+  1381→-   Cross-domain data rules
+  1382→

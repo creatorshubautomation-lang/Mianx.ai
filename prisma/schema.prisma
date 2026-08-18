@@ -1,0 +1,1159 @@
+// ============================================================
+// MIANX.AI V3 — PRISMA SCHEMA
+// The Agentic AI Operating System for Modern Teams
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum OrganizationStatus {
+  active
+  suspended
+  archived
+}
+
+enum MembershipStatus {
+  invited
+  active
+  suspended
+  removed
+}
+
+enum DomainStatus {
+  draft
+  development
+  published
+  active
+  deprecated
+  archived
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  grace_period
+  paused
+  cancelled
+  expired
+  suspended
+}
+
+enum EntitlementStatus {
+  enabled
+  disabled
+  limited
+  trial
+  expired
+  suspended
+}
+
+enum TrialStatus {
+  started
+  active
+  ending
+  converted
+  expired
+}
+
+enum AgentStatus {
+  draft
+  testing
+  active
+  paused
+  deprecated
+  retired
+}
+
+enum MissionStatus {
+  draft
+  planning
+  approved
+  executing
+  verifying
+  completed
+  failed
+  cancelled
+}
+
+enum TaskStatus {
+  planned
+  queued
+  running
+  waiting_tool
+  waiting_approval
+  verifying
+  retrying
+  failed
+  completed
+  cancelled
+  blocked
+}
+
+enum OutcomeStatus {
+  not_started
+  in_progress
+  near_target
+  achieved
+  missed
+  failed
+}
+
+enum VerificationType {
+  schema_validation
+  test
+  typecheck
+  lint
+  build
+  security
+  accessibility
+  business_rule
+  artifact_check
+  metric_threshold
+}
+
+enum WorkflowRunStatus {
+  queued
+  running
+  waiting
+  waiting_approval
+  completed
+  failed
+  cancelled
+  timed_out
+  dead_lettered
+}
+
+enum JobPriority {
+  critical
+  high
+  normal
+  low
+}
+
+enum OutboxStatus {
+  pending
+  published
+  failed
+}
+
+enum ToolRiskLevel {
+  READ
+  LOW_WRITE
+  MEDIUM_WRITE
+  HIGH_WRITE
+  CRITICAL
+}
+
+enum AutonomyLevel {
+  conservative
+  balanced
+  autonomous
+}
+
+enum UserMode {
+  simple
+  pro
+  expert
+}
+
+enum ActorType {
+  human
+  ai_agent
+  system
+  integration
+}
+
+enum SettingScope {
+  platform
+  organization
+  domain
+  module
+  user
+}
+
+enum MemoryScope {
+  session
+  conversation
+  user
+  organization
+  domain
+  agent
+  operational
+}
+
+enum FailureClassification {
+  validation_error
+  authorization_error
+  not_found
+  conflict
+  rate_limited
+  timeout
+  transient_external_error
+  permanent_external_error
+  ai_error
+  approval_timeout
+  policy_violation
+  verification_failed
+  budget_exceeded
+  unknown
+}
+
+// ============================================================
+// CORE: IDENTITY & ORGANIZATION
+// ============================================================
+
+model Profile {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  displayName String   @default("")
+  avatarUrl   String?
+  locale      String   @default("en")
+  timezone    String   @default("UTC")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships  OrganizationMembership[]
+  missions    Mission[]
+  aiRuns      AiRun[]
+  uploadedFiles File[]
+  notifications Notification[]
+  auditLogs   AuditLog[]  @relation("ActorLogs")
+}
+
+model Organization {
+  id        String             @id @default(cuid())
+  name      String
+  slug      String             @unique
+  status    OrganizationStatus  @default(active)
+  timezone  String             @default("UTC")
+  locale    String             @default("en")
+  currency  String             @default("USD")
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  memberships      OrganizationMembership[]
+  teams            Team[]
+  domains          OrganizationDomain[]
+  modules          OrganizationModule[]
+  agents           Agent[]
+  missions         Mission[]
+  workflows        Workflow[]
+  events           Event[]
+  subscriptions    Subscription[]
+  entitlements     Entitlement[]
+  usageRecords     UsageRecord[]
+  aiCostRecords    AiCostRecord[]
+  files            File[]
+  integrations     Integration[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  jobs             Job[]
+  settings         Setting[]
+  memories         AgentMemory[]
+  knowledgeSources KnowledgeSource[]
+  outcomes         Outcome[]
+  aiRuns          AiRun[]
+  workflowRuns    WorkflowRun[]
+  workflowApprovals WorkflowApproval[]
+  invoices        Invoice[]
+  credits         Credit[]
+  trials          Trial[]
+  autonomyPolicy   AutonomyPolicy?
+}
+
+model OrganizationMembership {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String
+  status         MembershipStatus @default(invited)
+  joinedAt       DateTime?        @default(now())
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization              @relation(fields: [organizationId], references: [id])
+  user         Profile                   @relation(fields: [userId], references: [id])
+  roles        MembershipRole[]
+  teamMembers  TeamMember[]
+
+  @@unique([organizationId, userId])
+}
+
+model Team {
+  id             String @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization              @relation(fields: [organizationId], references: [id])
+  members      TeamMember[]
+}
+
+model TeamMember {
+  id             String @id @default(cuid())
+  teamId        String
+  membershipId  String
+  createdAt      DateTime @default(now())
+
+  team       Team                    @relation(fields: [teamId], references: [id])
+  membership OrganizationMembership @relation(fields: [membershipId], references: [id])
+
+  @@unique([teamId, membershipId])
+}
+
+// ============================================================
+// CORE: AUTHORIZATION
+// ============================================================
+
+model Role {
+  id             String   @id @default(cuid())
+  organizationId String?
+  name           String
+  slug           String
+  description    String?
+  isSystem       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  permissions RolePermission[]
+  memberships MembershipRole[]
+
+  @@unique([organizationId, slug])
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model MembershipRole {
+  id            String   @id @default(cuid())
+  membershipId  String
+  roleId        String
+  createdAt     DateTime @default(now())
+
+  membership OrganizationMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  role        Role                    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, roleId])
+}
+
+// ============================================================
+// CORE: DOMAIN & MODULE ENGINE
+// ============================================================
+
+model Domain {
+  id          String        @id @default(cuid())
+  name        String
+  slug        String        @unique
+  version     String        @default("1.0.0")
+  description String?
+  status      DomainStatus  @default(draft)
+  manifest    String        @default("{}")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  organizationDomains OrganizationDomain[]
+  modules              Module[]
+  agents               Agent[]
+  workflows            Workflow[]
+  knowledgeSources     KnowledgeSource[]
+}
+
+model OrganizationDomain {
+  id             String   @id @default(cuid())
+  organizationId String
+  domainId       String
+  status         String   @default("active")
+  configuration  String   @default("{}")
+  activatedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  domain       Domain       @relation(fields: [domainId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, domainId])
+}
+
+model Module {
+  id          String   @id @default(cuid())
+  domainId    String
+  name        String
+  slug        String
+  version     String   @default("1.0.0")
+  description String?
+  manifest    String   @default("{}")
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  domain             Domain                @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  organizationModules OrganizationModule[]
+}
+
+model OrganizationModule {
+  id             String   @id @default(cuid())
+  organizationId String
+  moduleId       String
+  status         String   @default("active")
+  configuration  String   @default("{}")
+  activatedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  module       Module       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, moduleId])
+}
+
+// ============================================================
+// V3: MISSION ENGINE
+// ============================================================
+
+model Mission {
+  id              String        @id @default(cuid())
+  organizationId  String
+  userId          String?
+  title           String
+  goal            String
+  objective       String?
+  constraints     String        @default("{}")
+  budget          Float         @default(0)
+  estimatedCost   Float         @default(0)
+  actualCost      Float         @default(0)
+  deadline        DateTime?
+  successCriteria String        @default("[]")
+  plan            String        @default("{}")
+  status          MissionStatus @default(draft)
+  userMode        UserMode      @default(simple)
+  correlationId   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  user         Profile?          @relation(fields: [userId], references: [id])
+  tasks        MissionTask[]
+  agents       MissionAgent[]
+  outcomes     Outcome[]
+  verifications Verification[]
+  events       Event[]
+  approvals    WorkflowApproval[]
+}
+
+model MissionTask {
+  id             String      @id @default(cuid())
+  missionId      String
+  parentTaskId   String?
+  title          String
+  description    String?
+  status         TaskStatus  @default(planned)
+  agentId        String?
+  assignedTools  String      @default("[]")
+  dependencies   String      @default("[]")
+  verificationConfig String     @default("{}")
+  input          String      @default("{}")
+  output         String      @default("{}")
+  error          String?
+  retryCount     Int         @default(0)
+  maxRetries     Int         @default(3)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  mission    Mission      @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  parent     MissionTask? @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
+  children   MissionTask[] @relation("TaskHierarchy")
+  agent      Agent?       @relation("TaskAgent", fields: [agentId], references: [id])
+
+  @@index([agentId])
+  verifications Verification[]
+}
+
+model MissionAgent {
+  id             String  @id @default(cuid())
+  missionId      String
+  agentId        String
+  role           String  @default("worker")
+  capabilitiesUsed String @default("[]")
+  costIncurred   Float   @default(0)
+  createdAt      DateTime @default(now())
+
+  mission Mission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  agent   Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([missionId, agentId])
+}
+
+// ============================================================
+// V3: OUTCOME ENGINE
+// ============================================================
+
+model Outcome {
+  id             String        @id @default(cuid())
+  organizationId  String
+  missionId      String
+  objective     String
+  baseline      String         @default("{}")
+  target        String         @default("{}")
+  currentResult String         @default("{}")
+  progress      Float          @default(0)
+  confidence    Float          @default(0)
+  status        OutcomeStatus  @default(not_started)
+  evidence      String         @default("[]")
+  verifiedAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  mission     Mission     @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+// ============================================================
+// V3: VERIFICATION ENGINE
+// ============================================================
+
+model Verification {
+  id            String           @id @default(cuid())
+  missionId     String
+  missionTaskId String?
+  type          VerificationType
+  config        String           @default("{}")
+  result        String?
+  evidence      String           @default("[]")
+  passed        Boolean?
+  verifiedAt    DateTime?
+  createdAt     DateTime         @default(now())
+
+  mission Mission      @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  task    MissionTask? @relation(fields: [missionTaskId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================
+// V3: AUTONOMY POLICY
+// ============================================================
+
+model AutonomyPolicy {
+  id             String         @id @default(cuid())
+  organizationId String         @unique
+  level          AutonomyLevel  @default(balanced)
+  config         String         @default("{}")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+// ============================================================
+// AI: AGENTS
+// ============================================================
+
+model Agent {
+  id             String      @id @default(cuid())
+  organizationId String
+  domainId       String?
+  name           String
+  slug           String
+  description    String?
+  status         AgentStatus @default(draft)
+  type           String      @default("assistant")
+  configuration  String      @default("{}")
+  capabilities   String      @default("[]")
+  version        String      @default("1.0.0")
+  successMetrics String      @default("{}")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization  Organization    @relation(fields: [organizationId], references: [id])
+  domain        Domain?         @relation(fields: [domainId], references: [id])
+  tools         AgentTool[]
+  skills        AgentSkill[]
+  runs          AiRun[]
+  memories      AgentMemory[]
+  missionTasks  MissionTask[]   @relation("TaskAgent")
+  missionAgents MissionAgent[]
+  delegations   AgentDelegation[] @relation("DelegateParent")
+  delegatedTo   AgentDelegation[] @relation("DelegateChild")
+}
+
+model AgentTool {
+  id            String       @id @default(cuid())
+  agentId       String
+  toolKey       String
+  configuration String       @default("{}")
+  riskLevel     ToolRiskLevel @default(READ)
+  enabled       Boolean      @default(true)
+  timeout       Int          @default(30000)
+  retryPolicy   String       @default("{}")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, toolKey])
+}
+
+model AgentSkill {
+  id        String   @id @default(cuid())
+  agentId   String
+  skillKey  String
+  level     Int      @default(1)
+  createdAt DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, skillKey])
+}
+
+model AgentDelegation {
+  id            String   @id @default(cuid())
+  parentAgentId String
+  childAgentId  String
+  task          String?
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+
+  parent Agent @relation("DelegateParent", fields: [parentAgentId], references: [id], onDelete: Cascade)
+  child  Agent @relation("DelegateChild", fields: [childAgentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentAgentId, childAgentId])
+}
+
+// ============================================================
+// AI: RUNS & MESSAGES
+// ============================================================
+
+model AiRun {
+  id             String    @id @default(cuid())
+  organizationId String
+  agentId        String
+  userId         String?
+  model          String    @default("gpt-4o")
+  provider       String    @default("openai")
+  status         String    @default("pending")
+  inputTokens    Int       @default(0)
+  outputTokens   Int       @default(0)
+  totalTokens    Int       @default(0)
+  cost           Float?    
+  durationMs     Int?
+    
+  correlationId  String?
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  agent        Agent        @relation(fields: [agentId], references: [id])
+  user         Profile?     @relation(fields: [userId], references: [id])
+  messages     AiMessage[]
+  toolCalls    AiToolCall[]
+  costRecords  AiCostRecord[]
+}
+
+model AiMessage {
+  id        String   @id @default(cuid())
+  aiRunId   String
+  role      String
+  content   String   @default("")
+  toolCalls String?  @default("null")
+  createdAt DateTime @default(now())
+
+  run AiRun @relation(fields: [aiRunId], references: [id], onDelete: Cascade)
+}
+
+model AiToolCall {
+  id          String   @id @default(cuid())
+  aiRunId     String
+  aiMessageId String?
+  toolKey     String
+  input       String   @default("{}")
+  output      String?
+  status      String   @default("pending")
+  error       String?
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+
+  run AiRun @relation(fields: [aiRunId], references: [id], onDelete: Cascade)
+}
+
+model AiCostRecord {
+  id             String   @id @default(cuid())
+  organizationId String
+  aiRunId        String?
+  model          String
+  provider       String
+  inputTokens    Int      @default(0)
+  outputTokens   Int      @default(0)
+  totalTokens    Int      @default(0)
+  estimatedCost  Float    @default(0)
+  actualCost     Float?
+  occurredAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  aiRun        AiRun?       @relation(fields: [aiRunId], references: [id])
+}
+
+// ============================================================
+// AI: MEMORY & KNOWLEDGE
+// ============================================================
+
+model AgentMemory {
+  id             String      @id @default(cuid())
+  organizationId String
+  agentId        String?
+  scope          MemoryScope @default(session)
+  content        String
+  metadata       String      @default("{}")
+  source         String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  agent        Agent?       @relation(fields: [agentId], references: [id])
+}
+
+model KnowledgeSource {
+  id             String   @id @default(cuid())
+  organizationId String
+  domainId       String?
+  sourceType     String   @default("document")
+  name           String
+  status         String   @default("active")
+  configuration  String   @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  domain       Domain?       @relation(fields: [domainId], references: [id])
+}
+
+model Skill {
+  id                  String   @id @default(cuid())
+  key                 String   @unique
+  version             String   @default("1.0.0")
+  description         String?
+  inputs              String   @default("{}")
+  outputs             String   @default("{}")
+  requiredPermissions String   @default("[]")
+  evaluationPolicy    String   @default("{}")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// ============================================================
+// WORKFLOW & AUTOMATION
+// ============================================================
+
+model Workflow {
+  id             String   @id @default(cuid())
+  organizationId String
+  domainId       String?
+  name           String
+  slug           String
+  status         String   @default("draft")
+  definition     String   @default("{}")
+  triggerType    String   @default("manual")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  domain       Domain?             @relation(fields: [domainId], references: [id])
+  runs         WorkflowRun[]
+}
+
+model WorkflowRun {
+  id              String             @id @default(cuid())
+  workflowId      String
+  organizationId  String
+  status          WorkflowRunStatus  @default(queued)
+  input           String             @default("{}")
+  output          String?
+  currentStep     String?
+  error           String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  workflow   Workflow            @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  steps      WorkflowStepRun[]
+  approvals  WorkflowApproval[]
+  events     Event[]
+}
+
+model WorkflowStepRun {
+  id             String   @id @default(cuid())
+  workflowRunId  String
+  stepId         String
+  status         String   @default("pending")
+  attempt        Int      @default(1)
+  input          String   @default("{}")
+  output         String?
+  error          String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+
+  workflowRun WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
+}
+
+model WorkflowApproval {
+  id                String   @id @default(cuid())
+  workflowRunId     String?
+  missionId         String?
+  organizationId     String
+  requestedAction   String   @default("{}")
+  riskLevel         String   @default("medium")
+  requestedBy       String?
+  approvedBy        String?
+  decision          String?
+  reason            String?
+  expiresAt         DateTime?
+  createdAt         DateTime @default(now())
+  decidedAt         DateTime?
+
+  workflowRun WorkflowRun? @relation(fields: [workflowRunId], references: [id])
+  mission     Mission?     @relation(fields: [missionId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+model Job {
+  id             String      @id @default(cuid())
+  organizationId String
+  type           String
+  payload        String      @default("{}")
+  status         String      @default("pending")
+  priority       JobPriority  @default(normal)
+  scheduledAt    DateTime?
+  attempts       Int         @default(0)
+  createdAt      DateTime    @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+// ============================================================
+// EVENTS
+// ============================================================
+
+model Event {
+  id             String    @id @default(cuid())
+  eventType       String
+  eventVersion    String    @default("1.0")
+  organizationId  String?
+  domainId        String?
+  missionId       String?
+  workflowRunId   String?
+  sourceType      ActorType @default(system)
+  sourceId        String?
+  actorType       ActorType @default(system)
+  actorId         String?
+  correlationId   String?
+  causationId     String?
+  payload         String    @default("{}")
+  occurredAt      DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+
+  organization Organization?  @relation(fields: [organizationId], references: [id])
+  mission     Mission?        @relation(fields: [missionId], references: [id])
+  workflowRun WorkflowRun?     @relation(fields: [workflowRunId], references: [id])
+}
+
+model OutboxEvent {
+  id             String       @id @default(cuid())
+  organizationId String?
+  eventType       String
+  payload         String       @default("{}")
+  status          OutboxStatus @default(pending)
+  attempts        Int          @default(0)
+  availableAt     DateTime?
+  publishedAt     DateTime?
+  createdAt       DateTime     @default(now())
+}
+
+// ============================================================
+// BILLING
+// ============================================================
+
+model Plan {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  billingModel String @default("subscription")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  versions PlanVersion[]
+}
+
+model PlanVersion {
+  id               String   @id @default(cuid())
+  planId           String
+  version          String   @default("1.0")
+  includedFeatures String   @default("{}")
+  includedDomains  String   @default("[]")
+  limits           String   @default("{}")
+  usageAllowances  String   @default("{}")
+  seatAllowances   String?  @default("null")
+  aiAllowance      String?  @default("null")
+  createdAt        DateTime @default(now())
+
+  plan        Plan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  organizationId     String
+  planVersionId       String
+  status             SubscriptionStatus @default(trialing)
+  currentPeriodStart DateTime           @default(now())
+  currentPeriodEnd   DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  planVersion  PlanVersion @relation(fields: [planVersionId], references: [id])
+  items        SubscriptionItem[]
+  entitlements  Entitlement[]
+  invoices     Invoice[]
+  credits      Credit[]
+  trials       Trial[]
+}
+
+model SubscriptionItem {
+  id              String   @id @default(cuid())
+  subscriptionId  String
+  type            String   @default("base_plan")
+  referenceId     String?
+  quantity        Int?
+  unitAmount      Float?
+  createdAt       DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+}
+
+model Entitlement {
+  id             String           @id @default(cuid())
+  organizationId String
+  subscriptionId String
+  featureId      String?
+  resourceType   String?
+  resourceId     String?
+  status         EntitlementStatus @default(enabled)
+  limitValue     Float?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+}
+
+model UsageRecord {
+  id             String   @id @default(cuid())
+  organizationId String
+  meterKey       String
+  quantity       Float    @default(0)
+  unit           String   @default("count")
+  source         String?
+  occurredAt     DateTime @default(now())
+  idempotencyKey String   @unique
+  metadata       String?  @default("null")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+model UsageMeter {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  unit        String   @default("count")
+  aggregation String   @default("sum")
+  period      String   @default("monthly")
+  createdAt   DateTime @default(now())
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  organizationId String
+  subscriptionId String
+  periodStart    DateTime @default(now())
+  periodEnd      DateTime?
+  lineItems      String   @default("[]")
+  subtotal       Float    @default(0)
+  discount       Float    @default(0)
+  tax            Float    @default(0)
+  total          Float    @default(0)
+  currency       String   @default("USD")
+  status         String   @default("draft")
+  issuedAt       DateTime @default(now())
+  dueAt          DateTime?
+  paidAt         DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+}
+
+model Credit {
+  id             String   @id @default(cuid())
+  organizationId String
+  subscriptionId String
+  amount         Float    @default(0)
+  currency       String   @default("USD")
+  type           String   @default("promotional")
+  expiration     DateTime?
+  priority       Int      @default(0)
+  remaining      Float    @default(0)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+}
+
+model Trial {
+  id             String      @id @default(cuid())
+  organizationId String
+  subscriptionId String
+  planId         String
+  status         TrialStatus @default(started)
+  durationDays   Int         @default(14)
+  features       String     @default("{}")
+  usageLimits    String     @default("{}")
+  startsAt       DateTime    @default(now())
+  endsAt         DateTime?
+  convertedAt    DateTime?
+  createdAt      DateTime    @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+}
+
+// ============================================================
+// INTEGRATION
+// ============================================================
+
+model Integration {
+  id             String   @id @default(cuid())
+  organizationId String
+  provider       String
+  name           String
+  status         String   @default("disconnected")
+  configuration  String   @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+// ============================================================
+// AUDIT & OBSERVABILITY
+// ============================================================
+
+model AuditLog {
+  id             String    @id @default(cuid())
+  organizationId String?
+  actorType      ActorType @default(human)
+  actorId        String?
+  action         String
+  resourceType   String
+  resourceId     String?
+  before         String?   @default("null")
+  after          String?   @default("null")
+  metadata       String?   @default("null")
+  requestId      String?
+  correlationId   String?
+  createdAt      DateTime  @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  actor        Profile?      @relation("ActorLogs", fields: [actorId], references: [id])
+}
+
+// ============================================================
+// SUPPORTING
+// ============================================================
+
+model File {
+  id             String   @id @default(cuid())
+  organizationId String
+  uploadedBy     String
+  name           String
+  storagePath    String
+  mimeType       String   @default("application/octet-stream")
+  sizeBytes      Int      @default(0)
+  metadata       String?  @default("null")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  uploader     Profile      @relation(fields: [uploadedBy], references: [id])
+}
+
+model Notification {
+  id               String   @id @default(cuid())
+  organizationId   String
+  recipientUserId  String
+  type             String
+  title            String
+  body             String?
+  data             String?  @default("null")
+  readAt           DateTime?
+  createdAt        DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  recipient   Profile      @relation(fields: [recipientUserId], references: [id])
+}
+
+model Setting {
+  id             String      @id @default(cuid())
+  organizationId String?
+  scopeType      SettingScope @default(platform)
+  scopeId        String?
+  key            String
+  value          String      @default("{}")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+}
+
+model ApiKey {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  keyHash        String   @unique
+  scopes         String   @default("[]")
+  status         String   @default("active")
+  expiresAt       DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime @default(now())
+}

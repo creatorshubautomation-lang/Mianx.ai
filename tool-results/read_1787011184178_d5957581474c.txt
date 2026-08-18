@@ -1,0 +1,1113 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import {
+     6→  Settings2,
+     7→  Users,
+     8→  Globe,
+     9→  Shield,
+    10→  AlertTriangle,
+    11→  Plus,
+    12→  Loader2,
+    13→  AlertCircle,
+    14→  Trash2,
+    15→  Save,
+    16→  Mail,
+    17→  Calendar,
+    18→  Check,
+    19→  ChevronRight,
+    20→} from 'lucide-react'
+    21→import { Button } from '@/components/ui/button'
+    22→import { Badge } from '@/components/ui/badge'
+    23→import { Skeleton } from '@/components/ui/skeleton'
+    24→import { Separator } from '@/components/ui/separator'
+    25→import {
+    26→  Dialog,
+    27→  DialogContent,
+    28→  DialogHeader,
+    29→  DialogTitle,
+    30→  DialogTrigger,
+    31→} from '@/components/ui/dialog'
+    32→import { Input } from '@/components/ui/input'
+    33→import { Label } from '@/components/ui/label'
+    34→import { Textarea } from '@/components/ui/textarea'
+    35→import {
+    36→  Select,
+    37→  SelectTrigger,
+    38→  SelectValue,
+    39→  SelectContent,
+    40→  SelectItem,
+    41→} from '@/components/ui/select'
+    42→import {
+    43→  Tabs,
+    44→  TabsList,
+    45→  TabsTrigger,
+    46→  TabsContent,
+    47→} from '@/components/ui/tabs'
+    48→import {
+    49→  Table,
+    50→  TableBody,
+    51→  TableCell,
+    52→  TableHead,
+    53→  TableHeader,
+    54→  TableRow,
+    55→} from '@/components/ui/table'
+    56→import { ScrollArea } from '@/components/ui/scroll-area'
+    57→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    58→import {
+    59→  Tooltip,
+    60→  TooltipTrigger,
+    61→  TooltipContent,
+    62→} from '@/components/ui/tooltip'
+    63→import { cn } from '@/lib/utils'
+    64→import { useStore, useActiveOrg } from '@/lib/store'
+    65→import { navigate } from '@/lib/router'
+    66→import { slugify, parseJsonField } from '@/lib/types'
+    67→import type { ApiResponseEnvelope, MembershipStatus, AutonomyLevel } from '@/lib/types'
+    68→
+    69→// ============================================================
+    70→// Types
+    71→// ============================================================
+    72→
+    73→interface MemberUser {
+    74→  id: string
+    75→  email: string
+    76→  displayName: string
+    77→  avatarUrl: string | null
+    78→}
+    79→
+    80→interface MemberRole {
+    81→  id: string
+    82→  name: string
+    83→  slug: string
+    84→  description?: string | null
+    85→  isSystem: boolean
+    86→}
+    87→
+    88→interface MemberItem {
+    89→  id: string
+    90→  organizationId: string
+    91→  userId: string
+    92→  status: MembershipStatus
+    93→  joinedAt: string | null
+    94→  createdAt: string
+    95→  updatedAt: string
+    96→  user: MemberUser
+    97→  roles: MemberRole[]
+    98→}
+    99→
+   100→interface OrgDomain {
+   101→  id: string
+   102→  organizationId: string
+   103→  domainId: string
+   104→  status: string
+   105→  configuration: string
+   106→  activatedAt: string | null
+   107→  createdAt: string
+   108→  updatedAt: string
+   109→  domain: {
+   110→    id: string
+   111→    name: string
+   112→    slug: string
+   113→    description: string | null
+   114→    status: string
+   115→    createdAt: string
+   116→    updatedAt: string
+   117→  }
+   118→}
+   119→
+   120→interface AutonomyPolicy {
+   121→  id: string
+   122→  organizationId: string
+   123→  level: AutonomyLevel
+   124→  config: string
+   125→  createdAt: string
+   126→  updatedAt: string
+   127→}
+   128→
+   129→// ============================================================
+   130→// Constants
+   131→// ============================================================
+   132→
+   133→const MEMBER_STATUS_CFG: Record<MembershipStatus, { label: string; bg: string; text: string }> = {
+   134→  active:    { label: 'Active',    bg: 'bg-[rgba(52,211,153,0.15)]',   text: 'text-[#34d399]' },
+   135→  invited:   { label: 'Invited',   bg: 'bg-[rgba(245,158,11,0.15)]',  text: 'text-[#f59e0b]' },
+   136→  suspended: { label: 'Suspended', bg: 'bg-[rgba(239,68,68,0.15)]',   text: 'text-[#ef4444]' },
+   137→  removed:   { label: 'Removed',   bg: 'bg-[rgba(100,116,139,0.15)]', text: 'text-[#94a3b8]' },
+   138→}
+   139→
+   140→const ROLE_COLORS: Record<string, string> = {
+   141→  owner:  'bg-[rgba(245,158,11,0.15)] text-[#f59e0b] border-[rgba(245,158,11,0.25)]',
+   142→  admin:  'bg-[rgba(99,102,241,0.15)] text-[#a78bfa] border-[rgba(99,102,241,0.25)]',
+   143→  member: 'bg-[rgba(34,211,238,0.15)] text-[#22d3ee] border-[rgba(34,211,238,0.25)]',
+   144→}
+   145→
+   146→const TIMEZONES = [
+   147→  'UTC', 'America/New_York', 'America/Chicago', 'America/Denver',
+   148→  'America/Los_Angeles', 'America/Sao_Paulo', 'Europe/London',
+   149→  'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai',
+   150→  'Asia/Kolkata', 'Australia/Sydney', 'Pacific/Auckland',
+   151→]
+   152→
+   153→const LOCALES = [
+   154→  { value: 'en', label: 'English' }, { value: 'es', label: 'Spanish' },
+   155→  { value: 'fr', label: 'French' }, { value: 'de', label: 'German' },
+   156→  { value: 'pt', label: 'Portuguese' }, { value: 'ja', label: 'Japanese' },
+   157→  { value: 'zh', label: 'Chinese' }, { value: 'hi', label: 'Hindi' },
+   158→]
+   159→
+   160→const CURRENCIES = [
+   161→  { value: 'USD', label: 'USD ($)' }, { value: 'EUR', label: 'EUR (€)' },
+   162→  { value: 'GBP', label: 'GBP (£)' }, { value: 'JPY', label: 'JPY (¥)' },
+   163→  { value: 'CNY', label: 'CNY (¥)' }, { value: 'INR', label: 'INR (₹)' },
+   164→  { value: 'BRL', label: 'BRL (R$)' }, { value: 'AUD', label: 'AUD (A$)' },
+   165→]
+   166→
+   167→const AUTONOMY_LEVELS: Record<AutonomyLevel, {
+   168→  label: string; description: string; color: string; icon: string
+   169→}> = {
+   170→  conservative: {
+   171→    label: 'Conservative',
+   172→    description: 'All agent actions require human approval. Maximum safety, minimum autonomy. Agents will never execute without explicit confirmation.',
+   173→    color: 'border-[#f59e0b]',
+   174→    icon: '🛡️',
+   175→  },
+   176→  balanced: {
+   177→    label: 'Balanced',
+   178→    description: 'Agents can execute low-risk tasks autonomously, but high-risk actions require approval. Recommended for most teams.',
+   179→    color: 'border-[#6366f1]',
+   180→    icon: '⚖️',
+   181→  },
+   182→  autonomous: {
+   183→    label: 'Autonomous',
+   184→    description: 'Agents operate independently with minimal human oversight. Best for mature teams with established trust frameworks.',
+   185→    color: 'border-[#22d3ee]',
+   186→    icon: '🚀',
+   187→  },
+   188→}
+   189→
+   190→function formatDate(dateStr: string | null): string {
+   191→  if (!dateStr) return '—'
+   192→  try {
+   193→    return new Date(dateStr).toLocaleDateString('en-US', {
+   194→      month: 'short', day: 'numeric', year: 'numeric',
+   195→    })
+   196→  } catch {
+   197→    return '—'
+   198→  }
+   199→}
+   200→
+   201→function getInitials(name: string): string {
+   202→  return name
+   203→    .split(' ')
+   204→    .map((w) => w[0])
+   205→    .filter(Boolean)
+   206→    .slice(0, 2)
+   207→    .join('')
+   208→    .toUpperCase()
+   209→}
+   210→
+   211→// ============================================================
+   212→// Component
+   213→// ============================================================
+   214→
+   215→export default function OrgSettingsView() {
+   216→  const activeOrg = useActiveOrg()
+   217→  const { setOrganizations } = useStore()
+   218→
+   219→  // No org selected
+   220→  if (!activeOrg) {
+   221→    return (
+   222→      <div className="space-y-6 animate-fade-in">
+   223→        <h1 className="text-2xl md:text-3xl font-bold gradient-text">
+   224→          Organization Settings
+   225→        </h1>
+   226→        <motion.div
+   227→          initial={{ opacity: 0, y: 20 }}
+   228→          animate={{ opacity: 1, y: 0 }}
+   229→          className="glass-card p-12 rounded-xl flex flex-col items-center justify-center min-h-[40vh] text-center"
+   230→        >
+   231→          <div className="w-16 h-16 rounded-2xl bg-[rgba(99,102,241,0.15)] flex items-center justify-center mb-5">
+   232→            <Settings2 className="w-8 h-8 text-[#94a3b8]" />
+   233→          </div>
+   234→          <h3 className="text-lg font-semibold text-[#e2e8f0] mb-2">
+   235→            No organization selected
+   236→          </h3>
+   237→          <p className="text-[#94a3b8] text-sm max-w-sm mb-6">
+   238→            Select an organization from the sidebar or go to Organizations to create or switch.
+   239→          </p>
+   240→          <Button
+   241→            onClick={() => navigate('organizations')}
+   242→            className="btn-gradient text-white border-0 gap-2"
+   243→          >
+   244→            <Settings2 className="w-4 h-4" />
+   245→            Go to Organizations
+   246→          </Button>
+   247→        </motion.div>
+   248→      </div>
+   249→    )
+   250→  }
+   251→
+   252→  return <OrgSettingsTabs orgId={activeOrg.id} setOrganizations={setOrganizations} />
+   253→}
+   254→
+   255→// ============================================================
+   256→// Tabbed Settings Container
+   257→// ============================================================
+   258→
+   259→function OrgSettingsTabs({
+   260→  orgId,
+   261→  setOrganizations,
+   262→}: {
+   263→  orgId: string
+   264→  setOrganizations: (orgs: import('@/lib/types').OrganizationDto[]) => void
+   265→}) {
+   266→  return (
+   267→    <div className="space-y-6 animate-fade-in">
+   268→      <div>
+   269→        <h1 className="text-2xl md:text-3xl font-bold gradient-text">
+   270→          Organization Settings
+   271→        </h1>
+   272→        <p className="text-[#94a3b8] text-sm mt-1">
+   273→          Manage configuration, members, domains, and policies
+   274→        </p>
+   275→      </div>
+   276→
+   277→      <Tabs defaultValue="general" className="w-full">
+   278→        <TabsList className="glass-strong border-[rgba(99,102,241,0.15)] bg-transparent h-auto p-1 flex flex-wrap gap-1">
+   279→          <TabsTrigger
+   280→            value="general"
+   281→            className="data-[state=active]:bg-[rgba(99,102,241,0.2)] data-[state=active]:text-[#e2e8f0] text-[#94a3b8] gap-2 px-4 h-9 text-sm rounded-lg"
+   282→          >
+   283→            <Settings2 className="w-3.5 h-3.5" /> General
+   284→          </TabsTrigger>
+   285→          <TabsTrigger
+   286→            value="members"
+   287→            className="data-[state=active]:bg-[rgba(99,102,241,0.2)] data-[state=active]:text-[#e2e8f0] text-[#94a3b8] gap-2 px-4 h-9 text-sm rounded-lg"
+   288→          >
+   289→            <Users className="w-3.5 h-3.5" /> Members
+   290→          </TabsTrigger>
+   291→          <TabsTrigger
+   292→            value="domains"
+   293→            className="data-[state=active]:bg-[rgba(99,102,241,0.2)] data-[state=active]:text-[#e2e8f0] text-[#94a3b8] gap-2 px-4 h-9 text-sm rounded-lg"
+   294→          >
+   295→            <Globe className="w-3.5 h-3.5" /> Domains
+   296→          </TabsTrigger>
+   297→          <TabsTrigger
+   298→            value="autonomy"
+   299→            className="data-[state=active]:bg-[rgba(99,102,241,0.2)] data-[state=active]:text-[#e2e8f0] text-[#94a3b8] gap-2 px-4 h-9 text-sm rounded-lg"
+   300→          >
+   301→            <Shield className="w-3.5 h-3.5" /> Autonomy
+   302→          </TabsTrigger>
+   303→          <TabsTrigger
+   304→            value="danger"
+   305→            className="data-[state=active]:bg-[rgba(239,68,68,0.2)] data-[state=active]:text-[#ef4444] text-[#94a3b8] gap-2 px-4 h-9 text-sm rounded-lg"
+   306→          >
+   307→            <AlertTriangle className="w-3.5 h-3.5" /> Danger Zone
+   308→          </TabsTrigger>
+   309→        </TabsList>
+   310→
+   311→        <div className="mt-6">
+   312→          <TabsContent value="general">
+   313→            <GeneralTab orgId={orgId} setOrganizations={setOrganizations} />
+   314→          </TabsContent>
+   315→          <TabsContent value="members">
+   316→            <MembersTab orgId={orgId} />
+   317→          </TabsContent>
+   318→          <TabsContent value="domains">
+   319→            <DomainsTab orgId={orgId} />
+   320→          </TabsContent>
+   321→          <TabsContent value="autonomy">
+   322→            <AutonomyTab orgId={orgId} />
+   323→          </TabsContent>
+   324→          <TabsContent value="danger">
+   325→            <DangerZoneTab orgId={orgId} setOrganizations={setOrganizations} />
+   326→          </TabsContent>
+   327→        </div>
+   328→      </Tabs>
+   329→    </div>
+   330→  )
+   331→}
+   332→
+   333→// ============================================================
+   334→// General Tab
+   335→// ============================================================
+   336→
+   337→function GeneralTab({
+   338→  orgId,
+   339→  setOrganizations,
+   340→}: {
+   341→  orgId: string
+   342→  setOrganizations: (orgs: import('@/lib/types').OrganizationDto[]) => void
+   343→}) {
+   344→  const [form, setForm] = useState({
+   345→    name: '', slug: '', timezone: 'UTC', locale: 'en', currency: 'USD',
+   346→  })
+   347→  const [saving, setSaving] = useState(false)
+   348→  const [saved, setSaved] = useState(false)
+   349→  const [error, setError] = useState<string | null>(null)
+   350→  const [loading, setLoading] = useState(true)
+   351→
+   352→  useEffect(() => {
+   353→    ;(async () => {
+   354→      try {
+   355→        const res = await fetch(`/api/organizations/${orgId}`)
+   356→        const json: ApiResponseEnvelope<Record<string, string>> = await res.json()
+   357→        if (json.error) throw new Error(json.error.message)
+   358→        const d = json.data
+   359→        setForm({
+   360→          name: d.name ?? '',
+   361→          slug: d.slug ?? '',
+   362→          timezone: d.timezone ?? 'UTC',
+   363→          locale: d.locale ?? 'en',
+   364→          currency: d.currency ?? 'USD',
+   365→        })
+   366→      } catch (err) {
+   367→        setError(err instanceof Error ? err.message : 'Failed to load')
+   368→      } finally {
+   369→        setLoading(false)
+   370→      }
+   371→    })()
+   372→  }, [orgId])
+   373→
+   374→  const handleSave = async () => {
+   375→    setSaving(true)
+   376→    setError(null)
+   377→    try {
+   378→      const res = await fetch(`/api/organizations/${orgId}`, {
+   379→        method: 'PUT',
+   380→        headers: { 'Content-Type': 'application/json' },
+   381→        body: JSON.stringify(form),
+   382→      })
+   383→      const json: ApiResponseEnvelope<Record<string, string>> = await res.json()
+   384→      if (json.error) throw new Error(json.error.message)
+   385→      setSaved(true)
+   386→      setTimeout(() => setSaved(false), 2000)
+   387→      // Refresh store
+   388→      const listRes = await fetch('/api/organizations')
+   389→      const listJson: ApiResponseEnvelope<import('@/lib/types').OrganizationDto[]> = await listRes.json()
+   390→      if (!listJson.error && Array.isArray(listJson.data)) {
+   391→        setOrganizations(listJson.data)
+   392→      }
+   393→    } catch (err) {
+   394→      setError(err instanceof Error ? err.message : 'Save failed')
+   395→    } finally {
+   396→      setSaving(false)
+   397→    }
+   398→  }
+   399→
+   400→  if (loading) {
+   401→    return (
+   402→      <div className="glass-card p-6 rounded-xl space-y-4">
+   403→        {Array.from({ length: 5 }).map((_, i) => (
+   404→          <div key={i} className="space-y-2">
+   405→            <Skeleton className="h-4 w-24 rounded" />
+   406→            <Skeleton className="h-10 w-full rounded-lg" />
+   407→          </div>
+   408→        ))}
+   409→      </div>
+   410→    )
+   411→  }
+   412→
+   413→  return (
+   414→    <motion.div
+   415→      initial={{ opacity: 0, y: 12 }}
+   416→      animate={{ opacity: 1, y: 0 }}
+   417→      className="glass-card p-6 rounded-xl space-y-5"
+   418→    >
+   419→      <h2 className="text-lg font-semibold text-[#e2e8f0]">General Settings</h2>
+   420→      <Separator className="bg-[rgba(99,102,241,0.12)]" />
+   421→
+   422→      {/* Name */}
+   423→      <div className="space-y-2">
+   424→        <Label className="text-[#94a3b8] text-sm">Organization Name</Label>
+   425→        <Input
+   426→          value={form.name}
+   427→          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+   428→          className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] max-w-md"
+   429→        />
+   430→      </div>
+   431→
+   432→      {/* Slug */}
+   433→      <div className="space-y-2">
+   434→        <Label className="text-[#94a3b8] text-sm">Slug</Label>
+   435→        <Input
+   436→          value={form.slug}
+   437→          onChange={(e) => setForm((f) => ({ ...f, slug: slugify(e.target.value) }))}
+   438→          className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] max-w-md"
+   439→        />
+   440→      </div>
+   441→
+   442→      {/* Timezone */}
+   443→      <div className="space-y-2">
+   444→        <Label className="text-[#94a3b8] text-sm">Timezone</Label>
+   445→        <Select value={form.timezone} onValueChange={(v) => setForm((f) => ({ ...f, timezone: v }))}>
+   446→          <SelectTrigger className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] max-w-md">
+   447→            <SelectValue />
+   448→          </SelectTrigger>
+   449→          <SelectContent className="glass-strong border-[rgba(99,102,241,0.2)]">
+   450→            {TIMEZONES.map((tz) => (
+   451→              <SelectItem key={tz} value={tz} className="text-[#e2e8f0]">{tz}</SelectItem>
+   452→            ))}
+   453→          </SelectContent>
+   454→        </Select>
+   455→      </div>
+   456→
+   457→      {/* Locale & Currency */}
+   458→      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
+   459→        <div className="space-y-2">
+   460→          <Label className="text-[#94a3b8] text-sm">Locale</Label>
+   461→          <Select value={form.locale} onValueChange={(v) => setForm((f) => ({ ...f, locale: v }))}>
+   462→            <SelectTrigger className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0]">
+   463→              <SelectValue />
+   464→            </SelectTrigger>
+   465→            <SelectContent className="glass-strong border-[rgba(99,102,241,0.2)]">
+   466→              {LOCALES.map((l) => (
+   467→                <SelectItem key={l.value} value={l.value} className="text-[#e2e8f0]">{l.label}</SelectItem>
+   468→              ))}
+   469→            </SelectContent>
+   470→          </Select>
+   471→        </div>
+   472→        <div className="space-y-2">
+   473→          <Label className="text-[#94a3b8] text-sm">Currency</Label>
+   474→          <Select value={form.currency} onValueChange={(v) => setForm((f) => ({ ...f, currency: v }))}>
+   475→            <SelectTrigger className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0]">
+   476→              <SelectValue />
+   477→            </SelectTrigger>
+   478→            <SelectContent className="glass-strong border-[rgba(99,102,241,0.2)]">
+   479→              {CURRENCIES.map((c) => (
+   480→                <SelectItem key={c.value} value={c.value} className="text-[#e2e8f0]">{c.label}</SelectItem>
+   481→              ))}
+   482→            </SelectContent>
+   483→          </Select>
+   484→        </div>
+   485→      </div>
+   486→
+   487→      <AnimatePresence>
+   488→        {error && (
+   489→          <motion.div initial={{ opacity: 0, h: 0 }} animate={{ opacity: 1, h: 'auto' }} exit={{ opacity: 0, h: 0 }}
+   490→            className="flex items-center gap-2 text-[#ef4444] text-sm bg-[rgba(239,68,68,0.1)] p-3 rounded-lg"
+   491→          >
+   492→            <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+   493→          </motion.div>
+   494→        )}
+   495→      </AnimatePresence>
+   496→
+   497→      <div className="pt-2">
+   498→        <Button
+   499→          onClick={handleSave}
+   500→          disabled={saving}
+   501→          className={cn(
+   502→            'gap-2 text-white border-0 transition-all',
+   503→            saved ? 'bg-[#34d399] hover:bg-[#34d399]' : 'btn-gradient',
+   504→          )}
+   505→        >
+   506→          {saved ? <Check className="w-4 h-4" /> : saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+   507→          {saved ? 'Saved' : saving ? 'Saving...' : 'Save Changes'}
+   508→        </Button>
+   509→      </div>
+   510→    </motion.div>
+   511→  )
+   512→}
+   513→
+   514→// ============================================================
+   515→// Members Tab
+   516→// ============================================================
+   517→
+   518→function MembersTab({ orgId }: { orgId: string }) {
+   519→  const [members, setMembers] = useState<MemberItem[]>([])
+   520→  const [loading, setLoading] = useState(true)
+   521→  const [error, setError] = useState<string | null>(null)
+   522→  const [inviteOpen, setInviteOpen] = useState(false)
+   523→  const [inviteEmail, setInviteEmail] = useState('')
+   524→  const [inviteRole, setInviteRole] = useState('member')
+   525→  const [inviting, setInviting] = useState(false)
+   526→  const [changingRole, setChangingRole] = useState<string | null>(null)
+   527→
+   528→  const fetchMembers = useCallback(async () => {
+   529→    setLoading(true)
+   530→    setError(null)
+   531→    try {
+   532→      const res = await fetch(`/api/organizations/${orgId}/members`)
+   533→      const json: ApiResponseEnvelope<MemberItem[]> = await res.json()
+   534→      if (json.error) throw new Error(json.error.message)
+   535→      setMembers(Array.isArray(json.data) ? json.data : [])
+   536→    } catch (err) {
+   537→      setError(err instanceof Error ? err.message : 'Failed to load members')
+   538→    } finally {
+   539→      setLoading(false)
+   540→    }
+   541→  }, [orgId])
+   542→
+   543→  useEffect(() => { fetchMembers() }, [fetchMembers])
+   544→
+   545→  const handleInvite = async () => {
+   546→    if (!inviteEmail.trim()) return
+   547→    setInviting(true)
+   548→    try {
+   549→      const res = await fetch(`/api/organizations/${orgId}/members`, {
+   550→        method: 'POST',
+   551→        headers: { 'Content-Type': 'application/json' },
+   552→        body: JSON.stringify({ email: inviteEmail.trim(), roleSlug: inviteRole }),
+   553→      })
+   554→      const json = await res.json()
+   555→      if (json.error) throw new Error(json.error.message)
+   556→      setInviteOpen(false)
+   557→      setInviteEmail('')
+   558→      setInviteRole('member')
+   559→      await fetchMembers()
+   560→    } catch (err) {
+   561→      setError(err instanceof Error ? err.message : 'Invite failed')
+   562→    } finally {
+   563→      setInviting(false)
+   564→    }
+   565→  }
+   566→
+   567→  const handleChangeRole = async (memberId: string, roleSlug: string) => {
+   568→    setChangingRole(memberId)
+   569→    try {
+   570→      const res = await fetch(`/api/organizations/${orgId}/members/${memberId}`, {
+   571→        method: 'PUT',
+   572→        headers: { 'Content-Type': 'application/json' },
+   573→        body: JSON.stringify({ roleSlug }),
+   574→      })
+   575→      const json = await res.json()
+   576→      if (json.error) throw new Error(json.error.message)
+   577→      await fetchMembers()
+   578→    } catch (err) {
+   579→      setError(err instanceof Error ? err.message : 'Role update failed')
+   580→    } finally {
+   581→      setChangingRole(null)
+   582→    }
+   583→  }
+   584→
+   585→  const handleRemove = async (memberId: string) => {
+   586→    if (!confirm('Remove this member from the organization?')) return
+   587→    try {
+   588→      const res = await fetch(`/api/organizations/${orgId}/members/${memberId}`, { method: 'DELETE' })
+   589→      if (res.status === 204) {
+   590→        setMembers((m) => m.filter((x) => x.id !== memberId))
+   591→      } else {
+   592→        const json = await res.json()
+   593→        if (json.error) throw new Error(json.error.message)
+   594→      }
+   595→    } catch (err) {
+   596→      setError(err instanceof Error ? err.message : 'Remove failed')
+   597→    }
+   598→  }
+   599→
+   600→  if (loading) {
+   601→    return (
+   602→      <div className="glass-card p-6 rounded-xl space-y-3">
+   603→        {Array.from({ length: 3 }).map((_, i) => (
+   604→          <div key={i} className="flex items-center gap-4">
+   605→            <Skeleton className="w-10 h-10 rounded-full" />
+   606→            <div className="flex-1 space-y-2">
+   607→              <Skeleton className="h-4 w-40 rounded" />
+   608→              <Skeleton className="h-3 w-56 rounded" />
+   609→            </div>
+   610→          </div>
+   611→        ))}
+   612→      </div>
+   613→    )
+   614→  }
+   615→
+   616→  return (
+   617→    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+   618→      <div className="flex items-center justify-between">
+   619→        <div>
+   620→          <h2 className="text-lg font-semibold text-[#e2e8f0]">Members</h2>
+   621→          <p className="text-[#94a3b8] text-sm">{members.length} member{members.length !== 1 ? 's' : ''}</p>
+   622→        </div>
+   623→        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+   624→          <DialogTrigger asChild>
+   625→            <Button className="btn-gradient text-white border-0 gap-2">
+   626→              <Plus className="w-4 h-4" /> Invite Member
+   627→            </Button>
+   628→          </DialogTrigger>
+   629→          <DialogContent className="glass-strong border-[rgba(99,102,241,0.2)] sm:max-w-md">
+   630→            <DialogHeader>
+   631→              <DialogTitle className="text-[#e2e8f0]">Invite Member</DialogTitle>
+   632→            </DialogHeader>
+   633→            <div className="space-y-4 pt-2">
+   634→              <div className="space-y-2">
+   635→                <Label className="text-[#94a3b8] text-sm">Email Address</Label>
+   636→                <Input
+   637→                  type="email"
+   638→                  placeholder="user@example.com"
+   639→                  value={inviteEmail}
+   640→                  onChange={(e) => setInviteEmail(e.target.value)}
+   641→                  className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0] placeholder:text-[#64748b]"
+   642→                />
+   643→              </div>
+   644→              <div className="space-y-2">
+   645→                <Label className="text-[#94a3b8] text-sm">Role</Label>
+   646→                <Select value={inviteRole} onValueChange={setInviteRole}>
+   647→                  <SelectTrigger className="bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0]">
+   648→                    <SelectValue />
+   649→                  </SelectTrigger>
+   650→                  <SelectContent className="glass-strong border-[rgba(99,102,241,0.2)]">
+   651→                    <SelectItem value="owner" className="text-[#e2e8f0]">Owner</SelectItem>
+   652→                    <SelectItem value="admin" className="text-[#e2e8f0]">Admin</SelectItem>
+   653→                    <SelectItem value="member" className="text-[#e2e8f0]">Member</SelectItem>
+   654→                  </SelectContent>
+   655→                </Select>
+   656→              </div>
+   657→              <AnimatePresence>
+   658→                {error && (
+   659→                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+   660→                    className="flex items-center gap-2 text-[#ef4444] text-sm bg-[rgba(239,68,68,0.1)] p-3 rounded-lg"
+   661→                  >
+   662→                    <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+   663→                  </motion.div>
+   664→                )}
+   665→              </AnimatePresence>
+   666→              <div className="flex justify-end gap-3 pt-2">
+   667→                <Button variant="ghost" onClick={() => setInviteOpen(false)} className="text-[#94a3b8]">Cancel</Button>
+   668→                <Button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}
+   669→                  className="btn-gradient text-white border-0 gap-2"
+   670→                >
+   671→                  {inviting && <Loader2 className="w-4 h-4 animate-spin" />} Invite
+   672→                </Button>
+   673→              </div>
+   674→            </div>
+   675→          </DialogContent>
+   676→        </Dialog>
+   677→      </div>
+   678→
+   679→      <div className="glass-card rounded-xl overflow-hidden">
+   680→        <ScrollArea className="max-h-96">
+   681→          <Table>
+   682→            <TableHeader>
+   683→              <TableRow className="border-[rgba(99,102,241,0.1)] hover:bg-transparent">
+   684→                <TableHead className="text-[#94a3b8]">Name</TableHead>
+   685→                <TableHead className="text-[#94a3b8] hidden sm:table-cell">Email</TableHead>
+   686→                <TableHead className="text-[#94a3b8]">Status</TableHead>
+   687→                <TableHead className="text-[#94a3b8]">Roles</TableHead>
+   688→                <TableHead className="text-[#94a3b8] hidden md:table-cell">Joined</TableHead>
+   689→                <TableHead className="text-[#94a3b8] text-right">Actions</TableHead>
+   690→              </TableRow>
+   691→            </TableHeader>
+   692→            <TableBody>
+   693→              {members.length === 0 && (
+   694→                <TableRow className="border-[rgba(99,102,241,0.1)] hover:bg-transparent">
+   695→                  <TableCell colSpan={6} className="text-center text-[#94a3b8] py-8">
+   696→                    No members found
+   697→                  </TableCell>
+   698→                </TableRow>
+   699→              )}
+   700→              {members.map((m) => {
+   701→                const stCfg = MEMBER_STATUS_CFG[m.status] ?? MEMBER_STATUS_CFG.active
+   702→                const currentRole = m.roles[0]?.slug ?? 'member'
+   703→                return (
+   704→                  <TableRow key={m.id} className="border-[rgba(99,102,241,0.08)] hover:bg-[rgba(99,102,241,0.05)]">
+   705→                    <TableCell>
+   706→                      <div className="flex items-center gap-3">
+   707→                        <Avatar className="w-8 h-8 h-8 bg-[rgba(99,102,241,0.15)]">
+   708→                          <AvatarFallback className="text-xs text-[#a78bfa]">
+   709→                            {getInitials(m.user.displayName)}
+   710→                          </AvatarFallback>
+   711→                        </Avatar>
+   712→                        <span className="text-[#e2e8f0] font-medium text-sm">
+   713→                          {m.user.displayName}
+   714→                        </span>
+   715→                      </div>
+   716→                    </TableCell>
+   717→                    <TableCell className="hidden sm:table-cell">
+   718→                      <span className="text-[#94a3b8] text-sm">{m.user.email}</span>
+   719→                    </TableCell>
+   720→                    <TableCell>
+   721→                      <Badge className={cn('text-xs border-0 font-medium', stCfg.bg, stCfg.text)}>
+   722→                        {stCfg.label}
+   723→                      </Badge>
+   724→                    </TableCell>
+   725→                    <TableCell>
+   726→                      <div className="flex flex-wrap gap-1">
+   727→                        {m.roles.map((r) => (
+   728→                          <Badge
+   729→                            key={r.id}
+   730→                            className={cn('text-xs border', ROLE_COLORS[r.slug] ?? ROLE_COLORS.member)}
+   731→                          >
+   732→                            {r.name}
+   733→                          </Badge>
+   734→                        ))}
+   735→                      </div>
+   736→                    </TableCell>
+   737→                    <TableCell className="hidden md:table-cell">
+   738→                      <span className="text-[#94a3b8] text-sm">{formatDate(m.joinedAt)}</span>
+   739→                    </TableCell>
+   740→                    <TableCell className="text-right">
+   741→                      <div className="flex items-center justify-end gap-2">
+   742→                        <Select
+   743→                          value={currentRole}
+   744→                          onValueChange={(v) => handleChangeRole(m.id, v)}
+   745→                          disabled={changingRole === m.id}
+   746→                        >
+   747→                          <SelectTrigger className="w-24 h-7 text-xs bg-[rgba(15,16,28,0.6)] border-[rgba(99,102,241,0.15)] text-[#e2e8f0]">
+   748→                            {changingRole === m.id ? (
+   749→                              <Loader2 className="w-3 h-3 animate-spin" />
+   750→                            ) : (
+   751→                              <SelectValue />
+   752→                            )}
+   753→                          </SelectTrigger>
+   754→                          <SelectContent className="glass-strong border-[rgba(99,102,241,0.2)]">
+   755→                            <SelectItem value="owner" className="text-[#e2e8f0]">Owner</SelectItem>
+   756→                            <SelectItem value="admin" className="text-[#e2e8f0]">Admin</SelectItem>
+   757→                            <SelectItem value="member" className="text-[#e2e8f0]">Member</SelectItem>
+   758→                          </SelectContent>
+   759→                        </Select>
+   760→                        <Tooltip>
+   761→                          <TooltipTrigger asChild>
+   762→                            <Button
+   763→                              variant="ghost"
+   764→                              size="icon"
+   765→                              className="w-7 h-7 text-[#94a3b8] hover:text-[#ef4444] hover:bg-[rgba(239,68,68,0.1)]"
+   766→                              onClick={() => handleRemove(m.id)}
+   767→                            >
+   768→                              <Trash2 className="w-3.5 h-3.5" />
+   769→                            </Button>
+   770→                          </TooltipTrigger>
+   771→                          <TooltipContent className="glass-strong border-[rgba(99,102,241,0.2)] text-[#e2e8f0]">
+   772→                            Remove member
+   773→                          </TooltipContent>
+   774→                        </Tooltip>
+   775→                      </div>
+   776→                    </TableCell>
+   777→                  </TableRow>
+   778→                )
+   779→              })}
+   780→            </TableBody>
+   781→          </Table>
+   782→        </ScrollArea>
+   783→      </div>
+   784→    </motion.div>
+   785→  )
+   786→}
+   787→
+   788→// ============================================================
+   789→// Domains Tab
+   790→// ============================================================
+   791→
+   792→function DomainsTab({ orgId }: { orgId: string }) {
+   793→  const [domains, setDomains] = useState<OrgDomain[]>([])
+   794→  const [loading, setLoading] = useState(true)
+   795→  const [error, setError] = useState<string | null>(null)
+   796→
+   797→  const fetchDomains = useCallback(async () => {
+   798→    setLoading(true)
+   799→    setError(null)
+   800→    try {
+   801→      const res = await fetch(`/api/organizations/${orgId}/domains`)
+   802→      const json: ApiResponseEnvelope<OrgDomain[]> = await res.json()
+   803→      if (json.error) throw new Error(json.error.message)
+   804→      setDomains(Array.isArray(json.data) ? json.data : [])
+   805→    } catch (err) {
+   806→      setError(err instanceof Error ? err.message : 'Failed to load domains')
+   807→    } finally {
+   808→      setLoading(false)
+   809→    }
+   810→  }, [orgId])
+   811→
+   812→  useEffect(() => { fetchDomains() }, [fetchDomains])
+   813→
+   814→  if (loading) {
+   815→    return (
+   816→      <div className="glass-card p-6 rounded-xl space-y-3">
+   817→        {Array.from({ length: 3 }).map((_, i) => (
+   818→          <Skeleton key={i} className="h-16 w-full rounded-lg" />
+   819→        ))}
+   820→      </div>
+   821→    )
+   822→  }
+   823→
+   824→  return (
+   825→    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+   826→      <div className="flex items-center justify-between">
+   827→        <div>
+   828→          <h2 className="text-lg font-semibold text-[#e2e8f0]">Domains</h2>
+   829→          <p className="text-[#94a3b8] text-sm">Activated domains for this organization</p>
+   830→        </div>
+   831→      </div>
+   832→
+   833→      <AnimatePresence>
+   834→        {error && (
+   835→          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+   836→            className="flex items-center gap-2 text-[#ef4444] text-sm bg-[rgba(239,68,68,0.1)] p-3 rounded-lg"
+   837→          >
+   838→            <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+   839→          </motion.div>
+   840→        )}
+   841→      </AnimatePresence>
+   842→
+   843→      {domains.length === 0 ? (
+   844→        <div className="glass-card p-8 rounded-xl flex flex-col items-center justify-center text-center">
+   845→          <Globe className="w-10 h-10 text-[#94a3b8] mb-3 opacity-50" />
+   846→          <h3 className="text-sm font-medium text-[#e2e8f0] mb-1">No domains activated</h3>
+   847→          <p className="text-xs text-[#94a3b8] max-w-sm">
+   848→            Domains provide specialized capabilities and modules for your agents.
+   849→            Activate a domain to unlock its features.
+   850→          </p>
+   851→        </div>
+   852→      ) : (
+   853→        <div className="space-y-3">
+   854→          {domains.map((od, i) => (
+   855→            <motion.div
+   856→              key={od.id}
+   857→              initial={{ opacity: 0, x: -12 }}
+   858→              animate={{ opacity: 1, x: 0 }}
+   859→              transition={{ delay: i * 0.05 }}
+   860→              className="glass-card p-4 rounded-xl flex items-center gap-4"
+   861→            >
+   862→              <div className="w-10 h-10 rounded-lg bg-[rgba(34,211,238,0.12)] flex items-center justify-center shrink-0">
+   863→                <Globe className="w-5 h-5 text-[#22d3ee]" />
+   864→              </div>
+   865→              <div className="flex-1 min-w-0">
+   866→                <div className="flex items-center gap-2">
+   867→                  <h4 className="font-medium text-[#e2e8f0] text-sm truncate">{od.domain.name}</h4>
+   868→                  <Badge className="text-xs border-0 bg-[rgba(52,211,153,0.15)] text-[#34d399]">
+   869→                    {od.status}
+   870→                  </Badge>
+   871→                </div>
+   872→                <p className="text-xs text-[#94a3b8] truncate">{od.domain.description ?? od.domain.slug}</p>
+   873→              </div>
+   874→              <div className="text-right shrink-0 hidden sm:block">
+   875→                <p className="text-xs text-[#64748b]">Activated</p>
+   876→                <p className="text-xs text-[#94a3b8]">{formatDate(od.activatedAt)}</p>
+   877→              </div>
+   878→            </motion.div>
+   879→          ))}
+   880→        </div>
+   881→      )}
+   882→    </motion.div>
+   883→  )
+   884→}
+   885→
+   886→// ============================================================
+   887→// Autonomy Tab
+   888→// ============================================================
+   889→
+   890→function AutonomyTab({ orgId }: { orgId: string }) {
+   891→  const [policy, setPolicy] = useState<AutonomyPolicy | null>(null)
+   892→  const [loading, setLoading] = useState(true)
+   893→  const [saving, setSaving] = useState(false)
+   894→  const [error, setError] = useState<string | null>(null)
+   895→
+   896→  const fetchPolicy = useCallback(async () => {
+   897→    setLoading(true)
+   898→    setError(null)
+   899→    try {
+   900→      const res = await fetch(`/api/autonomy?organizationId=${orgId}`)
+   901→      const json: ApiResponseEnvelope<AutonomyPolicy> = await res.json()
+   902→      if (json.error) throw new Error(json.error.message)
+   903→      setPolicy(json.data)
+   904→    } catch (err) {
+   905→      setError(err instanceof Error ? err.message : 'Failed to load policy')
+   906→    } finally {
+   907→      setLoading(false)
+   908→    }
+   909→  }, [orgId])
+   910→
+   911→  useEffect(() => { fetchPolicy() }, [fetchPolicy])
+   912→
+   913→  const handleLevelChange = async (level: AutonomyLevel) => {
+   914→    if (!policy || level === policy.level) return
+   915→    setSaving(true)
+   916→    try {
+   917→      const res = await fetch(`/api/autonomy?organizationId=${orgId}`, {
+   918→        method: 'PUT',
+   919→        headers: { 'Content-Type': 'application/json' },
+   920→        body: JSON.stringify({ level }),
+   921→      })
+   922→      const json = await res.json()
+   923→      if (json.error) throw new Error(json.error.message)
+   924→      setPolicy(json.data)
+   925→    } catch (err) {
+   926→      setError(err instanceof Error ? err.message : 'Failed to update policy')
+   927→    } finally {
+   928→      setSaving(false)
+   929→    }
+   930→  }
+   931→
+   932→  if (loading) {
+   933→    return (
+   934→      <div className="glass-card p-6 rounded-xl space-y-4">
+   935→        <Skeleton className="h-6 w-48 rounded" />
+   936→        <div className="space-y-3">
+   937→          {Array.from({ length: 3 }).map((_, i) => (
+   938→            <Skeleton key={i} className="h-24 w-full rounded-xl" />
+   939→          ))}
+   940→        </div>
+   941→      </div>
+   942→    )
+   943→  }
+   944→
+   945→  const currentLevel = policy?.level ?? 'balanced'
+   946→
+   947→  return (
+   948→    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+   949→      <div>
+   950→        <h2 className="text-lg font-semibold text-[#e2e8f0]">Autonomy Policy</h2>
+   951→        <p className="text-[#94a3b8] text-sm">
+   952→          Control how independently agents can operate within this organization
+   953→        </p>
+   954→      </div>
+   955→
+   956→      <AnimatePresence>
+   957→        {error && (
+   958→          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+   959→            className="flex items-center gap-2 text-[#ef4444] text-sm bg-[rgba(239,68,68,0.1)] p-3 rounded-lg"
+   960→          >
+   961→            <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+   962→          </motion.div>
+   963→        )}
+   964→      </AnimatePresence>
+   965→
+   966→      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   967→        {(Object.entries(AUTONOMY_LEVELS) as [AutonomyLevel, typeof AUTONOMY_LEVELS[AutonomyLevel]][]).map(
+   968→          ([level, cfg]) => {
+   969→            const isActive = currentLevel === level
+   970→            return (
+   971→              <motion.button
+   972→                key={level}
+   973→                onClick={() => handleLevelChange(level)}
+   974→                disabled={saving}
+   975→                whileHover={{ scale: 1.02 }}
+   976→                whileTap={{ scale: 0.98 }}
+   977→                className={cn(
+   978→                  'glass-card p-5 rounded-xl text-left transition-all cursor-pointer',
+   979→                  isActive ? `ring-2 ${cfg.color}` : 'hover:border-[rgba(99,102,241,0.2)]',
+   980→                )}
+   981→              >
+   982→                <div className="flex items-center gap-3 mb-3">
+   983→                  <span className="text-2xl">{cfg.icon}</span>
+   984→                  <h3 className={cn(
+   985→                    'font-semibold text-sm',
+   986→                    isActive ? 'text-[#e2e8f0]' : 'text-[#94a3b8]',
+   987→                  )}>
+   988→                    {cfg.label}
+   989→                  </h3>
+   990→                  {isActive && saving && <Loader2 className="w-4 h-4 animate-spin text-[#6366f1]" />}
+   991→                </div>
+   992→                <p className="text-xs text-[#94a3b8] leading-relaxed">{cfg.description}</p>
+   993→              </motion.button>
+   994→            )
+   995→          },
+   996→        )}
+   997→      </div>
+   998→    </motion.div>
+   999→  )
+  1000→}
+  1001→
+  1002→// ============================================================
+  1003→// Danger Zone Tab
+  1004→// ============================================================
+  1005→
+  1006→function DangerZoneTab({
+  1007→  orgId,
+  1008→  setOrganizations,
+  1009→}: {
+  1010→  orgId: string
+  1011→  setOrganizations: (orgs: import('@/lib/types').OrganizationDto[]) => void
+  1012→}) {
+  1013→  const [deleteOpen, setDeleteOpen] = useState(false)
+  1014→  const [deleting, setDeleting] = useState(false)
+  1015→  const [error, setError] = useState<string | null>(null)
+  1016→  const [confirmText, setConfirmText] = useState('')
+  1017→  const activeOrg = useActiveOrg()
+  1018→
+  1019→  const handleDelete = async () => {
+  1020→    if (confirmText !== activeOrg?.name) return
+  1021→    setDeleting(true)
+  1022→    setError(null)
+  1023→    try {
+  1024→      const res = await fetch(`/api/organizations/${orgId}`, { method: 'DELETE' })
+  1025→      if (res.status !== 204) {
+  1026→        const json = await res.json()
+  1027→        if (json.error) throw new Error(json.error.message)
+  1028→      }
+  1029→      setDeleteOpen(false)
+  1030→      setOrganizations([])
+  1031→      useStore.getState().setActiveOrgId(null)
+  1032→      navigate('organizations')
+  1033→    } catch (err) {
+  1034→      setError(err instanceof Error ? err.message : 'Delete failed')
+  1035→    } finally {
+  1036→      setDeleting(false)
+  1037→    }
+  1038→  }
+  1039→
+  1040→  return (
+  1041→    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+  1042→      <div className="rounded-xl border-2 border-[rgba(239,68,68,0.25)] p-6 bg-[rgba(239,68,68,0.03)]">
+  1043→        <h2 className="text-lg font-semibold text-[#ef4444] flex items-center gap-2 mb-2">
+  1044→          <AlertTriangle className="w-5 h-5" /> Danger Zone
+  1045→        </h2>
+  1046→        <p className="text-[#94a3b8] text-sm mb-6 max-w-lg">
+  1047→          Irreversible and destructive actions. Once you delete an organization,
+  1048→          there is no going back. All data, agents, missions, and configurations
+  1049→          will be permanently removed.
+  1050→        </p>
+  1051→
+  1052→        <div className="glass-card p-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+  1053→          <div>
+  1054→            <h3 className="text-sm font-medium text-[#e2e8f0]">Delete this organization</h3>
+  1055→            <p className="text-xs text-[#94a3b8] mt-1">
+  1056→              Permanently remove {activeOrg?.name ?? 'this organization'} and all of its resources.
+  1057→            </p>
+  1058→          </div>
+  1059→          <Dialog open={deleteOpen} onOpenChange={(v) => { setDeleteOpen(v); setConfirmText(''); setError(null) }}>
+  1060→            <DialogTrigger asChild>
+  1061→              <Button variant="destructive" className="gap-2 bg-[#ef4444] hover:bg-[#dc2626] text-white border-0 shrink-0">
+  1062→                <Trash2 className="w-4 h-4" /> Delete Organization
+  1063→              </Button>
+  1064→            </DialogTrigger>
+  1065→            <DialogContent className="glass-strong border-[rgba(239,68,68,0.3)] sm:max-w-md">
+  1066→              <DialogHeader>
+  1067→                <DialogTitle className="text-[#ef4444]">Delete Organization</DialogTitle>
+  1068→              </DialogHeader>
+  1069→              <div className="space-y-4 pt-2">
+  1070→                <p className="text-sm text-[#94a3b8]">
+  1071→                  This will permanently delete <strong className="text-[#e2e8f0]">{activeOrg?.name}</strong> and all
+  1072→                  associated data including agents, missions, and configurations.
+  1073→                </p>
+  1074→                <div className="space-y-2">
+  1075→                  <Label className="text-[#94a3b8] text-sm">
+  1076→                    Type <span className="text-[#ef4444] font-mono font-bold">{activeOrg?.name}</span> to confirm
+  1077→                  </Label>
+  1078→                  <Input
+  1079→                    value={confirmText}
+  1080→                    onChange={(e) => setConfirmText(e.target.value)}
+  1081→                    placeholder={activeOrg?.name}
+  1082→                    className="bg-[rgba(15,16,28,0.6)] border-[rgba(239,68,68,0.25)] text-[#e2e8f0] placeholder:text-[#64748b] focus:border-[#ef4444]"
+  1083→                  />
+  1084→                </div>
+  1085→                <AnimatePresence>
+  1086→                  {error && (
+  1087→                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+  1088→                      className="flex items-center gap-2 text-[#ef4444] text-sm bg-[rgba(239,68,68,0.1)] p-3 rounded-lg"
+  1089→                    >
+  1090→                      <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+  1091→                    </motion.div>
+  1092→                  )}
+  1093→                </AnimatePresence>
+  1094→                <div className="flex justify-end gap-3 pt-2">
+  1095→                  <Button variant="ghost" onClick={() => setDeleteOpen(false)} className="text-[#94a3b8]">Cancel</Button>
+  1096→                  <Button
+  1097→                    onClick={handleDelete}
+  1098→                    disabled={deleting || confirmText !== activeOrg?.name}
+  1099→                    className="gap-2 bg-[#ef4444] hover:bg-[#dc2626] text-white border-0"
+  1100→                  >
+  1101→                    {deleting && <Loader2 className="w-4 h-4 animate-spin" />}
+  1102→                    Delete Permanently
+  1103→                  </Button>
+  1104→                </div>
+  1105→              </div>
+  1106→            </DialogContent>
+  1107→          </Dialog>
+  1108→        </div>
+  1109→      </div>
+  1110→    </motion.div>
+  1111→  )
+  1112→}
+  1113→

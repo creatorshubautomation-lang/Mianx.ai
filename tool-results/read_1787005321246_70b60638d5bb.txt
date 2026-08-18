@@ -1,0 +1,1297 @@
+     1→# MIANX.AI CORE --- OBSERVABILITY, LOGGING, MONITORING & OPERATIONS SPECIFICATION v1.0
+     2→
+     3→**Product:** Mianx.ai\
+     4→**Document:** Observability, Logging, Monitoring & Operations\
+     5→**Version:** 1.0\
+     6→**Status:** Architecture / Pre-Implementation\
+     7→**Purpose:** Define the operational visibility, reliability, monitoring,
+     8→alerting and incident foundation shared by Mianx.ai Core and every
+     9→Domain OS.
+    10→
+    11→------------------------------------------------------------------------
+    12→
+    13→# 1. Purpose
+    14→
+    15→Mianx.ai must be observable as one platform while still allowing
+    16→operators to drill down into:
+    17→
+    18→-   Platform
+    19→-   Organization
+    20→-   Domain
+    21→-   Module
+    22→-   API
+    23→-   Database
+    24→-   Workflow
+    25→-   Integration
+    26→-   AI Agent
+    27→-   Model
+    28→-   User experience
+    29→
+    30→The operating model is:
+    31→
+    32→``` text
+    33→Telemetry
+    34→   ↓
+    35→Collect
+    36→   ↓
+    37→Correlate
+    38→   ↓
+    39→Analyze
+    40→   ↓
+    41→Alert
+    42→   ↓
+    43→Investigate
+    44→   ↓
+    45→Remediate
+    46→   ↓
+    47→Learn
+    48→```
+    49→
+    50→------------------------------------------------------------------------
+    51→
+    52→# 2. Operations Constitution
+    53→
+    54→1.  Every production request should be traceable.
+    55→2.  Logs must be structured.
+    56→3.  Metrics must measure user and system outcomes.
+    57→4.  Errors must have enough context to investigate safely.
+    58→5.  Tenant context must be available without leaking sensitive data.
+    59→6.  AI activity must be observable.
+    60→7.  Costs must be observable.
+    61→8.  Alerts must be actionable.
+    62→9.  Critical incidents require an explicit response process.
+    63→10. Observability must not become a source of sensitive-data leakage.
+    64→
+    65→------------------------------------------------------------------------
+    66→
+    67→# 3. Three Pillars
+    68→
+    69→Core observability uses:
+    70→
+    71→``` text
+    72→Logs
+    73→Metrics
+    74→Traces
+    75→```
+    76→
+    77→Additional signals:
+    78→
+    79→``` text
+    80→Errors
+    81→Events
+    82→Profiles
+    83→User Experience
+    84→AI Telemetry
+    85→Cost Telemetry
+    86→Business KPIs
+    87→```
+    88→
+    89→------------------------------------------------------------------------
+    90→
+    91→# 4. Observability Architecture
+    92→
+    93→``` text
+    94→Applications
+    95→APIs
+    96→Workers
+    97→AI Agents
+    98→Database
+    99→Integrations
+   100→Frontend
+   101→     │
+   102→     ↓
+   103→Instrumentation
+   104→     │
+   105→     ↓
+   106→Telemetry Collection
+   107→     │
+   108→     ├── Logs
+   109→     ├── Metrics
+   110→     ├── Traces
+   111→     └── Events
+   112→     │
+   113→     ↓
+   114→Observability Platform
+   115→     │
+   116→     ├── Dashboards
+   117→     ├── Alerts
+   118→     └── Incident Response
+   119→```
+   120→
+   121→OpenTelemetry is a suitable architectural standard for portable traces,
+   122→metrics and related telemetry.
+   123→
+   124→------------------------------------------------------------------------
+   125→
+   126→# 5. Correlation IDs
+   127→
+   128→Every important request should support correlation.
+   129→
+   130→Conceptual identifiers:
+   131→
+   132→``` text
+   133→request_id
+   134→trace_id
+   135→span_id
+   136→correlation_id
+   137→organization_id
+   138→user_id
+   139→workflow_run_id
+   140→agent_run_id
+   141→```
+   142→
+   143→Do not expose internal identifiers unnecessarily to end users.
+   144→
+   145→------------------------------------------------------------------------
+   146→
+   147→# 6. Structured Logging
+   148→
+   149→Logs should be machine-readable.
+   150→
+   151→Conceptual:
+   152→
+   153→``` json
+   154→{
+   155→  "timestamp": "...",
+   156→  "level": "error",
+   157→  "service": "poultry-api",
+   158→  "event": "flock.update.failed",
+   159→  "organization_id": "...",
+   160→  "request_id": "...",
+   161→  "trace_id": "...",
+   162→  "error_code": "...",
+   163→  "duration_ms": 183
+   164→}
+   165→```
+   166→
+   167→Never log secrets, credentials or unnecessary sensitive payloads.
+   168→
+   169→------------------------------------------------------------------------
+   170→
+   171→# 7. Log Levels
+   172→
+   173→Standard levels:
+   174→
+   175→``` text
+   176→DEBUG
+   177→INFO
+   178→WARN
+   179→ERROR
+   180→FATAL
+   181→```
+   182→
+   183→Production logging should avoid excessive DEBUG volume.
+   184→
+   185→------------------------------------------------------------------------
+   186→
+   187→# 8. Application Logs
+   188→
+   189→Important events include:
+   190→
+   191→``` text
+   192→request.started
+   193→request.completed
+   194→request.failed
+   195→authentication.failed
+   196→authorization.denied
+   197→resource.created
+   198→resource.updated
+   199→workflow.started
+   200→workflow.failed
+   201→integration.failed
+   202→ai.run.started
+   203→ai.run.completed
+   204→```
+   205→
+   206→Business audit logs remain separate from ordinary application logs.
+   207→
+   208→------------------------------------------------------------------------
+   209→
+   210→# 9. Audit vs Application Logs
+   211→
+   212→These are different:
+   213→
+   214→``` text
+   215→Application Log
+   216→= technical operational information
+   217→
+   218→Audit Log
+   219→= authoritative record of important actor/action events
+   220→```
+   221→
+   222→A database error may belong in application logs.
+   223→
+   224→A user changing a purchase approval limit belongs in audit logging.
+   225→
+   226→------------------------------------------------------------------------
+   227→
+   228→# 10. Metrics
+   229→
+   230→Metrics should cover four categories:
+   231→
+   232→``` text
+   233→Platform Health
+   234→Application Health
+   235→Business Health
+   236→AI / Cost Health
+   237→```
+   238→
+   239→------------------------------------------------------------------------
+   240→
+   241→# 11. Platform Metrics
+   242→
+   243→Examples:
+   244→
+   245→``` text
+   246→CPU
+   247→Memory
+   248→Requests
+   249→Connections
+   250→Queue depth
+   251→Storage
+   252→Database latency
+   253→Cache hit rate
+   254→Error rate
+   255→```
+   256→
+   257→Infrastructure metrics should be monitored without creating unnecessary
+   258→high-cardinality labels.
+   259→
+   260→------------------------------------------------------------------------
+   261→
+   262→# 12. Application Metrics
+   263→
+   264→Examples:
+   265→
+   266→``` text
+   267→request_count
+   268→request_latency
+   269→error_count
+   270→error_rate
+   271→job_duration
+   272→job_failure_rate
+   273→workflow_duration
+   274→workflow_failure_rate
+   275→```
+   276→
+   277→Track latency distributions rather than only averages.
+   278→
+   279→------------------------------------------------------------------------
+   280→
+   281→# 13. API Metrics
+   282→
+   283→Track:
+   284→
+   285→``` text
+   286→requests per route
+   287→status code distribution
+   288→p50 latency
+   289→p95 latency
+   290→p99 latency
+   291→timeouts
+   292→rate-limit events
+   293→authorization denials
+   294→```
+   295→
+   296→Sensitive path parameters should not become high-cardinality metric
+   297→labels.
+   298→
+   299→------------------------------------------------------------------------
+   300→
+   301→# 14. Database Metrics
+   302→
+   303→Monitor:
+   304→
+   305→``` text
+   306→query latency
+   307→slow queries
+   308→connection pool usage
+   309→connection errors
+   310→locks
+   311→deadlocks
+   312→transaction duration
+   313→storage growth
+   314→index health
+   315→replication health where applicable
+   316→```
+   317→
+   318→------------------------------------------------------------------------
+   319→
+   320→# 15. Redis Metrics
+   321→
+   322→Monitor:
+   323→
+   324→``` text
+   325→memory usage
+   326→hit rate
+   327→miss rate
+   328→evictions
+   329→latency
+   330→connections
+   331→errors
+   332→key growth
+   333→```
+   334→
+   335→Redis failures must not silently corrupt business state.
+   336→
+   337→------------------------------------------------------------------------
+   338→
+   339→# 16. Queue and Job Metrics
+   340→
+   341→For background jobs:
+   342→
+   343→``` text
+   344→queue depth
+   345→processing rate
+   346→success rate
+   347→failure rate
+   348→retry count
+   349→dead-letter count
+   350→oldest job age
+   351→execution duration
+   352→```
+   353→
+   354→------------------------------------------------------------------------
+   355→
+   356→# 17. Workflow Metrics
+   357→
+   358→Track:
+   359→
+   360→``` text
+   361→workflow starts
+   362→workflow success
+   363→workflow failures
+   364→step failures
+   365→retry count
+   366→approval wait time
+   367→execution duration
+   368→stuck runs
+   369→```
+   370→
+   371→------------------------------------------------------------------------
+   372→
+   373→# 18. Integration Metrics
+   374→
+   375→For each integration:
+   376→
+   377→``` text
+   378→request count
+   379→success rate
+   380→failure rate
+   381→latency
+   382→rate limits
+   383→authentication failures
+   384→webhook failures
+   385→sync lag
+   386→last successful sync
+   387→```
+   388→
+   389→------------------------------------------------------------------------
+   390→
+   391→# 19. AI Observability
+   392→
+   393→AI runs should be observable without exposing private prompt content
+   394→unnecessarily.
+   395→
+   396→Track:
+   397→
+   398→``` text
+   399→agent
+   400→model
+   401→provider
+   402→organization
+   403→domain
+   404→run duration
+   405→tokens
+   406→tool calls
+   407→success/failure
+   408→policy decisions
+   409→approval status
+   410→estimated cost
+   411→```
+   412→
+   413→------------------------------------------------------------------------
+   414→
+   415→# 20. AI Cost Monitoring
+   416→
+   417→Track:
+   418→
+   419→``` text
+   420→cost per model
+   421→cost per provider
+   422→cost per organization
+   423→cost per domain
+   424→cost per agent
+   425→cost per feature
+   426→cost per request
+   427→```
+   428→
+   429→This supports commercial and operational decisions.
+   430→
+   431→------------------------------------------------------------------------
+   432→
+   433→# 21. AI Quality Signals
+   434→
+   435→Where measurable, track:
+   436→
+   437→``` text
+   438→tool success
+   439→task completion
+   440→human approval rate
+   441→human rejection rate
+   442→retry rate
+   443→fallback rate
+   444→latency
+   445→failure rate
+   446→```
+   447→
+   448→Do not equate model confidence with business correctness.
+   449→
+   450→------------------------------------------------------------------------
+   451→
+   452→# 22. AI Safety Signals
+   453→
+   454→Monitor:
+   455→
+   456→``` text
+   457→policy denials
+   458→tool authorization failures
+   459→approval requests
+   460→high-risk actions
+   461→prompt-injection detections
+   462→unusual tool usage
+   463→agent loops
+   464→excessive retries
+   465→```
+   466→
+   467→------------------------------------------------------------------------
+   468→
+   469→# 23. Tenant Health
+   470→
+   471→Each organization can have a platform health view.
+   472→
+   473→Conceptual:
+   474→
+   475→``` text
+   476→Tenant Health
+   477→ ├── API health
+   478→ ├── Database activity
+   479→ ├── Integration health
+   480→ ├── Workflow health
+   481→ ├── AI health
+   482→ ├── Usage
+   483→ └── Billing state
+   484→```
+   485→
+   486→The health score should be explainable rather than a mysterious number.
+   487→
+   488→------------------------------------------------------------------------
+   489→
+   490→# 24. Domain Health
+   491→
+   492→Example:
+   493→
+   494→``` text
+   495→Poultry OS Health
+   496→ ├── Farm data ingestion
+   497→ ├── Flock workflows
+   498→ ├── Inventory
+   499→ ├── Procurement
+   500→ ├── AI
+   501→ ├── Reports
+   502→ └── Integrations
+   503→```
+   504→
+   505→------------------------------------------------------------------------
+   506→
+   507→# 25. Business Metrics
+   508→
+   509→Operational monitoring should also measure business outcomes.
+   510→
+   511→Examples:
+   512→
+   513→``` text
+   514→active organizations
+   515→active users
+   516→active domains
+   517→orders / transactions
+   518→farms
+   519→active flocks
+   520→workflow completions
+   521→AI tasks
+   522→subscriptions
+   523→usage
+   524→```
+   525→
+   526→Domain-specific metrics remain owned by the domain.
+   527→
+   528→------------------------------------------------------------------------
+   529→
+   530→# 26. Frontend Observability
+   531→
+   532→Track:
+   533→
+   534→``` text
+   535→JavaScript errors
+   536→API failures
+   537→page performance
+   538→slow interactions
+   539→navigation errors
+   540→AI UI failures
+   541→critical user-flow failures
+   542→```
+   543→
+   544→Avoid collecting unnecessary personal or sensitive content.
+   545→
+   546→------------------------------------------------------------------------
+   547→
+   548→# 27. Web Performance
+   549→
+   550→Useful measurements include:
+   551→
+   552→``` text
+   553→page load
+   554→navigation duration
+   555→interaction latency
+   556→server response time
+   557→client errors
+   558→```
+   559→
+   560→Frontend performance monitoring should be connected to backend traces
+   561→where practical.
+   562→
+   563→------------------------------------------------------------------------
+   564→
+   565→# 28. Distributed Tracing
+   566→
+   567→A request may travel:
+   568→
+   569→``` text
+   570→Browser
+   571→ ↓
+   572→API Gateway
+   573→ ↓
+   574→Application Service
+   575→ ↓
+   576→Database
+   577→ ↓
+   578→Queue
+   579→ ↓
+   580→Worker
+   581→ ↓
+   582→External API
+   583→```
+   584→
+   585→Tracing should make this chain understandable.
+   586→
+   587→------------------------------------------------------------------------
+   588→
+   589→# 29. Trace Sampling
+   590→
+   591→Not every trace must necessarily be retained at full detail.
+   592→
+   593→Use configurable sampling while preserving:
+   594→
+   595→``` text
+   596→errors
+   597→slow requests
+   598→critical workflows
+   599→security events
+   600→high-risk AI actions
+   601→```
+   602→
+   603→------------------------------------------------------------------------
+   604→
+   605→# 30. Error Tracking
+   606→
+   607→Every actionable error should have:
+   608→
+   609→``` text
+   610→error code
+   611→service
+   612→environment
+   613→trace_id
+   614→request_id
+   615→timestamp
+   616→safe context
+   617→```
+   618→
+   619→Group repeated errors so operators can identify the underlying issue.
+   620→
+   621→------------------------------------------------------------------------
+   622→
+   623→# 31. Error Classification
+   624→
+   625→Conceptual categories:
+   626→
+   627→``` text
+   628→USER_ERROR
+   629→AUTH_ERROR
+   630→AUTHORIZATION_ERROR
+   631→VALIDATION_ERROR
+   632→DEPENDENCY_ERROR
+   633→DATABASE_ERROR
+   634→INTEGRATION_ERROR
+   635→AI_ERROR
+   636→SYSTEM_ERROR
+   637→SECURITY_ERROR
+   638→```
+   639→
+   640→This helps routing and alerting.
+   641→
+   642→------------------------------------------------------------------------
+   643→
+   644→# 32. Health Checks
+   645→
+   646→Services should expose appropriate health signals.
+   647→
+   648→Separate:
+   649→
+   650→``` text
+   651→liveness
+   652→readiness
+   653→dependency health
+   654→```
+   655→
+   656→A service being alive does not necessarily mean it is ready to serve
+   657→traffic.
+   658→
+   659→------------------------------------------------------------------------
+   660→
+   661→# 33. Synthetic Monitoring
+   662→
+   663→Critical external user journeys may be tested continuously.
+   664→
+   665→Examples:
+   666→
+   667→``` text
+   668→Login
+   669→Create organization
+   670→Open dashboard
+   671→Create poultry flock
+   672→Run report
+   673→AI assistant request
+   674→Billing status
+   675→```
+   676→
+   677→Synthetic checks should use safe test accounts/data.
+   678→
+   679→------------------------------------------------------------------------
+   680→
+   681→# 34. Alerts
+   682→
+   683→Alerts should be:
+   684→
+   685→``` text
+   686→actionable
+   687→prioritized
+   688→deduplicated
+   689→routed
+   690→documented
+   691→```
+   692→
+   693→Avoid alerting on every small error.
+   694→
+   695→------------------------------------------------------------------------
+   696→
+   697→# 35. Alert Severity
+   698→
+   699→Suggested:
+   700→
+   701→``` text
+   702→P1 — Critical
+   703→P2 — High
+   704→P3 — Medium
+   705→P4 — Low
+   706→```
+   707→
+   708→Example:
+   709→
+   710→``` text
+   711→P1:
+   712→multiple organizations unable to access platform
+   713→
+   714→P2:
+   715→Poultry workflows failing broadly
+   716→
+   717→P3:
+   718→one integration degraded
+   719→
+   720→P4:
+   721→non-critical background warning
+   722→```
+   723→
+   724→------------------------------------------------------------------------
+   725→
+   726→# 36. Alert Routing
+   727→
+   728→Route alerts according to ownership:
+   729→
+   730→``` text
+   731→Platform
+   732→Database
+   733→Security
+   734→AI
+   735→Billing
+   736→Domain
+   737→Integration
+   738→```
+   739→
+   740→An alert must identify its responsible team/service.
+   741→
+   742→------------------------------------------------------------------------
+   743→
+   744→# 37. Alert Fatigue
+   745→
+   746→Every alert should answer:
+   747→
+   748→``` text
+   749→What is wrong?
+   750→Why does it matter?
+   751→Who owns it?
+   752→What should be done?
+   753→```
+   754→
+   755→If an alert does not lead to action, reconsider the alert.
+   756→
+   757→------------------------------------------------------------------------
+   758→
+   759→# 38. Incident Model
+   760→
+   761→Conceptual:
+   762→
+   763→``` text
+   764→incident
+   765→ ├── id
+   766→ ├── severity
+   767→ ├── status
+   768→ ├── service
+   769→ ├── owner
+   770→ ├── detected_at
+   771→ ├── started_at
+   772→ ├── resolved_at
+   773→ ├── impact
+   774→ └── timeline
+   775→```
+   776→
+   777→------------------------------------------------------------------------
+   778→
+   779→# 39. Incident Lifecycle
+   780→
+   781→``` text
+   782→Detected
+   783→ ↓
+   784→Acknowledged
+   785→ ↓
+   786→Investigating
+   787→ ↓
+   788→Mitigating
+   789→ ↓
+   790→Monitoring
+   791→ ↓
+   792→Resolved
+   793→ ↓
+   794→Postmortem
+   795→```
+   796→
+   797→------------------------------------------------------------------------
+   798→
+   799→# 40. Incident Command
+   800→
+   801→For serious incidents assign:
+   802→
+   803→``` text
+   804→Incident Commander
+   805→Technical Lead
+   806→Communications Owner
+   807→Subject Matter Expert
+   808→```
+   809→
+   810→Roles may be combined in a small team.
+   811→
+   812→------------------------------------------------------------------------
+   813→
+   814→# 41. Incident Timeline
+   815→
+   816→Record:
+   817→
+   818→``` text
+   819→what happened
+   820→when
+   821→who acted
+   822→what changed
+   823→what was observed
+   824→what mitigation was attempted
+   825→```
+   826→
+   827→This supports learning and accountability.
+   828→
+   829→------------------------------------------------------------------------
+   830→
+   831→# 42. Postmortems
+   832→
+   833→For major incidents document:
+   834→
+   835→``` text
+   836→summary
+   837→impact
+   838→timeline
+   839→root/contributing causes
+   840→detection
+   841→mitigation
+   842→resolution
+   843→lessons
+   844→corrective actions
+   845→owners
+   846→deadlines
+   847→```
+   848→
+   849→Focus on system improvement rather than blame.
+   850→
+   851→------------------------------------------------------------------------
+   852→
+   853→# 43. SLO
+   854→
+   855→Mianx should eventually define Service Level Objectives.
+   856→
+   857→Examples:
+   858→
+   859→``` text
+   860→API availability
+   861→API latency
+   862→workflow completion
+   863→AI availability
+   864→billing processing
+   865→integration reliability
+   866→```
+   867→
+   868→SLOs should reflect user-visible reliability.
+   869→
+   870→------------------------------------------------------------------------
+   871→
+   872→# 44. SLA
+   873→
+   874→Customer-facing SLA commitments should only be made after internal
+   875→reliability measurement is mature.
+   876→
+   877→Do not promise a level of service the platform cannot consistently
+   878→measure and operate.
+   879→
+   880→------------------------------------------------------------------------
+   881→
+   882→# 45. Error Budgets
+   883→
+   884→Once SLOs exist:
+   885→
+   886→``` text
+   887→SLO
+   888→ ↓
+   889→Error Budget
+   890→ ↓
+   891→Reliability vs Feature Velocity
+   892→```
+   893→
+   894→Repeated reliability failures should influence release decisions.
+   895→
+   896→------------------------------------------------------------------------
+   897→
+   898→# 46. Deployment Observability
+   899→
+   900→Every deployment should be traceable to:
+   901→
+   902→``` text
+   903→version
+   904→commit
+   905→environment
+   906→deployment
+   907→time
+   908→```
+   909→
+   910→When an error increases after deployment, operators should be able to
+   911→correlate it quickly.
+   912→
+   913→------------------------------------------------------------------------
+   914→
+   915→# 47. Release Health
+   916→
+   917→After deployment monitor:
+   918→
+   919→``` text
+   920→error rate
+   921→latency
+   922→traffic
+   923→database errors
+   924→workflow failures
+   925→AI failures
+   926→business conversion where relevant
+   927→```
+   928→
+   929→A deployment that technically succeeds may still be operationally
+   930→unhealthy.
+   931→
+   932→------------------------------------------------------------------------
+   933→
+   934→# 48. Canary / Gradual Rollout
+   935→
+   936→For risky changes:
+   937→
+   938→``` text
+   939→Deploy
+   940→ ↓
+   941→Small traffic
+   942→ ↓
+   943→Observe
+   944→ ↓
+   945→Expand
+   946→ ↓
+   947→Full rollout
+   948→```
+   949→
+   950→Feature flags can help control exposure.
+   951→
+   952→------------------------------------------------------------------------
+   953→
+   954→# 49. Rollback
+   955→
+   956→Every critical deployment path should have a rollback strategy.
+   957→
+   958→Rollback may mean:
+   959→
+   960→``` text
+   961→previous deployment
+   962→feature flag off
+   963→migration compatibility path
+   964→configuration rollback
+   965→```
+   966→
+   967→Database migrations must be designed carefully because not every schema
+   968→change is instantly reversible.
+   969→
+   970→------------------------------------------------------------------------
+   971→
+   972→# 50. Production Environments
+   973→
+   974→At minimum distinguish:
+   975→
+   976→``` text
+   977→Development
+   978→Staging
+   979→Production
+   980→```
+   981→
+   982→Sensitive production credentials/data should not be copied casually into
+   983→lower environments.
+   984→
+   985→------------------------------------------------------------------------
+   986→
+   987→# 51. Observability Data Security
+   988→
+   989→Telemetry must not contain:
+   990→
+   991→``` text
+   992→passwords
+   993→API keys
+   994→tokens
+   995→payment secrets
+   996→private credentials
+   997→unnecessary personal data
+   998→raw sensitive business payloads
+   999→```
+  1000→
+  1001→Redaction should occur before telemetry leaves the application where
+  1002→practical.
+  1003→
+  1004→------------------------------------------------------------------------
+  1005→
+  1006→# 52. Retention
+  1007→
+  1008→Define retention separately for:
+  1009→
+  1010→``` text
+  1011→logs
+  1012→metrics
+  1013→traces
+  1014→audit logs
+  1015→security events
+  1016→AI telemetry
+  1017→billing telemetry
+  1018→```
+  1019→
+  1020→Long retention should be justified by operational or compliance needs.
+  1021→
+  1022→------------------------------------------------------------------------
+  1023→
+  1024→# 53. Mianx Command Center
+  1025→
+  1026→The Super Admin Command Center should provide:
+  1027→
+  1028→``` text
+  1029→Platform Overview
+  1030→Organizations
+  1031→Domains
+  1032→Services
+  1033→Deployments
+  1034→Database
+  1035→Queues
+  1036→Integrations
+  1037→AI
+  1038→Billing
+  1039→Security
+  1040→Incidents
+  1041→Alerts
+  1042→```
+  1043→
+  1044→------------------------------------------------------------------------
+  1045→
+  1046→# 54. Command Center --- Platform View
+  1047→
+  1048→Show:
+  1049→
+  1050→``` text
+  1051→availability
+  1052→request volume
+  1053→error rate
+  1054→latency
+  1055→active incidents
+  1056→deployment health
+  1057→```
+  1058→
+  1059→------------------------------------------------------------------------
+  1060→
+  1061→# 55. Command Center --- Tenant View
+  1062→
+  1063→For an organization:
+  1064→
+  1065→``` text
+  1066→status
+  1067→subscription
+  1068→usage
+  1069→domain health
+  1070→API health
+  1071→integrations
+  1072→workflow failures
+  1073→AI usage
+  1074→security events
+  1075→```
+  1076→
+  1077→Access must respect administrative privacy boundaries.
+  1078→
+  1079→------------------------------------------------------------------------
+  1080→
+  1081→# 56. Command Center --- Domain View
+  1082→
+  1083→Example:
+  1084→
+  1085→``` text
+  1086→Poultry OS
+  1087→ ├── Active organizations
+  1088→ ├── Requests
+  1089→ ├── Errors
+  1090→ ├── Workflows
+  1091→ ├── Integrations
+  1092→ ├── AI
+  1093→ └── Domain-specific KPIs
+  1094→```
+  1095→
+  1096→------------------------------------------------------------------------
+  1097→
+  1098→# 57. Operational Runbooks
+  1099→
+  1100→Critical alerts should link to a runbook.
+  1101→
+  1102→Examples:
+  1103→
+  1104→``` text
+  1105→Database connection exhaustion
+  1106→Queue backlog
+  1107→AI provider outage
+  1108→Payment webhook failure
+  1109→Tenant isolation alert
+  1110→Integration authentication failure
+  1111→```
+  1112→
+  1113→------------------------------------------------------------------------
+  1114→
+  1115→# 58. Dependency Monitoring
+  1116→
+  1117→Track critical dependencies:
+  1118→
+  1119→``` text
+  1120→PostgreSQL
+  1121→Redis
+  1122→Object Storage
+  1123→AI Providers
+  1124→Payment Provider
+  1125→Email
+  1126→Messaging
+  1127→External APIs
+  1128→```
+  1129→
+  1130→Dependency outages should be distinguishable from Mianx internal
+  1131→failures.
+  1132→
+  1133→------------------------------------------------------------------------
+  1134→
+  1135→# 59. AI Provider Failover
+  1136→
+  1137→AI model routing should expose:
+  1138→
+  1139→``` text
+  1140→provider health
+  1141→model health
+  1142→latency
+  1143→error rate
+  1144→cost
+  1145→fallback events
+  1146→```
+  1147→
+  1148→If a provider fails, the Model Router can select an approved fallback
+  1149→according to policy.
+  1150→
+  1151→------------------------------------------------------------------------
+  1152→
+  1153→# 60. Integration Sync Health
+  1154→
+  1155→For synchronized systems show:
+  1156→
+  1157→``` text
+  1158→last successful sync
+  1159→records processed
+  1160→records failed
+  1161→current lag
+  1162→authentication status
+  1163→```
+  1164→
+  1165→This makes external data problems visible to operators.
+  1166→
+  1167→------------------------------------------------------------------------
+  1168→
+  1169→# 61. Operations Security
+  1170→
+  1171→Operational dashboards themselves are privileged.
+  1172→
+  1173→Apply:
+  1174→
+  1175→``` text
+  1176→RBAC
+  1177→organization boundaries
+  1178→audit
+  1179→MFA/step-up for sensitive operations
+  1180→restricted production actions
+  1181→```
+  1182→
+  1183→Read access and write/mitigation access should be separated where
+  1184→practical.
+  1185→
+  1186→------------------------------------------------------------------------
+  1187→
+  1188→# 62. Production Readiness
+  1189→
+  1190→Before production launch:
+  1191→
+  1192→``` text
+  1193→✓ Structured logs
+  1194→✓ Request correlation
+  1195→✓ Metrics
+  1196→✓ Tracing
+  1197→✓ Error tracking
+  1198→✓ Database monitoring
+  1199→✓ Queue monitoring
+  1200→✓ Integration monitoring
+  1201→✓ AI observability
+  1202→✓ Cost monitoring
+  1203→✓ Health checks
+  1204→✓ Alerts
+  1205→✓ Incident process
+  1206→✓ Runbooks
+  1207→✓ Backup monitoring
+  1208→✓ Deployment tracking
+  1209→✓ Rollback strategy
+  1210→✓ Security redaction
+  1211→✓ Retention policy
+  1212→✓ Command Center
+  1213→```
+  1214→
+  1215→------------------------------------------------------------------------
+  1216→
+  1217→# 63. Implementation Order
+  1218→
+  1219→``` text
+  1220→1. Structured logging
+  1221→2. Correlation IDs
+  1222→3. Error tracking
+  1223→4. Core metrics
+  1224→5. Health checks
+  1225→6. Database monitoring
+  1226→7. Queue monitoring
+  1227→8. Distributed tracing
+  1228→9. Frontend observability
+  1229→10. AI telemetry
+  1230→11. Integration monitoring
+  1231→12. Billing monitoring
+  1232→13. Alerts
+  1233→14. Incident framework
+  1234→15. Runbooks
+  1235→16. Command Center
+  1236→17. SLOs
+  1237→18. Synthetic monitoring
+  1238→19. Gradual rollout
+  1239→20. Production readiness review
+  1240→```
+  1241→
+  1242→------------------------------------------------------------------------
+  1243→
+  1244→# 64. Final Operations Principle
+  1245→
+  1246→> **If Mianx.ai cannot see it, measure it, trace it, alert on it, and
+  1247→> recover from it, then Mianx.ai is not yet production-ready.**
+  1248→
+  1249→``` text
+  1250→BUILD
+  1251→ ↓
+  1252→OBSERVE
+  1253→ ↓
+  1254→MEASURE
+  1255→ ↓
+  1256→ALERT
+  1257→ ↓
+  1258→RESPOND
+  1259→ ↓
+  1260→LEARN
+  1261→ ↓
+  1262→IMPROVE
+  1263→```
+  1264→
+  1265→------------------------------------------------------------------------
+  1266→
+  1267→# 65. Next Technical Deliverable
+  1268→
+  1269→Next:
+  1270→
+  1271→# MIANX.AI CORE --- AI PLATFORM & AGENT OPERATING SYSTEM SPECIFICATION v1.0
+  1272→
+  1273→It will define:
+  1274→
+  1275→-   Mianx AI Engine
+  1276→-   Model Router
+  1277→-   AI Workforce
+  1278→-   Agent identity
+  1279→-   Agent registry
+  1280→-   Tools
+  1281→-   Skills
+  1282→-   Memory
+  1283→-   Knowledge
+  1284→-   Context
+  1285→-   Agent permissions
+  1286→-   Agent governance
+  1287→-   Human approval
+  1288→-   Agent-to-agent communication
+  1289→-   AI workflows
+  1290→-   Model fallback
+  1291→-   AI cost controls
+  1292→-   Evaluation
+  1293→-   AI observability
+  1294→-   Domain AI
+  1295→-   Poultry AI Workforce
+  1296→-   Future domain AI workforce
+  1297→

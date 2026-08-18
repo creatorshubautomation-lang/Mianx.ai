@@ -1,0 +1,1444 @@
+     1→# MIANX.AI CORE --- AI PLATFORM & AGENT OPERATING SYSTEM SPECIFICATION v1.0
+     2→
+     3→**Product:** Mianx.ai\
+     4→**Document:** AI Platform & Agent Operating System\
+     5→**Version:** 1.0\
+     6→**Status:** Architecture / Pre-Implementation\
+     7→**Purpose:** Define the shared AI operating layer from which every
+     8→Mianx.ai Domain OS can build secure, observable, governed AI workforce
+     9→capabilities.
+    10→
+    11→------------------------------------------------------------------------
+    12→
+    13→# 1. Purpose
+    14→
+    15→Mianx.ai is not simply adding a chatbot to business software.
+    16→
+    17→The goal is an **AI Operating System** in which AI can:
+    18→
+    19→-   understand business context
+    20→-   retrieve authorized knowledge
+    21→-   use approved tools
+    22→-   execute workflows
+    23→-   collaborate with other agents
+    24→-   request human approval
+    25→-   learn from authorized memory
+    26→-   measure its own cost and performance
+    27→-   remain inside organization and domain security boundaries
+    28→
+    29→Architecture:
+    30→
+    31→``` text
+    32→MIANX AI ENGINE
+    33→      │
+    34→      ├── Model Router
+    35→      ├── Agent Registry
+    36→      ├── Skill Registry
+    37→      ├── Tool Registry
+    38→      ├── Context Engine
+    39→      ├── Memory Engine
+    40→      ├── Knowledge Engine
+    41→      ├── Workflow Engine
+    42→      ├── Governance Engine
+    43→      ├── Evaluation Engine
+    44→      └── AI Observability
+    45→```
+    46→
+    47→------------------------------------------------------------------------
+    48→
+    49→# 2. AI Constitution
+    50→
+    51→1.  Every agent has an identity.
+    52→2.  Every agent has an explicit scope.
+    53→3.  Every tool has a declared capability.
+    54→4.  AI cannot bypass Core authorization.
+    55→5.  Retrieved content is untrusted unless explicitly trusted.
+    56→6.  Memory is scoped and governed.
+    57→7.  High-risk actions require policy checks and, where configured, human
+    58→    approval.
+    59→8.  Every meaningful AI action is observable.
+    60→9.  AI usage and cost are measurable.
+    61→10. Domain AI inherits the same Core AI infrastructure.
+    62→
+    63→------------------------------------------------------------------------
+    64→
+    65→# 3. AI Platform Architecture
+    66→
+    67→``` text
+    68→User / Event / Workflow
+    69→          ↓
+    70→     AI Gateway
+    71→          ↓
+    72→    Context Builder
+    73→          ↓
+    74→   Agent Orchestrator
+    75→          ↓
+    76→ ┌────────┼────────┐
+    77→ ↓        ↓        ↓
+    78→Model   Tools   Knowledge
+    79→Router          + Memory
+    80→          ↓
+    81→       Policy
+    82→          ↓
+    83→ Execute / Approve / Deny
+    84→          ↓
+    85→       Audit
+    86→```
+    87→
+    88→------------------------------------------------------------------------
+    89→
+    90→# 4. AI Gateway
+    91→
+    92→The AI Gateway is the common entry point for AI requests.
+    93→
+    94→Responsibilities:
+    95→
+    96→``` text
+    97→authentication
+    98→organization context
+    99→domain context
+   100→request validation
+   101→rate limiting
+   102→agent selection
+   103→model selection
+   104→policy checks
+   105→streaming / response handling
+   106→observability
+   107→cost attribution
+   108→```
+   109→
+   110→The gateway must not become a place where authorization is bypassed.
+   111→
+   112→------------------------------------------------------------------------
+   113→
+   114→# 5. AI Request Context
+   115→
+   116→Every AI request should have a normalized context.
+   117→
+   118→Conceptual:
+   119→
+   120→``` text
+   121→AIRequestContext
+   122→ ├── request_id
+   123→ ├── user_id
+   124→ ├── organization_id
+   125→ ├── domain
+   126→ ├── location/site scope
+   127→ ├── agent_id
+   128→ ├── conversation_id
+   129→ ├── permissions
+   130→ ├── locale
+   131→ └── metadata
+   132→```
+   133→
+   134→Only necessary context should be passed to the model.
+   135→
+   136→------------------------------------------------------------------------
+   137→
+   138→# 6. Agent Registry
+   139→
+   140→Every production agent should be registered.
+   141→
+   142→Conceptual:
+   143→
+   144→``` text
+   145→agents
+   146→ ├── id
+   147→ ├── key
+   148→ ├── name
+   149→ ├── description
+   150→ ├── domain
+   151→ ├── owner
+   152→ ├── version
+   153→ ├── status
+   154→ ├── autonomy_level
+   155→ ├── model_policy
+   156→ ├── tool_policy
+   157→ └── governance_policy
+   158→```
+   159→
+   160→Possible status:
+   161→
+   162→``` text
+   163→draft
+   164→testing
+   165→active
+   166→paused
+   167→deprecated
+   168→retired
+   169→```
+   170→
+   171→------------------------------------------------------------------------
+   172→
+   173→# 7. Agent Identity
+   174→
+   175→An agent is a security principal.
+   176→
+   177→Example:
+   178→
+   179→``` text
+   180→Agent:
+   181→poultry.coo
+   182→
+   183→Scope:
+   184→organization = ABC
+   185→domain = poultry
+   186→
+   187→Capabilities:
+   188→poultry.flock.read
+   189→poultry.report.generate
+   190→poultry.alert.create
+   191→```
+   192→
+   193→An agent should never receive unrestricted database credentials.
+   194→
+   195→------------------------------------------------------------------------
+   196→
+   197→# 8. Agent Types
+   198→
+   199→Mianx may support:
+   200→
+   201→``` text
+   202→Assistant Agent
+   203→Analyst Agent
+   204→Workflow Agent
+   205→Monitoring Agent
+   206→Decision Support Agent
+   207→Automation Agent
+   208→Executive Agent
+   209→Specialist Agent
+   210→```
+   211→
+   212→The type determines expected behavior and governance.
+   213→
+   214→------------------------------------------------------------------------
+   215→
+   216→# 9. AI Workforce
+   217→
+   218→The AI Workforce is a collection of specialized agents.
+   219→
+   220→Core roles may include:
+   221→
+   222→``` text
+   223→AI CEO
+   224→AI CTO
+   225→AI COO
+   226→AI CFO
+   227→AI CMO
+   228→AI CHRO
+   229→AI Product Manager
+   230→AI Data Analyst
+   231→AI Support Agent
+   232→AI Security Agent
+   233→```
+   234→
+   235→Domain-specific roles are layered on top.
+   236→
+   237→------------------------------------------------------------------------
+   238→
+   239→# 10. Poultry AI Workforce Example
+   240→
+   241→``` text
+   242→Poultry AI CEO
+   243→Poultry AI COO
+   244→Poultry AI Farm Manager
+   245→Poultry AI Flock Analyst
+   246→Poultry AI Procurement Manager
+   247→Poultry AI Feed Analyst
+   248→Poultry AI Health Monitor
+   249→Poultry AI Finance Analyst
+   250→Poultry AI Sales Assistant
+   251→```
+   252→
+   253→These are agent roles, not necessarily separate model deployments.
+   254→
+   255→------------------------------------------------------------------------
+   256→
+   257→# 11. Agent-to-Agent Communication
+   258→
+   259→Agents may collaborate through structured messages.
+   260→
+   261→``` text
+   262→Agent A
+   263→ ↓
+   264→Task / Request
+   265→ ↓
+   266→Agent B
+   267→ ↓
+   268→Result
+   269→ ↓
+   270→Agent A
+   271→```
+   272→
+   273→Every delegation must retain:
+   274→
+   275→``` text
+   276→organization scope
+   277→authorization context
+   278→correlation ID
+   279→parent agent
+   280→requested capability
+   281→```
+   282→
+   283→------------------------------------------------------------------------
+   284→
+   285→# 12. Delegation Security
+   286→
+   287→An agent cannot delegate permissions it does not possess.
+   288→
+   289→``` text
+   290→Parent Agent Permissions
+   291→        ↓
+   292→Delegated Permissions
+   293→        ↓
+   294→Subset only
+   295→```
+   296→
+   297→This prevents privilege escalation through agent-to-agent calls.
+   298→
+   299→------------------------------------------------------------------------
+   300→
+   301→# 13. Agent Registry vs Skill Registry
+   302→
+   303→Separate:
+   304→
+   305→``` text
+   306→Agent
+   307→= who performs work
+   308→
+   309→Skill
+   310→= reusable capability / procedure
+   311→
+   312→Tool
+   313→= executable interface
+   314→
+   315→Knowledge
+   316→= information source
+   317→
+   318→Workflow
+   319→= ordered business process
+   320→```
+   321→
+   322→This separation is fundamental.
+   323→
+   324→------------------------------------------------------------------------
+   325→
+   326→# 14. Skill Registry
+   327→
+   328→A skill defines how an agent performs a reusable task.
+   329→
+   330→Conceptual:
+   331→
+   332→``` text
+   333→skills
+   334→ ├── id
+   335→ ├── key
+   336→ ├── version
+   337→ ├── description
+   338→ ├── inputs
+   339→ ├── outputs
+   340→ ├── required_permissions
+   341→ ├── allowed_agents
+   342→ └── evaluation_policy
+   343→```
+   344→
+   345→Example:
+   346→
+   347→``` text
+   348→poultry.analyze_feed_efficiency
+   349→```
+   350→
+   351→------------------------------------------------------------------------
+   352→
+   353→# 15. Tool Registry
+   354→
+   355→A tool is an executable capability.
+   356→
+   357→Examples:
+   358→
+   359→``` text
+   360→get_flock
+   361→create_alert
+   362→create_purchase_request
+   363→generate_report
+   364→send_notification
+   365→search_inventory
+   366→```
+   367→
+   368→Every tool must declare:
+   369→
+   370→``` text
+   371→input schema
+   372→output schema
+   373→permissions
+   374→risk level
+   375→side effects
+   376→approval requirement
+   377→```
+   378→
+   379→------------------------------------------------------------------------
+   380→
+   381→# 16. Tool Risk Classification
+   382→
+   383→Suggested:
+   384→
+   385→``` text
+   386→READ
+   387→LOW_WRITE
+   388→MEDIUM_WRITE
+   389→HIGH_WRITE
+   390→CRITICAL
+   391→```
+   392→
+   393→Examples:
+   394→
+   395→``` text
+   396→get_flock → READ
+   397→
+   398→create_internal_note → LOW_WRITE
+   399→
+   400→create_purchase_request → MEDIUM_WRITE
+   401→
+   402→approve_large_purchase → HIGH_WRITE
+   403→
+   404→change_organization_owner → CRITICAL
+   405→```
+   406→
+   407→------------------------------------------------------------------------
+   408→
+   409→# 17. Tool Execution Pipeline
+   410→
+   411→``` text
+   412→Agent
+   413→ ↓
+   414→Tool Request
+   415→ ↓
+   416→Schema Validation
+   417→ ↓
+   418→Authorization
+   419→ ↓
+   420→Entitlement
+   421→ ↓
+   422→Policy
+   423→ ↓
+   424→Risk Check
+   425→ ↓
+   426→Approval if required
+   427→ ↓
+   428→Execute
+   429→ ↓
+   430→Result
+   431→ ↓
+   432→Audit / Telemetry
+   433→```
+   434→
+   435→------------------------------------------------------------------------
+   436→
+   437→# 18. Model Router
+   438→
+   439→The Model Router chooses an approved model based on:
+   440→
+   441→``` text
+   442→task
+   443→quality requirement
+   444→latency
+   445→cost
+   446→context size
+   447→availability
+   448→organization policy
+   449→domain policy
+   450→```
+   451→
+   452→Architecture:
+   453→
+   454→``` text
+   455→AI Request
+   456→ ↓
+   457→Model Policy
+   458→ ↓
+   459→Candidate Models
+   460→ ↓
+   461→Health / Cost / Capability
+   462→ ↓
+   463→Selected Model
+   464→```
+   465→
+   466→Model identifiers must be managed through configuration and verified
+   467→against the currently supported provider catalog rather than hard-coded
+   468→from memory.
+   469→
+   470→------------------------------------------------------------------------
+   471→
+   472→# 19. Model Fallback
+   473→
+   474→If an approved model fails:
+   475→
+   476→``` text
+   477→Primary Model
+   478→ ↓ failure
+   479→Fallback Model
+   480→ ↓ failure
+   481→Safe Failure / Human Path
+   482→```
+   483→
+   484→Fallback must respect:
+   485→
+   486→``` text
+   487→organization policy
+   488→data residency requirements where applicable
+   489→capabilities
+   490→cost limits
+   491→security
+   492→```
+   493→
+   494→------------------------------------------------------------------------
+   495→
+   496→# 20. Provider Abstraction
+   497→
+   498→The Core AI layer should avoid making every domain dependent on one
+   499→provider-specific implementation.
+   500→
+   501→Conceptual:
+   502→
+   503→``` text
+   504→Mianx AI Interface
+   505→      ↓
+   506→Provider Adapter
+   507→ ├── Provider A
+   508→ ├── Provider B
+   509→ └── Provider C
+   510→```
+   511→
+   512→The exact provider mix is a deployment decision.
+   513→
+   514→------------------------------------------------------------------------
+   515→
+   516→# 21. Context Engine
+   517→
+   518→The Context Engine builds the smallest useful context for an AI task.
+   519→
+   520→Sources can include:
+   521→
+   522→``` text
+   523→current request
+   524→conversation
+   525→user permissions
+   526→organization settings
+   527→domain state
+   528→business records
+   529→workflow state
+   530→knowledge
+   531→memory
+   532→tool results
+   533→```
+   534→
+   535→------------------------------------------------------------------------
+   536→
+   537→# 22. Context Budget
+   538→
+   539→Context should be prioritized.
+   540→
+   541→``` text
+   542→System policy
+   543→ ↓
+   544→Security policy
+   545→ ↓
+   546→Task
+   547→ ↓
+   548→Required business context
+   549→ ↓
+   550→Relevant knowledge
+   551→ ↓
+   552→Relevant memory
+   553→ ↓
+   554→Optional context
+   555→```
+   556→
+   557→Do not dump the entire tenant database into a model context.
+   558→
+   559→------------------------------------------------------------------------
+   560→
+   561→# 23. Memory Engine
+   562→
+   563→Memory is separated into scopes:
+   564→
+   565→``` text
+   566→session memory
+   567→conversation memory
+   568→user memory
+   569→organization memory
+   570→domain memory
+   571→agent memory
+   572→operational memory
+   573→```
+   574→
+   575→Every memory item needs an access scope.
+   576→
+   577→------------------------------------------------------------------------
+   578→
+   579→# 24. Memory Lifecycle
+   580→
+   581→``` text
+   582→Capture
+   583→ ↓
+   584→Classify
+   585→ ↓
+   586→Authorize
+   587→ ↓
+   588→Store
+   589→ ↓
+   590→Retrieve
+   591→ ↓
+   592→Use
+   593→ ↓
+   594→Expire / Update / Delete
+   595→```
+   596→
+   597→Memory should not automatically become permanent.
+   598→
+   599→------------------------------------------------------------------------
+   600→
+   601→# 25. Memory Governance
+   602→
+   603→Memory may have:
+   604→
+   605→``` text
+   606→visibility
+   607→owner
+   608→scope
+   609→sensitivity
+   610→retention
+   611→source
+   612→created_at
+   613→updated_at
+   614→```
+   615→
+   616→An agent must not retrieve memory outside its authorization scope.
+   617→
+   618→------------------------------------------------------------------------
+   619→
+   620→# 26. Knowledge Engine
+   621→
+   622→Knowledge is authoritative or semi-authoritative information used by AI.
+   623→
+   624→Sources:
+   625→
+   626→``` text
+   627→documents
+   628→policies
+   629→manuals
+   630→business records
+   631→structured data
+   632→approved websites
+   633→uploaded files
+   634→domain knowledge
+   635→```
+   636→
+   637→------------------------------------------------------------------------
+   638→
+   639→# 27. Knowledge Pipeline
+   640→
+   641→``` text
+   642→Source
+   643→ ↓
+   644→Ingest
+   645→ ↓
+   646→Validate
+   647→ ↓
+   648→Classify
+   649→ ↓
+   650→Chunk / Structure
+   651→ ↓
+   652→Index
+   653→ ↓
+   654→Retrieve
+   655→ ↓
+   656→Cite / Trace Source
+   657→```
+   658→
+   659→Knowledge retrieval must preserve source references where practical.
+   660→
+   661→------------------------------------------------------------------------
+   662→
+   663→# 28. Structured Data + Semantic Knowledge
+   664→
+   665→AI should be able to combine:
+   666→
+   667→``` text
+   668→SQL / structured business data
+   669→+
+   670→semantic knowledge
+   671→+
+   672→workflow state
+   673→+
+   674→authorized memory
+   675→```
+   676→
+   677→Example:
+   678→
+   679→``` text
+   680→"What happened to Flock 42 this week?"
+   681→
+   682→Structured:
+   683→mortality, weight, feed
+   684→
+   685→Knowledge:
+   686→farm policy
+   687→
+   688→Memory:
+   689→previous approved management decision
+   690→```
+   691→
+   692→------------------------------------------------------------------------
+   693→
+   694→# 29. Retrieval Security
+   695→
+   696→Retrieval must apply authorization before content reaches the model.
+   697→
+   698→``` text
+   699→Search
+   700→ ↓
+   701→Security Filter
+   702→ ↓
+   703→Tenant Filter
+   704→ ↓
+   705→Domain Filter
+   706→ ↓
+   707→Relevant Results
+   708→ ↓
+   709→Model
+   710→```
+   711→
+   712→Never rely on the model to ignore unauthorized retrieved information.
+   713→
+   714→------------------------------------------------------------------------
+   715→
+   716→# 30. Prompt Injection Defense
+   717→
+   718→Treat external content as data, not instructions.
+   719→
+   720→Potentially untrusted:
+   721→
+   722→``` text
+   723→uploaded documents
+   724→emails
+   725→messages
+   726→web pages
+   727→customer notes
+   728→database text
+   729→integration payloads
+   730→```
+   731→
+   732→System and security policies must remain higher priority.
+   733→
+   734→------------------------------------------------------------------------
+   735→
+   736→# 31. AI Workflow Engine
+   737→
+   738→AI workflows combine:
+   739→
+   740→``` text
+   741→trigger
+   742→ ↓
+   743→agent
+   744→ ↓
+   745→reasoning
+   746→ ↓
+   747→tool
+   748→ ↓
+   749→condition
+   750→ ↓
+   751→approval
+   752→ ↓
+   753→next step
+   754→```
+   755→
+   756→Example:
+   757→
+   758→``` text
+   759→High mortality detected
+   760→ ↓
+   761→Flock Analyst
+   762→ ↓
+   763→Analyze trend
+   764→ ↓
+   765→Health Monitor
+   766→ ↓
+   767→Generate recommendation
+   768→ ↓
+   769→Manager approval
+   770→ ↓
+   771→Create action
+   772→```
+   773→
+   774→------------------------------------------------------------------------
+   775→
+   776→# 32. Durable AI Workflows
+   777→
+   778→Long-running AI workflows must persist state.
+   779→
+   780→Support:
+   781→
+   782→``` text
+   783→pause
+   784→resume
+   785→retry
+   786→timeout
+   787→approval wait
+   788→failure recovery
+   789→idempotency
+   790→```
+   791→
+   792→Do not keep long-running business processes only inside a model context.
+   793→
+   794→------------------------------------------------------------------------
+   795→
+   796→# 33. Human-in-the-Loop
+   797→
+   798→AI should request approval when policy requires it.
+   799→
+   800→``` text
+   801→AI
+   802→ ↓
+   803→Recommendation
+   804→ ↓
+   805→Approval Request
+   806→ ↓
+   807→Human
+   808→ ↓
+   809→Approve / Reject
+   810→ ↓
+   811→Tool Execution
+   812→```
+   813→
+   814→The approval should identify exactly what will happen.
+   815→
+   816→------------------------------------------------------------------------
+   817→
+   818→# 34. AI Autonomy Levels
+   819→
+   820→``` text
+   821→L0 Observe
+   822→L1 Recommend
+   823→L2 Draft
+   824→L3 Execute Low-Risk
+   825→L4 Execute Approved Operations
+   826→L5 Autonomous Within Policy
+   827→```
+   828→
+   829→Organization/domain policy determines the maximum level.
+   830→
+   831→------------------------------------------------------------------------
+   832→
+   833→# 35. AI Governance
+   834→
+   835→Each agent should declare:
+   836→
+   837→``` text
+   838→purpose
+   839→scope
+   840→tools
+   841→permissions
+   842→autonomy
+   843→model policy
+   844→memory policy
+   845→knowledge policy
+   846→approval policy
+   847→cost policy
+   848→```
+   849→
+   850→------------------------------------------------------------------------
+   851→
+   852→# 36. AI Entitlement
+   853→
+   854→Commercial access is separate from AI authorization.
+   855→
+   856→Example:
+   857→
+   858→``` text
+   859→AI Workforce feature = purchased
+   860→BUT
+   861→agent lacks permission
+   862→→ DENY
+   863→
+   864→agent has permission
+   865→BUT
+   866→AI Workforce not purchased
+   867→→ DENY
+   868→```
+   869→
+   870→------------------------------------------------------------------------
+   871→
+   872→# 37. AI Rate Limits
+   873→
+   874→Limits may apply to:
+   875→
+   876→``` text
+   877→organization
+   878→user
+   879→agent
+   880→domain
+   881→API
+   882→tool
+   883→model
+   884→```
+   885→
+   886→Examples:
+   887→
+   888→``` text
+   889→requests/minute
+   890→runs/hour
+   891→tokens/day
+   892→cost/month
+   893→```
+   894→
+   895→------------------------------------------------------------------------
+   896→
+   897→# 38. AI Budget Guardrails
+   898→
+   899→Before expensive operations:
+   900→
+   901→``` text
+   902→Estimate cost
+   903→ ↓
+   904→Check budget
+   905→ ↓
+   906→Execute
+   907→ ↓
+   908→Record actual usage
+   909→```
+   910→
+   911→If budget is exceeded:
+   912→
+   913→``` text
+   914→deny
+   915→degrade
+   916→fallback
+   917→request approval
+   918→```
+   919→
+   920→------------------------------------------------------------------------
+   921→
+   922→# 39. AI Cost Attribution
+   923→
+   924→Every AI run should be attributable to:
+   925→
+   926→``` text
+   927→organization
+   928→domain
+   929→user
+   930→agent
+   931→feature
+   932→model
+   933→provider
+   934→workflow
+   935→```
+   936→
+   937→This supports billing, profitability and optimization.
+   938→
+   939→------------------------------------------------------------------------
+   940→
+   941→# 40. AI Evaluation Engine
+   942→
+   943→Production agents require evaluation.
+   944→
+   945→Evaluate:
+   946→
+   947→``` text
+   948→correctness
+   949→tool selection
+   950→policy compliance
+   951→task completion
+   952→latency
+   953→cost
+   954→hallucination rate where measurable
+   955→human approval/rejection
+   956→```
+   957→
+   958→------------------------------------------------------------------------
+   959→
+   960→# 41. Evaluation Dataset
+   961→
+   962→Evaluation cases should represent real tasks.
+   963→
+   964→Example Poultry cases:
+   965→
+   966→``` text
+   967→analyze mortality trend
+   968→identify feed efficiency issue
+   969→summarize flock health
+   970→prepare procurement recommendation
+   971→detect abnormal weight trend
+   972→```
+   973→
+   974→Sensitive production data should be handled under appropriate privacy
+   975→controls.
+   976→
+   977→------------------------------------------------------------------------
+   978→
+   979→# 42. Agent Versioning
+   980→
+   981→Agents should be versioned.
+   982→
+   983→``` text
+   984→poultry.flock_analyst v1
+   985→poultry.flock_analyst v2
+   986→```
+   987→
+   988→Version changes may include:
+   989→
+   990→``` text
+   991→prompt
+   992→tools
+   993→policy
+   994→model
+   995→skills
+   996→workflow
+   997→```
+   998→
+   999→------------------------------------------------------------------------
+  1000→
+  1001→# 43. Safe Agent Deployment
+  1002→
+  1003→Agent changes should follow:
+  1004→
+  1005→``` text
+  1006→Draft
+  1007→ ↓
+  1008→Evaluation
+  1009→ ↓
+  1010→Staging
+  1011→ ↓
+  1012→Limited rollout
+  1013→ ↓
+  1014→Observe
+  1015→ ↓
+  1016→Production
+  1017→```
+  1018→
+  1019→Critical agents should support rollback.
+  1020→
+  1021→------------------------------------------------------------------------
+  1022→
+  1023→# 44. AI Observability
+  1024→
+  1025→Track:
+  1026→
+  1027→``` text
+  1028→run count
+  1029→latency
+  1030→tokens
+  1031→cost
+  1032→model
+  1033→provider
+  1034→tool calls
+  1035→errors
+  1036→retries
+  1037→policy decisions
+  1038→approvals
+  1039→task outcomes
+  1040→```
+  1041→
+  1042→Link AI telemetry to platform traces.
+  1043→
+  1044→------------------------------------------------------------------------
+  1045→
+  1046→# 45. Agent Loops
+  1047→
+  1048→Detect excessive loops:
+  1049→
+  1050→``` text
+  1051→Agent
+  1052→ ↓
+  1053→Tool
+  1054→ ↓
+  1055→Agent
+  1056→ ↓
+  1057→Tool
+  1058→ ↓
+  1059→Agent
+  1060→...
+  1061→```
+  1062→
+  1063→Controls:
+  1064→
+  1065→``` text
+  1066→max steps
+  1067→max duration
+  1068→max cost
+  1069→max tool calls
+  1070→```
+  1071→
+  1072→------------------------------------------------------------------------
+  1073→
+  1074→# 46. Tool Idempotency
+  1075→
+  1076→Tools with side effects should support idempotency where practical.
+  1077→
+  1078→Example:
+  1079→
+  1080→``` text
+  1081→create_purchase_request
+  1082→```
+  1083→
+  1084→If the same AI workflow retries, it must not accidentally create
+  1085→duplicate requests.
+  1086→
+  1087→------------------------------------------------------------------------
+  1088→
+  1089→# 47. AI Failure Handling
+  1090→
+  1091→If AI fails:
+  1092→
+  1093→``` text
+  1094→retry
+  1095→ ↓
+  1096→fallback model
+  1097→ ↓
+  1098→safe deterministic path
+  1099→ ↓
+  1100→human escalation
+  1101→```
+  1102→
+  1103→The system should not invent successful completion.
+  1104→
+  1105→------------------------------------------------------------------------
+  1106→
+  1107→# 48. AI Data Boundary
+  1108→
+  1109→AI should access business data through controlled services/tools.
+  1110→
+  1111→Preferred:
+  1112→
+  1113→``` text
+  1114→Agent
+  1115→ ↓
+  1116→Authorized Domain Service
+  1117→ ↓
+  1118→Business Data
+  1119→```
+  1120→
+  1121→Avoid giving agents unrestricted direct database access.
+  1122→
+  1123→------------------------------------------------------------------------
+  1124→
+  1125→# 49. AI and Business Rules
+  1126→
+  1127→Critical deterministic rules should remain deterministic.
+  1128→
+  1129→Examples:
+  1130→
+  1131→``` text
+  1132→financial calculations
+  1133→permission checks
+  1134→inventory constraints
+  1135→billing
+  1136→tax
+  1137→approval thresholds
+  1138→```
+  1139→
+  1140→AI may explain/recommend, but should not replace authoritative rules.
+  1141→
+  1142→------------------------------------------------------------------------
+  1143→
+  1144→# 50. AI and Domain OS
+  1145→
+  1146→Domain OS architecture:
+  1147→
+  1148→``` text
+  1149→Mianx Core AI
+  1150→      ↓
+  1151→Domain AI Configuration
+  1152→      ↓
+  1153→Domain Agents
+  1154→      ↓
+  1155→Domain Skills
+  1156→      ↓
+  1157→Domain Tools
+  1158→      ↓
+  1159→Domain Data
+  1160→```
+  1161→
+  1162→This allows each domain to have specialized intelligence without
+  1163→rebuilding the AI platform.
+  1164→
+  1165→------------------------------------------------------------------------
+  1166→
+  1167→# 51. Poultry AI Architecture
+  1168→
+  1169→``` text
+  1170→Mianx AI Core
+  1171→      ↓
+  1172→Poultry AI Layer
+  1173→      ↓
+  1174→┌─────────────────────────┐
+  1175→│ Poultry AI CEO          │
+  1176→│ Poultry AI COO          │
+  1177→│ Farm Manager Agent      │
+  1178→│ Flock Analyst Agent     │
+  1179→│ Feed Analyst Agent      │
+  1180→│ Health Monitor Agent    │
+  1181→│ Procurement Agent       │
+  1182→│ Finance Agent           │
+  1183→└─────────────────────────┘
+  1184→      ↓
+  1185→Poultry Tools / Data
+  1186→```
+  1187→
+  1188→------------------------------------------------------------------------
+  1189→
+  1190→# 52. Poultry AI Example
+  1191→
+  1192→Question:
+  1193→
+  1194→> "Flock 42 ki mortality kyun barh rahi hai?"
+  1195→
+  1196→Agent flow:
+  1197→
+  1198→``` text
+  1199→User
+  1200→ ↓
+  1201→Flock Analyst
+  1202→ ↓
+  1203→Get flock metrics
+  1204→ ↓
+  1205→Compare historical baseline
+  1206→ ↓
+  1207→Retrieve authorized farm policy
+  1208→ ↓
+  1209→Analyze
+  1210→ ↓
+  1211→Generate explanation
+  1212→ ↓
+  1213→Recommend next checks
+  1214→ ↓
+  1215→If action required → approval/workflow
+  1216→```
+  1217→
+  1218→The AI should distinguish observed facts from hypotheses.
+  1219→
+  1220→------------------------------------------------------------------------
+  1221→
+  1222→# 53. Domain AI Configuration
+  1223→
+  1224→Each domain can declare:
+  1225→
+  1226→``` text
+  1227→agents
+  1228→skills
+  1229→tools
+  1230→knowledge sources
+  1231→memory scopes
+  1232→policies
+  1233→models
+  1234→budgets
+  1235→evaluation cases
+  1236→```
+  1237→
+  1238→This becomes the Domain AI Manifest.
+  1239→
+  1240→------------------------------------------------------------------------
+  1241→
+  1242→# 54. AI Marketplace
+  1243→
+  1244→Future Mianx may support an Agent/Skill Marketplace.
+  1245→
+  1246→Examples:
+  1247→
+  1248→``` text
+  1249→Poultry Feed Optimizer
+  1250→Restaurant Demand Forecaster
+  1251→Retail Inventory Analyst
+  1252→SEO Content Agent
+  1253→Customer Support Agent
+  1254→```
+  1255→
+  1256→Marketplace-installed agents must still pass Core governance and
+  1257→permission checks.
+  1258→
+  1259→------------------------------------------------------------------------
+  1260→
+  1261→# 55. Agent Packaging
+  1262→
+  1263→A reusable agent package may contain:
+  1264→
+  1265→``` text
+  1266→agent manifest
+  1267→skills
+  1268→tool references
+  1269→prompts/instructions
+  1270→policies
+  1271→evaluation suite
+  1272→version
+  1273→dependencies
+  1274→```
+  1275→
+  1276→No package may bypass Core security.
+  1277→
+  1278→------------------------------------------------------------------------
+  1279→
+  1280→# 56. AI Governance Dashboard
+  1281→
+  1282→Command Center should show:
+  1283→
+  1284→``` text
+  1285→Agents
+  1286→Agent versions
+  1287→Active runs
+  1288→Failed runs
+  1289→Tool usage
+  1290→Policy denials
+  1291→Approvals
+  1292→AI cost
+  1293→Provider health
+  1294→Model usage
+  1295→Evaluation scores
+  1296→```
+  1297→
+  1298→------------------------------------------------------------------------
+  1299→
+  1300→# 57. AI Incident Management
+  1301→
+  1302→AI incidents include:
+  1303→
+  1304→``` text
+  1305→unsafe tool execution
+  1306→unexpected cost spike
+  1307→agent loop
+  1308→policy bypass
+  1309→wrong domain access
+  1310→data leakage
+  1311→provider failure
+  1312→quality regression
+  1313→```
+  1314→
+  1315→These should enter the same operational incident framework.
+  1316→
+  1317→------------------------------------------------------------------------
+  1318→
+  1319→# 58. AI Security Tests
+  1320→
+  1321→Required:
+  1322→
+  1323→``` text
+  1324→tenant isolation
+  1325→permission boundaries
+  1326→tool authorization
+  1327→delegation limits
+  1328→prompt injection
+  1329→memory isolation
+  1330→knowledge isolation
+  1331→approval enforcement
+  1332→cost limits
+  1333→agent loop limits
+  1334→secret leakage
+  1335→```
+  1336→
+  1337→------------------------------------------------------------------------
+  1338→
+  1339→# 59. AI Definition of Done
+  1340→
+  1341→AI Core is ready when:
+  1342→
+  1343→``` text
+  1344→✓ AI Gateway defined
+  1345→✓ Agent Registry defined
+  1346→✓ Agent identity defined
+  1347→✓ Skill Registry defined
+  1348→✓ Tool Registry defined
+  1349→✓ Tool risk model defined
+  1350→✓ Model Router defined
+  1351→✓ Provider abstraction defined
+  1352→✓ Context Engine defined
+  1353→✓ Memory Engine defined
+  1354→✓ Knowledge Engine defined
+  1355→✓ Retrieval security defined
+  1356→✓ Workflow integration defined
+  1357→✓ Human approval defined
+  1358→✓ Autonomy levels defined
+  1359→✓ AI entitlements defined
+  1360→✓ Rate limits defined
+  1361→✓ Cost controls defined
+  1362→✓ Evaluation framework defined
+  1363→✓ Agent versioning defined
+  1364→✓ AI observability defined
+  1365→✓ Domain AI architecture defined
+  1366→✓ Poultry AI workforce mapped
+  1367→```
+  1368→
+  1369→------------------------------------------------------------------------
+  1370→
+  1371→# 60. Implementation Order
+  1372→
+  1373→``` text
+  1374→1. AI domain contracts
+  1375→2. AI Gateway
+  1376→3. Agent registry
+  1377→4. Tool registry
+  1378→5. Permission integration
+  1379→6. Model Router
+  1380→7. Context Engine
+  1381→8. Knowledge retrieval
+  1382→9. Memory Engine
+  1383→10. AI workflow integration
+  1384→11. Human approval
+  1385→12. AI cost metering
+  1386→13. Agent evaluation
+  1387→14. AI observability
+  1388→15. Domain AI manifests
+  1389→16. Poultry AI agents
+  1390→17. Agent marketplace foundation
+  1391→18. Production governance
+  1392→```
+  1393→
+  1394→------------------------------------------------------------------------
+  1395→
+  1396→# 61. Final AI Principle
+  1397→
+  1398→> **Mianx AI is not one chatbot. It is a governed workforce of
+  1399→> specialized agents operating on top of one secure, observable,
+  1400→> multi-domain AI platform.**
+  1401→
+  1402→``` text
+  1403→ONE AI ENGINE
+  1404→      ↓
+  1405→ONE GOVERNANCE MODEL
+  1406→      ↓
+  1407→ONE AGENT PLATFORM
+  1408→      ↓
+  1409→MANY DOMAIN WORKFORCES
+  1410→      ↓
+  1411→Poultry | Restaurant | Retail | Future Domains
+  1412→```
+  1413→
+  1414→------------------------------------------------------------------------
+  1415→
+  1416→# 62. Next Technical Deliverable
+  1417→
+  1418→Next:
+  1419→
+  1420→# MIANX.AI CORE --- INTEGRATION, API & EVENT PLATFORM SPECIFICATION v1.0
+  1421→
+  1422→It will define:
+  1423→
+  1424→-   API Gateway
+  1425→-   REST / typed API contracts
+  1426→-   Webhooks
+  1427→-   Event Bus
+  1428→-   Event schemas
+  1429→-   Outbox
+  1430→-   Queues
+  1431→-   External integrations
+  1432→-   Integration Marketplace
+  1433→-   OAuth
+  1434→-   API keys
+  1435→-   Rate limiting
+  1436→-   Idempotency
+  1437→-   Retries
+  1438→-   Webhook security
+  1439→-   Domain integration contracts
+  1440→-   AI tool interfaces
+  1441→-   Versioning
+  1442→-   Partner/developer platform
+  1443→-   How any future Domain OS connects to the Mianx ecosystem
+  1444→
