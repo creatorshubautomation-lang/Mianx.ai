@@ -12,7 +12,7 @@ import { getUserIdFromRequest, requireOrgMember } from '@/lib/authorization'
 // GET /api/events — org events, filterable by missionId, type
 export async function GET(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')

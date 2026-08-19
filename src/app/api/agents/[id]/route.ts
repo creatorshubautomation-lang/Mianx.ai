@@ -17,7 +17,7 @@ type RouteContext = { params: Promise<{ id: string }> }
 export async function GET(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const agent = await db.agent.findUnique({ where: { id } })
     if (!agent) throw new NotFoundError('Agent')
@@ -25,8 +25,19 @@ export async function GET(request: Request, context: RouteContext) {
     await requireOrgMember(userId, agent.organizationId)
     await requirePermission(userId, agent.organizationId, [Permissions.AGENT_VIEW])
 
+    // Exclude 'configuration' — may contain secrets/prompts
     return success({
-      ...agent,
+      id: agent.id,
+      organizationId: agent.organizationId,
+      domainId: agent.domainId,
+      name: agent.name,
+      slug: agent.slug,
+      description: agent.description,
+      status: agent.status,
+      type: agent.type,
+      capabilities: agent.capabilities,
+      version: agent.version,
+      successMetrics: agent.successMetrics,
       createdAt: String(agent.createdAt),
       updatedAt: String(agent.updatedAt),
     })
@@ -37,7 +48,7 @@ export async function GET(request: Request, context: RouteContext) {
 export async function PUT(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const existing = await db.agent.findUnique({ where: { id } })
     if (!existing) throw new NotFoundError('Agent')
@@ -63,8 +74,19 @@ export async function PUT(request: Request, context: RouteContext) {
       },
     })
 
+    // Exclude 'configuration' from response
     return success({
-      ...agent,
+      id: agent.id,
+      organizationId: agent.organizationId,
+      domainId: agent.domainId,
+      name: agent.name,
+      slug: agent.slug,
+      description: agent.description,
+      status: agent.status,
+      type: agent.type,
+      capabilities: agent.capabilities,
+      version: agent.version,
+      successMetrics: agent.successMetrics,
       createdAt: String(agent.createdAt),
       updatedAt: String(agent.updatedAt),
     })
@@ -75,7 +97,7 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const agent = await db.agent.findUnique({ where: { id } })
     if (!agent) throw new NotFoundError('Agent')

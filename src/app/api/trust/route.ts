@@ -10,7 +10,7 @@ import { getUserIdFromRequest, requireOrgMember } from '@/lib/authorization'
 // GET /api/trust — trust center data: recent executions, agent actions, verifications, approvals
 export async function GET(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')

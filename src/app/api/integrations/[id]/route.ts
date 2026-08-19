@@ -16,7 +16,7 @@ type RouteContext = { params: Promise<{ id: string }> }
 export async function GET(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const integration = await db.integration.findUnique({ where: { id } })
     if (!integration) throw new NotFoundError('Integration')
@@ -24,8 +24,13 @@ export async function GET(request: Request, context: RouteContext) {
     await requireOrgMember(userId, integration.organizationId)
     await requirePermission(userId, integration.organizationId, [Permissions.INTEGRATION_VIEW])
 
+    // Exclude 'configuration' — may contain API keys/secrets
     return success({
-      ...integration,
+      id: integration.id,
+      organizationId: integration.organizationId,
+      provider: integration.provider,
+      name: integration.name,
+      status: integration.status,
       createdAt: String(integration.createdAt),
       updatedAt: String(integration.updatedAt),
     })
@@ -36,7 +41,7 @@ export async function GET(request: Request, context: RouteContext) {
 export async function PUT(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const existing = await db.integration.findUnique({ where: { id } })
     if (!existing) throw new NotFoundError('Integration')
@@ -59,8 +64,13 @@ export async function PUT(request: Request, context: RouteContext) {
       },
     })
 
+    // Exclude 'configuration' from response
     return success({
-      ...integration,
+      id: integration.id,
+      organizationId: integration.organizationId,
+      provider: integration.provider,
+      name: integration.name,
+      status: integration.status,
       createdAt: String(integration.createdAt),
       updatedAt: String(integration.updatedAt),
     })
@@ -71,7 +81,7 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const integration = await db.integration.findUnique({ where: { id } })
     if (!integration) throw new NotFoundError('Integration')

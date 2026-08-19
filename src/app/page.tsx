@@ -39,6 +39,7 @@ async function restoreSessionFromServer(setUser: (user: ProfileDto | null) => vo
 // Lazy-loaded view components
 const LandingView = lazy(() => import('@/components/views/LandingView'))
 const LoginView = lazy(() => import('@/components/views/LoginView'))
+const RegisterView = lazy(() => import('@/components/views/RegisterView'))
 const HomeView = lazy(() => import('@/components/views/HomeView'))
 const DashboardView = lazy(() => import('@/components/views/DashboardView'))
 const MissionsView = lazy(() => import('@/components/views/MissionsView'))
@@ -54,12 +55,13 @@ const CommandCenterView = lazy(() => import('@/components/views/CommandCenterVie
 const SettingsView = lazy(() => import('@/components/views/SettingsView'))
 
 // Public views (no auth required)
-const PUBLIC_VIEWS: ViewName[] = ['landing', 'login']
+const PUBLIC_VIEWS: ViewName[] = ['landing', 'login', 'register']
 
 // View name to lazy component mapping
 const VIEW_COMPONENTS: Record<ViewName, ReturnType<typeof lazy>> = {
   landing: LandingView,
   login: LoginView,
+  register: RegisterView,
   home: HomeView,
   dashboard: DashboardView,
   missions: MissionsView,

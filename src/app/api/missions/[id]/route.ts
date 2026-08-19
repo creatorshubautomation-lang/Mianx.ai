@@ -17,7 +17,7 @@ type RouteContext = { params: Promise<{ id: string }> }
 export async function GET(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const mission = await db.mission.findUnique({
       where: { id },
@@ -44,7 +44,7 @@ export async function GET(request: Request, context: RouteContext) {
 export async function PUT(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const existing = await db.mission.findUnique({ where: { id } })
     if (!existing) throw new NotFoundError('Mission')
@@ -91,7 +91,7 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const mission = await db.mission.findUnique({ where: { id } })
     if (!mission) throw new NotFoundError('Mission')
