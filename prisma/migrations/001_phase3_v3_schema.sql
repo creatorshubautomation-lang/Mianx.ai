@@ -128,18 +128,10 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- AlterTable: User (already exists in production — V2 schema)
--- Additive-only changes: add timezone column, make passwordHash nullable
+-- Additive-only change: add timezone column ONLY.
+-- passwordHash NOT NULL is PRESERVED — no OAuth-only users exist yet.
+-- When OAuth is added in future, a separate migration will handle nullability.
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "timezone" TEXT NOT NULL DEFAULT 'UTC';
-DO $$ BEGIN
-    IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'User'
-        AND column_name = 'passwordHash' AND is_nullable = 'NO'
-    ) THEN
-        ALTER TABLE "User" ALTER COLUMN "passwordHash" DROP NOT NULL;
-    END IF;
-END $$;
--- Note: existing V2 columns (role, company, phone, plan) are preserved — Prisma ignores them
 
 -- CreateTable
 CREATE TABLE IF NOT EXISTS "Organization" (
