@@ -67,7 +67,7 @@ CREATE TYPE "FailureClassification" AS ENUM ('validation_error', 'authorization_
 -- AlterTable: User (already exists in production — V2 schema)
 -- Additive-only changes: add timezone column, make passwordHash nullable
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "timezone" TEXT NOT NULL DEFAULT 'UTC';
-ALTER TABLE "User" ALTER COLUMN "passwordHash" DROP NOT NULL;
+-- REMOVED: passwordHash DROP NOT NULL (production V2 preserves NOT NULL per requirement)
 -- Note: existing V2 columns (role, company, phone, plan) are preserved — Prisma ignores them
 
 -- CreateTable
