@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -217,9 +217,9 @@ model Profile {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String?  // null = OAuth-only account, non-null = password account
-  displayName  String   @default("")
+  displayName  String   @default("") @map("name")
   avatarUrl    String?
-  locale       String   @default("en")
+  locale       String   @default("en") @map("preferredLang")
   timezone     String   @default("UTC")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -230,6 +230,8 @@ model Profile {
   uploadedFiles File[]
   notifications Notification[]
   auditLogs     AuditLog[]               @relation("ActorLogs")
+
+  @@map("User")
 }
 
 model Organization {
@@ -605,6 +607,8 @@ model Agent {
   missionAgents MissionAgent[]
   delegations   AgentDelegation[] @relation("DelegateParent")
   delegatedTo   AgentDelegation[] @relation("DelegateChild")
+
+  @@map("V3Agent")
 }
 
 model AgentTool {
@@ -949,6 +953,8 @@ model Subscription {
   invoices     Invoice[]
   credits      Credit[]
   trials       Trial[]
+
+  @@map("V3Subscription")
 }
 
 model SubscriptionItem {
