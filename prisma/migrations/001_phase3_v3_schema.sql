@@ -2,76 +2,147 @@
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
-CREATE TYPE "OrganizationStatus" AS ENUM ('active', 'suspended', 'archived');
+DO $$ BEGIN
+    CREATE TYPE "OrganizationStatus" AS ENUM ('active', 'suspended', 'archived');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "MembershipStatus" AS ENUM ('invited', 'active', 'suspended', 'removed');
+DO $$ BEGIN
+    CREATE TYPE "MembershipStatus" AS ENUM ('invited', 'active', 'suspended', 'removed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "DomainStatus" AS ENUM ('draft', 'development', 'published', 'active', 'deprecated', 'archived');
+DO $$ BEGIN
+    CREATE TYPE "DomainStatus" AS ENUM ('draft', 'development', 'published', 'active', 'deprecated', 'archived');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "SubscriptionStatus" AS ENUM ('trialing', 'active', 'past_due', 'grace_period', 'paused', 'cancelled', 'expired', 'suspended');
+DO $$ BEGIN
+    CREATE TYPE "SubscriptionStatus" AS ENUM ('trialing', 'active', 'past_due', 'grace_period', 'paused', 'cancelled', 'expired', 'suspended');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "EntitlementStatus" AS ENUM ('enabled', 'disabled', 'limited', 'trial', 'expired', 'suspended');
+DO $$ BEGIN
+    CREATE TYPE "EntitlementStatus" AS ENUM ('enabled', 'disabled', 'limited', 'trial', 'expired', 'suspended');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "TrialStatus" AS ENUM ('started', 'active', 'ending', 'converted', 'expired');
+DO $$ BEGIN
+    CREATE TYPE "TrialStatus" AS ENUM ('started', 'active', 'ending', 'converted', 'expired');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "AgentStatus" AS ENUM ('draft', 'testing', 'active', 'paused', 'deprecated', 'retired');
+DO $$ BEGIN
+    CREATE TYPE "AgentStatus" AS ENUM ('draft', 'testing', 'active', 'paused', 'deprecated', 'retired');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "MissionStatus" AS ENUM ('draft', 'planning', 'approved', 'executing', 'verifying', 'completed', 'failed', 'cancelled');
+DO $$ BEGIN
+    CREATE TYPE "MissionStatus" AS ENUM ('draft', 'planning', 'approved', 'executing', 'verifying', 'completed', 'failed', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "TaskStatus" AS ENUM ('planned', 'queued', 'running', 'waiting_tool', 'waiting_approval', 'verifying', 'retrying', 'failed', 'completed', 'cancelled', 'blocked');
+DO $$ BEGIN
+    CREATE TYPE "TaskStatus" AS ENUM ('planned', 'queued', 'running', 'waiting_tool', 'waiting_approval', 'verifying', 'retrying', 'failed', 'completed', 'cancelled', 'blocked');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "OutcomeStatus" AS ENUM ('not_started', 'in_progress', 'near_target', 'achieved', 'missed', 'failed');
+DO $$ BEGIN
+    CREATE TYPE "OutcomeStatus" AS ENUM ('not_started', 'in_progress', 'near_target', 'achieved', 'missed', 'failed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "VerificationType" AS ENUM ('schema_validation', 'test', 'typecheck', 'lint', 'build', 'security', 'accessibility', 'business_rule', 'artifact_check', 'metric_threshold');
+DO $$ BEGIN
+    CREATE TYPE "VerificationType" AS ENUM ('schema_validation', 'test', 'typecheck', 'lint', 'build', 'security', 'accessibility', 'business_rule', 'artifact_check', 'metric_threshold');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "WorkflowRunStatus" AS ENUM ('queued', 'running', 'waiting', 'waiting_approval', 'completed', 'failed', 'cancelled', 'timed_out', 'dead_lettered');
+DO $$ BEGIN
+    CREATE TYPE "WorkflowRunStatus" AS ENUM ('queued', 'running', 'waiting', 'waiting_approval', 'completed', 'failed', 'cancelled', 'timed_out', 'dead_lettered');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "JobPriority" AS ENUM ('critical', 'high', 'normal', 'low');
+DO $$ BEGIN
+    CREATE TYPE "JobPriority" AS ENUM ('critical', 'high', 'normal', 'low');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "OutboxStatus" AS ENUM ('pending', 'published', 'failed');
+DO $$ BEGIN
+    CREATE TYPE "OutboxStatus" AS ENUM ('pending', 'published', 'failed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "ToolRiskLevel" AS ENUM ('READ', 'LOW_WRITE', 'MEDIUM_WRITE', 'HIGH_WRITE', 'CRITICAL');
+DO $$ BEGIN
+    CREATE TYPE "ToolRiskLevel" AS ENUM ('READ', 'LOW_WRITE', 'MEDIUM_WRITE', 'HIGH_WRITE', 'CRITICAL');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "AutonomyLevel" AS ENUM ('conservative', 'balanced', 'autonomous');
+DO $$ BEGIN
+    CREATE TYPE "AutonomyLevel" AS ENUM ('conservative', 'balanced', 'autonomous');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "UserMode" AS ENUM ('simple', 'pro', 'expert');
+DO $$ BEGIN
+    CREATE TYPE "UserMode" AS ENUM ('simple', 'pro', 'expert');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "ActorType" AS ENUM ('human', 'ai_agent', 'system', 'integration');
+DO $$ BEGIN
+    CREATE TYPE "ActorType" AS ENUM ('human', 'ai_agent', 'system', 'integration');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "SettingScope" AS ENUM ('platform', 'organization', 'domain', 'module', 'user');
+DO $$ BEGIN
+    CREATE TYPE "SettingScope" AS ENUM ('platform', 'organization', 'domain', 'module', 'user');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "MemoryScope" AS ENUM ('session', 'conversation', 'user', 'organization', 'domain', 'agent', 'operational');
+DO $$ BEGIN
+    CREATE TYPE "MemoryScope" AS ENUM ('session', 'conversation', 'user', 'organization', 'domain', 'agent', 'operational');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- CreateEnum
-CREATE TYPE "FailureClassification" AS ENUM ('validation_error', 'authorization_error', 'not_found', 'conflict', 'rate_limited', 'timeout', 'transient_external_error', 'permanent_external_error', 'ai_error', 'approval_timeout', 'policy_violation', 'verification_failed', 'budget_exceeded', 'unknown');
+DO $$ BEGIN
+    CREATE TYPE "FailureClassification" AS ENUM ('validation_error', 'authorization_error', 'not_found', 'conflict', 'rate_limited', 'timeout', 'transient_external_error', 'permanent_external_error', 'ai_error', 'approval_timeout', 'policy_violation', 'verification_failed', 'budget_exceeded', 'unknown');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AlterTable: User (already exists in production — V2 schema)
 -- Additive-only changes: add timezone column, make passwordHash nullable
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "timezone" TEXT NOT NULL DEFAULT 'UTC';
--- REMOVED: passwordHash DROP NOT NULL (production V2 preserves NOT NULL per requirement)
+DO $$ BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'User'
+        AND column_name = 'passwordHash' AND is_nullable = 'NO'
+    ) THEN
+        ALTER TABLE "User" ALTER COLUMN "passwordHash" DROP NOT NULL;
+    END IF;
+END $$;
 -- Note: existing V2 columns (role, company, phone, plan) are preserved — Prisma ignores them
 
 -- CreateTable
-CREATE TABLE "Organization" (
+CREATE TABLE IF NOT EXISTS "Organization" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
@@ -86,7 +157,7 @@ CREATE TABLE "Organization" (
 );
 
 -- CreateTable
-CREATE TABLE "OrganizationMembership" (
+CREATE TABLE IF NOT EXISTS "OrganizationMembership" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -99,7 +170,7 @@ CREATE TABLE "OrganizationMembership" (
 );
 
 -- CreateTable
-CREATE TABLE "Team" (
+CREATE TABLE IF NOT EXISTS "Team" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -111,7 +182,7 @@ CREATE TABLE "Team" (
 );
 
 -- CreateTable
-CREATE TABLE "TeamMember" (
+CREATE TABLE IF NOT EXISTS "TeamMember" (
     "id" TEXT NOT NULL,
     "teamId" TEXT NOT NULL,
     "membershipId" TEXT NOT NULL,
@@ -121,7 +192,7 @@ CREATE TABLE "TeamMember" (
 );
 
 -- CreateTable
-CREATE TABLE "Role" (
+CREATE TABLE IF NOT EXISTS "Role" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT,
     "name" TEXT NOT NULL,
@@ -135,7 +206,7 @@ CREATE TABLE "Role" (
 );
 
 -- CreateTable
-CREATE TABLE "Permission" (
+CREATE TABLE IF NOT EXISTS "Permission" (
     "id" TEXT NOT NULL,
     "key" TEXT NOT NULL,
     "description" TEXT,
@@ -145,7 +216,7 @@ CREATE TABLE "Permission" (
 );
 
 -- CreateTable
-CREATE TABLE "RolePermission" (
+CREATE TABLE IF NOT EXISTS "RolePermission" (
     "id" TEXT NOT NULL,
     "roleId" TEXT NOT NULL,
     "permissionId" TEXT NOT NULL,
@@ -155,7 +226,7 @@ CREATE TABLE "RolePermission" (
 );
 
 -- CreateTable
-CREATE TABLE "MembershipRole" (
+CREATE TABLE IF NOT EXISTS "MembershipRole" (
     "id" TEXT NOT NULL,
     "membershipId" TEXT NOT NULL,
     "roleId" TEXT NOT NULL,
@@ -165,7 +236,7 @@ CREATE TABLE "MembershipRole" (
 );
 
 -- CreateTable
-CREATE TABLE "Domain" (
+CREATE TABLE IF NOT EXISTS "Domain" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
@@ -180,7 +251,7 @@ CREATE TABLE "Domain" (
 );
 
 -- CreateTable
-CREATE TABLE "OrganizationDomain" (
+CREATE TABLE IF NOT EXISTS "OrganizationDomain" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "domainId" TEXT NOT NULL,
@@ -194,7 +265,7 @@ CREATE TABLE "OrganizationDomain" (
 );
 
 -- CreateTable
-CREATE TABLE "Module" (
+CREATE TABLE IF NOT EXISTS "Module" (
     "id" TEXT NOT NULL,
     "domainId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -210,7 +281,7 @@ CREATE TABLE "Module" (
 );
 
 -- CreateTable
-CREATE TABLE "OrganizationModule" (
+CREATE TABLE IF NOT EXISTS "OrganizationModule" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "moduleId" TEXT NOT NULL,
@@ -224,7 +295,7 @@ CREATE TABLE "OrganizationModule" (
 );
 
 -- CreateTable
-CREATE TABLE "Mission" (
+CREATE TABLE IF NOT EXISTS "Mission" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "userId" TEXT,
@@ -248,7 +319,7 @@ CREATE TABLE "Mission" (
 );
 
 -- CreateTable
-CREATE TABLE "MissionTask" (
+CREATE TABLE IF NOT EXISTS "MissionTask" (
     "id" TEXT NOT NULL,
     "missionId" TEXT NOT NULL,
     "parentTaskId" TEXT,
@@ -273,7 +344,7 @@ CREATE TABLE "MissionTask" (
 );
 
 -- CreateTable
-CREATE TABLE "MissionAgent" (
+CREATE TABLE IF NOT EXISTS "MissionAgent" (
     "id" TEXT NOT NULL,
     "missionId" TEXT NOT NULL,
     "agentId" TEXT NOT NULL,
@@ -286,7 +357,7 @@ CREATE TABLE "MissionAgent" (
 );
 
 -- CreateTable
-CREATE TABLE "Outcome" (
+CREATE TABLE IF NOT EXISTS "Outcome" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "missionId" TEXT NOT NULL,
@@ -306,7 +377,7 @@ CREATE TABLE "Outcome" (
 );
 
 -- CreateTable
-CREATE TABLE "Verification" (
+CREATE TABLE IF NOT EXISTS "Verification" (
     "id" TEXT NOT NULL,
     "missionId" TEXT NOT NULL,
     "missionTaskId" TEXT,
@@ -322,7 +393,7 @@ CREATE TABLE "Verification" (
 );
 
 -- CreateTable
-CREATE TABLE "AutonomyPolicy" (
+CREATE TABLE IF NOT EXISTS "AutonomyPolicy" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "level" "AutonomyLevel" NOT NULL DEFAULT 'balanced',
@@ -334,7 +405,7 @@ CREATE TABLE "AutonomyPolicy" (
 );
 
 -- CreateTable
-CREATE TABLE "V3Agent" (
+CREATE TABLE IF NOT EXISTS "V3Agent" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "domainId" TEXT,
@@ -354,7 +425,7 @@ CREATE TABLE "V3Agent" (
 );
 
 -- CreateTable
-CREATE TABLE "AgentTool" (
+CREATE TABLE IF NOT EXISTS "AgentTool" (
     "id" TEXT NOT NULL,
     "agentId" TEXT NOT NULL,
     "toolKey" TEXT NOT NULL,
@@ -370,7 +441,7 @@ CREATE TABLE "AgentTool" (
 );
 
 -- CreateTable
-CREATE TABLE "AgentSkill" (
+CREATE TABLE IF NOT EXISTS "AgentSkill" (
     "id" TEXT NOT NULL,
     "agentId" TEXT NOT NULL,
     "skillKey" TEXT NOT NULL,
@@ -381,7 +452,7 @@ CREATE TABLE "AgentSkill" (
 );
 
 -- CreateTable
-CREATE TABLE "AgentDelegation" (
+CREATE TABLE IF NOT EXISTS "AgentDelegation" (
     "id" TEXT NOT NULL,
     "parentAgentId" TEXT NOT NULL,
     "childAgentId" TEXT NOT NULL,
@@ -393,7 +464,7 @@ CREATE TABLE "AgentDelegation" (
 );
 
 -- CreateTable
-CREATE TABLE "AiRun" (
+CREATE TABLE IF NOT EXISTS "AiRun" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "agentId" TEXT NOT NULL,
@@ -414,7 +485,7 @@ CREATE TABLE "AiRun" (
 );
 
 -- CreateTable
-CREATE TABLE "AiMessage" (
+CREATE TABLE IF NOT EXISTS "AiMessage" (
     "id" TEXT NOT NULL,
     "aiRunId" TEXT NOT NULL,
     "role" TEXT NOT NULL,
@@ -426,7 +497,7 @@ CREATE TABLE "AiMessage" (
 );
 
 -- CreateTable
-CREATE TABLE "AiToolCall" (
+CREATE TABLE IF NOT EXISTS "AiToolCall" (
     "id" TEXT NOT NULL,
     "aiRunId" TEXT NOT NULL,
     "aiMessageId" TEXT,
@@ -442,7 +513,7 @@ CREATE TABLE "AiToolCall" (
 );
 
 -- CreateTable
-CREATE TABLE "AiCostRecord" (
+CREATE TABLE IF NOT EXISTS "AiCostRecord" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "aiRunId" TEXT,
@@ -460,7 +531,7 @@ CREATE TABLE "AiCostRecord" (
 );
 
 -- CreateTable
-CREATE TABLE "AgentMemory" (
+CREATE TABLE IF NOT EXISTS "AgentMemory" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "agentId" TEXT,
@@ -475,7 +546,7 @@ CREATE TABLE "AgentMemory" (
 );
 
 -- CreateTable
-CREATE TABLE "KnowledgeSource" (
+CREATE TABLE IF NOT EXISTS "KnowledgeSource" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "domainId" TEXT,
@@ -490,7 +561,7 @@ CREATE TABLE "KnowledgeSource" (
 );
 
 -- CreateTable
-CREATE TABLE "Skill" (
+CREATE TABLE IF NOT EXISTS "Skill" (
     "id" TEXT NOT NULL,
     "key" TEXT NOT NULL,
     "version" TEXT NOT NULL DEFAULT '1.0.0',
@@ -506,7 +577,7 @@ CREATE TABLE "Skill" (
 );
 
 -- CreateTable
-CREATE TABLE "Workflow" (
+CREATE TABLE IF NOT EXISTS "Workflow" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "domainId" TEXT,
@@ -522,7 +593,7 @@ CREATE TABLE "Workflow" (
 );
 
 -- CreateTable
-CREATE TABLE "WorkflowRun" (
+CREATE TABLE IF NOT EXISTS "WorkflowRun" (
     "id" TEXT NOT NULL,
     "workflowId" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
@@ -540,7 +611,7 @@ CREATE TABLE "WorkflowRun" (
 );
 
 -- CreateTable
-CREATE TABLE "WorkflowStepRun" (
+CREATE TABLE IF NOT EXISTS "WorkflowStepRun" (
     "id" TEXT NOT NULL,
     "workflowRunId" TEXT NOT NULL,
     "stepId" TEXT NOT NULL,
@@ -556,7 +627,7 @@ CREATE TABLE "WorkflowStepRun" (
 );
 
 -- CreateTable
-CREATE TABLE "WorkflowApproval" (
+CREATE TABLE IF NOT EXISTS "WorkflowApproval" (
     "id" TEXT NOT NULL,
     "workflowRunId" TEXT,
     "missionId" TEXT,
@@ -575,7 +646,7 @@ CREATE TABLE "WorkflowApproval" (
 );
 
 -- CreateTable
-CREATE TABLE "Job" (
+CREATE TABLE IF NOT EXISTS "Job" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "type" TEXT NOT NULL,
@@ -590,7 +661,7 @@ CREATE TABLE "Job" (
 );
 
 -- CreateTable
-CREATE TABLE "Event" (
+CREATE TABLE IF NOT EXISTS "Event" (
     "id" TEXT NOT NULL,
     "eventType" TEXT NOT NULL,
     "eventVersion" TEXT NOT NULL DEFAULT '1.0',
@@ -612,7 +683,7 @@ CREATE TABLE "Event" (
 );
 
 -- CreateTable
-CREATE TABLE "OutboxEvent" (
+CREATE TABLE IF NOT EXISTS "OutboxEvent" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT,
     "eventType" TEXT NOT NULL,
@@ -627,7 +698,7 @@ CREATE TABLE "OutboxEvent" (
 );
 
 -- CreateTable
-CREATE TABLE "Plan" (
+CREATE TABLE IF NOT EXISTS "Plan" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT,
@@ -639,7 +710,7 @@ CREATE TABLE "Plan" (
 );
 
 -- CreateTable
-CREATE TABLE "PlanVersion" (
+CREATE TABLE IF NOT EXISTS "PlanVersion" (
     "id" TEXT NOT NULL,
     "planId" TEXT NOT NULL,
     "version" TEXT NOT NULL DEFAULT '1.0',
@@ -655,7 +726,7 @@ CREATE TABLE "PlanVersion" (
 );
 
 -- CreateTable
-CREATE TABLE "V3Subscription" (
+CREATE TABLE IF NOT EXISTS "V3Subscription" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "planVersionId" TEXT NOT NULL,
@@ -669,7 +740,7 @@ CREATE TABLE "V3Subscription" (
 );
 
 -- CreateTable
-CREATE TABLE "SubscriptionItem" (
+CREATE TABLE IF NOT EXISTS "SubscriptionItem" (
     "id" TEXT NOT NULL,
     "subscriptionId" TEXT NOT NULL,
     "type" TEXT NOT NULL DEFAULT 'base_plan',
@@ -682,7 +753,7 @@ CREATE TABLE "SubscriptionItem" (
 );
 
 -- CreateTable
-CREATE TABLE "Entitlement" (
+CREATE TABLE IF NOT EXISTS "Entitlement" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "subscriptionId" TEXT NOT NULL,
@@ -698,7 +769,7 @@ CREATE TABLE "Entitlement" (
 );
 
 -- CreateTable
-CREATE TABLE "UsageRecord" (
+CREATE TABLE IF NOT EXISTS "UsageRecord" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "meterKey" TEXT NOT NULL,
@@ -714,7 +785,7 @@ CREATE TABLE "UsageRecord" (
 );
 
 -- CreateTable
-CREATE TABLE "UsageMeter" (
+CREATE TABLE IF NOT EXISTS "UsageMeter" (
     "id" TEXT NOT NULL,
     "key" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -727,7 +798,7 @@ CREATE TABLE "UsageMeter" (
 );
 
 -- CreateTable
-CREATE TABLE "Invoice" (
+CREATE TABLE IF NOT EXISTS "Invoice" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "subscriptionId" TEXT NOT NULL,
@@ -748,7 +819,7 @@ CREATE TABLE "Invoice" (
 );
 
 -- CreateTable
-CREATE TABLE "Credit" (
+CREATE TABLE IF NOT EXISTS "Credit" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "subscriptionId" TEXT NOT NULL,
@@ -764,7 +835,7 @@ CREATE TABLE "Credit" (
 );
 
 -- CreateTable
-CREATE TABLE "Trial" (
+CREATE TABLE IF NOT EXISTS "Trial" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "subscriptionId" TEXT NOT NULL,
@@ -782,7 +853,7 @@ CREATE TABLE "Trial" (
 );
 
 -- CreateTable
-CREATE TABLE "Integration" (
+CREATE TABLE IF NOT EXISTS "Integration" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "provider" TEXT NOT NULL,
@@ -796,7 +867,7 @@ CREATE TABLE "Integration" (
 );
 
 -- CreateTable
-CREATE TABLE "AuditLog" (
+CREATE TABLE IF NOT EXISTS "AuditLog" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT,
     "actorType" "ActorType" NOT NULL DEFAULT 'human',
@@ -815,7 +886,7 @@ CREATE TABLE "AuditLog" (
 );
 
 -- CreateTable
-CREATE TABLE "File" (
+CREATE TABLE IF NOT EXISTS "File" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "uploadedBy" TEXT NOT NULL,
@@ -831,7 +902,7 @@ CREATE TABLE "File" (
 );
 
 -- CreateTable
-CREATE TABLE "Notification" (
+CREATE TABLE IF NOT EXISTS "Notification" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "recipientUserId" TEXT NOT NULL,
@@ -846,7 +917,7 @@ CREATE TABLE "Notification" (
 );
 
 -- CreateTable
-CREATE TABLE "Setting" (
+CREATE TABLE IF NOT EXISTS "Setting" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT,
     "scopeType" "SettingScope" NOT NULL DEFAULT 'platform',
@@ -860,7 +931,7 @@ CREATE TABLE "Setting" (
 );
 
 -- CreateTable
-CREATE TABLE "ApiKey" (
+CREATE TABLE IF NOT EXISTS "ApiKey" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -878,290 +949,517 @@ CREATE TABLE "ApiKey" (
 -- Skip: User_email_key already exists in production V2 schema
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Organization_slug_key" ON "Organization"("slug");
+CREATE UNIQUE INDEX IF NOT EXISTS "Organization_slug_key" ON "Organization"("slug");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "OrganizationMembership_organizationId_userId_key" ON "OrganizationMembership"("organizationId", "userId");
+CREATE UNIQUE INDEX IF NOT EXISTS "OrganizationMembership_organizationId_userId_key" ON "OrganizationMembership"("organizationId", "userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "TeamMember_teamId_membershipId_key" ON "TeamMember"("teamId", "membershipId");
+CREATE UNIQUE INDEX IF NOT EXISTS "TeamMember_teamId_membershipId_key" ON "TeamMember"("teamId", "membershipId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Role_organizationId_slug_key" ON "Role"("organizationId", "slug");
+CREATE UNIQUE INDEX IF NOT EXISTS "Role_organizationId_slug_key" ON "Role"("organizationId", "slug");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Permission_key_key" ON "Permission"("key");
+CREATE UNIQUE INDEX IF NOT EXISTS "Permission_key_key" ON "Permission"("key");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "RolePermission_roleId_permissionId_key" ON "RolePermission"("roleId", "permissionId");
+CREATE UNIQUE INDEX IF NOT EXISTS "RolePermission_roleId_permissionId_key" ON "RolePermission"("roleId", "permissionId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "MembershipRole_membershipId_roleId_key" ON "MembershipRole"("membershipId", "roleId");
+CREATE UNIQUE INDEX IF NOT EXISTS "MembershipRole_membershipId_roleId_key" ON "MembershipRole"("membershipId", "roleId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Domain_slug_key" ON "Domain"("slug");
+CREATE UNIQUE INDEX IF NOT EXISTS "Domain_slug_key" ON "Domain"("slug");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "OrganizationDomain_organizationId_domainId_key" ON "OrganizationDomain"("organizationId", "domainId");
+CREATE UNIQUE INDEX IF NOT EXISTS "OrganizationDomain_organizationId_domainId_key" ON "OrganizationDomain"("organizationId", "domainId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "OrganizationModule_organizationId_moduleId_key" ON "OrganizationModule"("organizationId", "moduleId");
+CREATE UNIQUE INDEX IF NOT EXISTS "OrganizationModule_organizationId_moduleId_key" ON "OrganizationModule"("organizationId", "moduleId");
 
 -- CreateIndex
-CREATE INDEX "MissionTask_agentId_idx" ON "MissionTask"("agentId");
+CREATE INDEX IF NOT EXISTS "MissionTask_agentId_idx" ON "MissionTask"("agentId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "MissionAgent_missionId_agentId_key" ON "MissionAgent"("missionId", "agentId");
+CREATE UNIQUE INDEX IF NOT EXISTS "MissionAgent_missionId_agentId_key" ON "MissionAgent"("missionId", "agentId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AutonomyPolicy_organizationId_key" ON "AutonomyPolicy"("organizationId");
+CREATE UNIQUE INDEX IF NOT EXISTS "AutonomyPolicy_organizationId_key" ON "AutonomyPolicy"("organizationId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AgentTool_agentId_toolKey_key" ON "AgentTool"("agentId", "toolKey");
+CREATE UNIQUE INDEX IF NOT EXISTS "AgentTool_agentId_toolKey_key" ON "AgentTool"("agentId", "toolKey");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AgentSkill_agentId_skillKey_key" ON "AgentSkill"("agentId", "skillKey");
+CREATE UNIQUE INDEX IF NOT EXISTS "AgentSkill_agentId_skillKey_key" ON "AgentSkill"("agentId", "skillKey");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "AgentDelegation_parentAgentId_childAgentId_key" ON "AgentDelegation"("parentAgentId", "childAgentId");
+CREATE UNIQUE INDEX IF NOT EXISTS "AgentDelegation_parentAgentId_childAgentId_key" ON "AgentDelegation"("parentAgentId", "childAgentId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Skill_key_key" ON "Skill"("key");
+CREATE UNIQUE INDEX IF NOT EXISTS "Skill_key_key" ON "Skill"("key");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "UsageRecord_idempotencyKey_key" ON "UsageRecord"("idempotencyKey");
+CREATE UNIQUE INDEX IF NOT EXISTS "UsageRecord_idempotencyKey_key" ON "UsageRecord"("idempotencyKey");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "UsageMeter_key_key" ON "UsageMeter"("key");
+CREATE UNIQUE INDEX IF NOT EXISTS "UsageMeter_key_key" ON "UsageMeter"("key");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ApiKey_keyHash_key" ON "ApiKey"("keyHash");
+CREATE UNIQUE INDEX IF NOT EXISTS "ApiKey_keyHash_key" ON "ApiKey"("keyHash");
 
 -- AddForeignKey
-ALTER TABLE "OrganizationMembership" ADD CONSTRAINT "OrganizationMembership_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "OrganizationMembership" ADD CONSTRAINT "OrganizationMembership_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "OrganizationMembership" ADD CONSTRAINT "OrganizationMembership_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "OrganizationMembership" ADD CONSTRAINT "OrganizationMembership_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Team" ADD CONSTRAINT "Team_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Team" ADD CONSTRAINT "Team_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "TeamMember" ADD CONSTRAINT "TeamMember_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "TeamMember" ADD CONSTRAINT "TeamMember_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "TeamMember" ADD CONSTRAINT "TeamMember_membershipId_fkey" FOREIGN KEY ("membershipId") REFERENCES "OrganizationMembership"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "TeamMember" ADD CONSTRAINT "TeamMember_membershipId_fkey" FOREIGN KEY ("membershipId") REFERENCES "OrganizationMembership"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "Permission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "Permission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "MembershipRole" ADD CONSTRAINT "MembershipRole_membershipId_fkey" FOREIGN KEY ("membershipId") REFERENCES "OrganizationMembership"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "MembershipRole" ADD CONSTRAINT "MembershipRole_membershipId_fkey" FOREIGN KEY ("membershipId") REFERENCES "OrganizationMembership"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "MembershipRole" ADD CONSTRAINT "MembershipRole_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "MembershipRole" ADD CONSTRAINT "MembershipRole_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "OrganizationDomain" ADD CONSTRAINT "OrganizationDomain_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "OrganizationDomain" ADD CONSTRAINT "OrganizationDomain_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "OrganizationDomain" ADD CONSTRAINT "OrganizationDomain_domainId_fkey" FOREIGN KEY ("domainId") REFERENCES "Domain"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "OrganizationDomain" ADD CONSTRAINT "OrganizationDomain_domainId_fkey" FOREIGN KEY ("domainId") REFERENCES "Domain"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Module" ADD CONSTRAINT "Module_domainId_fkey" FOREIGN KEY ("domainId") REFERENCES "Domain"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Module" ADD CONSTRAINT "Module_domainId_fkey" FOREIGN KEY ("domainId") REFERENCES "Domain"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "OrganizationModule" ADD CONSTRAINT "OrganizationModule_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "OrganizationModule" ADD CONSTRAINT "OrganizationModule_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "OrganizationModule" ADD CONSTRAINT "OrganizationModule_moduleId_fkey" FOREIGN KEY ("moduleId") REFERENCES "Module"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "OrganizationModule" ADD CONSTRAINT "OrganizationModule_moduleId_fkey" FOREIGN KEY ("moduleId") REFERENCES "Module"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Mission" ADD CONSTRAINT "Mission_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Mission" ADD CONSTRAINT "Mission_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Mission" ADD CONSTRAINT "Mission_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Mission" ADD CONSTRAINT "Mission_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "MissionTask" ADD CONSTRAINT "MissionTask_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "MissionTask" ADD CONSTRAINT "MissionTask_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "MissionTask" ADD CONSTRAINT "MissionTask_parentTaskId_fkey" FOREIGN KEY ("parentTaskId") REFERENCES "MissionTask"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "MissionTask" ADD CONSTRAINT "MissionTask_parentTaskId_fkey" FOREIGN KEY ("parentTaskId") REFERENCES "MissionTask"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "MissionTask" ADD CONSTRAINT "MissionTask_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "MissionTask" ADD CONSTRAINT "MissionTask_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "MissionAgent" ADD CONSTRAINT "MissionAgent_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "MissionAgent" ADD CONSTRAINT "MissionAgent_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "MissionAgent" ADD CONSTRAINT "MissionAgent_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "MissionAgent" ADD CONSTRAINT "MissionAgent_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Outcome" ADD CONSTRAINT "Outcome_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Outcome" ADD CONSTRAINT "Outcome_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Outcome" ADD CONSTRAINT "Outcome_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Outcome" ADD CONSTRAINT "Outcome_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Verification" ADD CONSTRAINT "Verification_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Verification" ADD CONSTRAINT "Verification_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Verification" ADD CONSTRAINT "Verification_missionTaskId_fkey" FOREIGN KEY ("missionTaskId") REFERENCES "MissionTask"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Verification" ADD CONSTRAINT "Verification_missionTaskId_fkey" FOREIGN KEY ("missionTaskId") REFERENCES "MissionTask"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AutonomyPolicy" ADD CONSTRAINT "AutonomyPolicy_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AutonomyPolicy" ADD CONSTRAINT "AutonomyPolicy_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "V3Agent" ADD CONSTRAINT "V3Agent_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "V3Agent" ADD CONSTRAINT "V3Agent_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "V3Agent" ADD CONSTRAINT "V3Agent_domainId_fkey" FOREIGN KEY ("domainId") REFERENCES "Domain"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "V3Agent" ADD CONSTRAINT "V3Agent_domainId_fkey" FOREIGN KEY ("domainId") REFERENCES "Domain"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AgentTool" ADD CONSTRAINT "AgentTool_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AgentTool" ADD CONSTRAINT "AgentTool_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AgentSkill" ADD CONSTRAINT "AgentSkill_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AgentSkill" ADD CONSTRAINT "AgentSkill_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AgentDelegation" ADD CONSTRAINT "AgentDelegation_parentAgentId_fkey" FOREIGN KEY ("parentAgentId") REFERENCES "V3Agent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AgentDelegation" ADD CONSTRAINT "AgentDelegation_parentAgentId_fkey" FOREIGN KEY ("parentAgentId") REFERENCES "V3Agent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AgentDelegation" ADD CONSTRAINT "AgentDelegation_childAgentId_fkey" FOREIGN KEY ("childAgentId") REFERENCES "V3Agent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AgentDelegation" ADD CONSTRAINT "AgentDelegation_childAgentId_fkey" FOREIGN KEY ("childAgentId") REFERENCES "V3Agent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AiRun" ADD CONSTRAINT "AiRun_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AiRun" ADD CONSTRAINT "AiRun_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AiRun" ADD CONSTRAINT "AiRun_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AiRun" ADD CONSTRAINT "AiRun_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AiRun" ADD CONSTRAINT "AiRun_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AiRun" ADD CONSTRAINT "AiRun_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AiMessage" ADD CONSTRAINT "AiMessage_aiRunId_fkey" FOREIGN KEY ("aiRunId") REFERENCES "AiRun"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AiMessage" ADD CONSTRAINT "AiMessage_aiRunId_fkey" FOREIGN KEY ("aiRunId") REFERENCES "AiRun"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AiToolCall" ADD CONSTRAINT "AiToolCall_aiRunId_fkey" FOREIGN KEY ("aiRunId") REFERENCES "AiRun"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AiToolCall" ADD CONSTRAINT "AiToolCall_aiRunId_fkey" FOREIGN KEY ("aiRunId") REFERENCES "AiRun"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AiCostRecord" ADD CONSTRAINT "AiCostRecord_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AiCostRecord" ADD CONSTRAINT "AiCostRecord_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AiCostRecord" ADD CONSTRAINT "AiCostRecord_aiRunId_fkey" FOREIGN KEY ("aiRunId") REFERENCES "AiRun"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AiCostRecord" ADD CONSTRAINT "AiCostRecord_aiRunId_fkey" FOREIGN KEY ("aiRunId") REFERENCES "AiRun"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AgentMemory" ADD CONSTRAINT "AgentMemory_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AgentMemory" ADD CONSTRAINT "AgentMemory_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AgentMemory" ADD CONSTRAINT "AgentMemory_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AgentMemory" ADD CONSTRAINT "AgentMemory_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "KnowledgeSource" ADD CONSTRAINT "KnowledgeSource_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "KnowledgeSource" ADD CONSTRAINT "KnowledgeSource_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "KnowledgeSource" ADD CONSTRAINT "KnowledgeSource_domainId_fkey" FOREIGN KEY ("domainId") REFERENCES "Domain"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "KnowledgeSource" ADD CONSTRAINT "KnowledgeSource_domainId_fkey" FOREIGN KEY ("domainId") REFERENCES "Domain"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Workflow" ADD CONSTRAINT "Workflow_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Workflow" ADD CONSTRAINT "Workflow_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Workflow" ADD CONSTRAINT "Workflow_domainId_fkey" FOREIGN KEY ("domainId") REFERENCES "Domain"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Workflow" ADD CONSTRAINT "Workflow_domainId_fkey" FOREIGN KEY ("domainId") REFERENCES "Domain"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "WorkflowRun" ADD CONSTRAINT "WorkflowRun_workflowId_fkey" FOREIGN KEY ("workflowId") REFERENCES "Workflow"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "WorkflowRun" ADD CONSTRAINT "WorkflowRun_workflowId_fkey" FOREIGN KEY ("workflowId") REFERENCES "Workflow"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "WorkflowRun" ADD CONSTRAINT "WorkflowRun_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "WorkflowRun" ADD CONSTRAINT "WorkflowRun_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "WorkflowStepRun" ADD CONSTRAINT "WorkflowStepRun_workflowRunId_fkey" FOREIGN KEY ("workflowRunId") REFERENCES "WorkflowRun"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "WorkflowStepRun" ADD CONSTRAINT "WorkflowStepRun_workflowRunId_fkey" FOREIGN KEY ("workflowRunId") REFERENCES "WorkflowRun"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "WorkflowApproval" ADD CONSTRAINT "WorkflowApproval_workflowRunId_fkey" FOREIGN KEY ("workflowRunId") REFERENCES "WorkflowRun"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "WorkflowApproval" ADD CONSTRAINT "WorkflowApproval_workflowRunId_fkey" FOREIGN KEY ("workflowRunId") REFERENCES "WorkflowRun"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "WorkflowApproval" ADD CONSTRAINT "WorkflowApproval_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "WorkflowApproval" ADD CONSTRAINT "WorkflowApproval_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "WorkflowApproval" ADD CONSTRAINT "WorkflowApproval_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "WorkflowApproval" ADD CONSTRAINT "WorkflowApproval_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Job" ADD CONSTRAINT "Job_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Job" ADD CONSTRAINT "Job_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Event" ADD CONSTRAINT "Event_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Event" ADD CONSTRAINT "Event_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Event" ADD CONSTRAINT "Event_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Event" ADD CONSTRAINT "Event_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Event" ADD CONSTRAINT "Event_workflowRunId_fkey" FOREIGN KEY ("workflowRunId") REFERENCES "WorkflowRun"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Event" ADD CONSTRAINT "Event_workflowRunId_fkey" FOREIGN KEY ("workflowRunId") REFERENCES "WorkflowRun"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "PlanVersion" ADD CONSTRAINT "PlanVersion_planId_fkey" FOREIGN KEY ("planId") REFERENCES "Plan"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "PlanVersion" ADD CONSTRAINT "PlanVersion_planId_fkey" FOREIGN KEY ("planId") REFERENCES "Plan"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "V3Subscription" ADD CONSTRAINT "V3Subscription_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "V3Subscription" ADD CONSTRAINT "V3Subscription_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "V3Subscription" ADD CONSTRAINT "V3Subscription_planVersionId_fkey" FOREIGN KEY ("planVersionId") REFERENCES "PlanVersion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "V3Subscription" ADD CONSTRAINT "V3Subscription_planVersionId_fkey" FOREIGN KEY ("planVersionId") REFERENCES "PlanVersion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "SubscriptionItem" ADD CONSTRAINT "SubscriptionItem_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "V3Subscription"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "SubscriptionItem" ADD CONSTRAINT "SubscriptionItem_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "V3Subscription"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Entitlement" ADD CONSTRAINT "Entitlement_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Entitlement" ADD CONSTRAINT "Entitlement_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Entitlement" ADD CONSTRAINT "Entitlement_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "V3Subscription"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Entitlement" ADD CONSTRAINT "Entitlement_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "V3Subscription"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "UsageRecord" ADD CONSTRAINT "UsageRecord_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "UsageRecord" ADD CONSTRAINT "UsageRecord_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "V3Subscription"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Invoice" ADD CONSTRAINT "Invoice_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "V3Subscription"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Credit" ADD CONSTRAINT "Credit_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Credit" ADD CONSTRAINT "Credit_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Credit" ADD CONSTRAINT "Credit_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "V3Subscription"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Credit" ADD CONSTRAINT "Credit_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "V3Subscription"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Trial" ADD CONSTRAINT "Trial_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Trial" ADD CONSTRAINT "Trial_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Trial" ADD CONSTRAINT "Trial_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "V3Subscription"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Trial" ADD CONSTRAINT "Trial_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "V3Subscription"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Integration" ADD CONSTRAINT "Integration_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Integration" ADD CONSTRAINT "Integration_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "File" ADD CONSTRAINT "File_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "File" ADD CONSTRAINT "File_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "File" ADD CONSTRAINT "File_uploadedBy_fkey" FOREIGN KEY ("uploadedBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "File" ADD CONSTRAINT "File_uploadedBy_fkey" FOREIGN KEY ("uploadedBy") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Notification" ADD CONSTRAINT "Notification_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Notification" ADD CONSTRAINT "Notification_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Notification" ADD CONSTRAINT "Notification_recipientUserId_fkey" FOREIGN KEY ("recipientUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+    ALTER TABLE "Notification" ADD CONSTRAINT "Notification_recipientUserId_fkey" FOREIGN KEY ("recipientUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "Setting" ADD CONSTRAINT "Setting_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
+DO $$ BEGIN
+    ALTER TABLE "Setting" ADD CONSTRAINT "Setting_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
