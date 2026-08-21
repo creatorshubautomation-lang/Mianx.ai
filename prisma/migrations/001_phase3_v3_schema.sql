@@ -523,7 +523,7 @@ CREATE TABLE IF NOT EXISTS "AiCostRecord" (
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "AgentMemory" (
+CREATE TABLE IF NOT EXISTS "V3AgentMemory" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "agentId" TEXT,
@@ -894,7 +894,7 @@ CREATE TABLE IF NOT EXISTS "File" (
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "Notification" (
+CREATE TABLE IF NOT EXISTS "V3Notification" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
     "recipientUserId" TEXT NOT NULL,
@@ -1236,13 +1236,13 @@ END $$;
 
 -- AddForeignKey
 DO $$ BEGIN
-    ALTER TABLE "AgentMemory" ADD CONSTRAINT "AgentMemory_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    ALTER TABLE "V3AgentMemory" ADD CONSTRAINT "V3AgentMemory_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- AddForeignKey
 DO $$ BEGIN
-    ALTER TABLE "AgentMemory" ADD CONSTRAINT "AgentMemory_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    ALTER TABLE "V3AgentMemory" ADD CONSTRAINT "V3AgentMemory_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "V3Agent"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -1440,13 +1440,13 @@ END $$;
 
 -- AddForeignKey
 DO $$ BEGIN
-    ALTER TABLE "Notification" ADD CONSTRAINT "Notification_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    ALTER TABLE "V3Notification" ADD CONSTRAINT "V3Notification_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- AddForeignKey
 DO $$ BEGIN
-    ALTER TABLE "Notification" ADD CONSTRAINT "Notification_recipientUserId_fkey" FOREIGN KEY ("recipientUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    ALTER TABLE "V3Notification" ADD CONSTRAINT "V3Notification_recipientUserId_fkey" FOREIGN KEY ("recipientUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 

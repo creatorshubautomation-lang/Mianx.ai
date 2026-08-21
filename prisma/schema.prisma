@@ -216,7 +216,7 @@ enum FailureClassification {
 model Profile {
   id           String   @id @default(cuid())
   email        String   @unique
-  passwordHash String?  // null = OAuth-only account, non-null = password account
+  passwordHash String? // null = OAuth-only account, non-null = password account
   displayName  String   @default("") @map("name")
   avatarUrl    String?
   locale       String   @default("en") @map("preferredLang")
@@ -745,6 +745,8 @@ model AgentMemory {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   agent        Agent?       @relation(fields: [agentId], references: [id])
+
+  @@map("V3AgentMemory")
 }
 
 model KnowledgeSource {
@@ -1138,6 +1140,8 @@ model Notification {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   recipient    Profile      @relation(fields: [recipientUserId], references: [id])
+
+  @@map("V3Notification")
 }
 
 model Setting {
