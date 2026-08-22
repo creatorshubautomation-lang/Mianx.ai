@@ -20,7 +20,7 @@ type AssignSkillBody = {
 export async function POST(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { key } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')

@@ -14,7 +14,7 @@ type RouteContext = { params: Promise<{ id: string }> }
 export async function GET(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const approval = await db.workflowApproval.findUnique({ where: { id } })
     if (!approval) throw new NotFoundError('Approval')
@@ -35,7 +35,7 @@ export async function GET(request: Request, context: RouteContext) {
 export async function POST(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const approval = await db.workflowApproval.findUnique({ where: { id } })
     if (!approval) throw new NotFoundError('Approval')

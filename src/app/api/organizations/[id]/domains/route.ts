@@ -18,7 +18,7 @@ type RouteContext = { params: Promise<{ id: string }> }
 export async function GET(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id: organizationId } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     await requireOrgMember(userId, organizationId)
     await requirePermission(userId, organizationId, [Permissions.DOMAIN_VIEW])
 
@@ -62,7 +62,7 @@ export async function GET(request: Request, context: RouteContext) {
 export async function POST(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id: organizationId } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     await requireOrgMember(userId, organizationId)
     await requirePermission(userId, organizationId, [Permissions.DOMAIN_MANAGE])
 

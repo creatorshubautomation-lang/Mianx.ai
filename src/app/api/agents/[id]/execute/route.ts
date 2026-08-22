@@ -24,7 +24,7 @@ const SIMULATED_COST =
 export async function POST(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     // Verify agent exists and belongs to user's org
     const agent = await db.agent.findUnique({ where: { id } })

@@ -12,13 +12,24 @@ import {
   requireBody,
   ValidationError,
 } from '@/lib/api-response'
+import { rateLimit, getClientIp } from '@/lib/rate-limit'
+import { AuthErrors } from '@/lib/auth-errors'
 
 const SALT_ROUNDS = 12
 const MIN_PASSWORD_LENGTH = 8
+const REGISTRATION_RATE_LIMIT = 5 // max 5 registrations per IP per window
+const REGISTRATION_WINDOW_MS = 15 * 60 * 1000 // 15 minutes
 
 // POST /api/auth/register — create a new user + personal org
 export async function POST(request: Request) {
   return withErrorHandler(async () => {
+    // Rate limit by client IP
+    const clientIp = getClientIp(request)
+    const rateResult = rateLimit(`register:${clientIp}`, REGISTRATION_RATE_LIMIT, REGISTRATION_WINDOW_MS)
+    if (!rateResult.success) {
+      return error('TOO_MANY_REQUESTS', AuthErrors.RATE_LIMITED, 429)
+    }
+
     const body = await requireBody<{
       email: string
       password: string

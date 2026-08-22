@@ -55,6 +55,7 @@ import type {
 export type ViewName =
   | 'landing'
   | 'login'
+  | 'register'
   | 'home'
   | 'dashboard'
   | 'missions'

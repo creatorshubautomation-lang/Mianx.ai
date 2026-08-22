@@ -344,3 +344,19 @@ export async function getOptionalUserIdFromRequest(request: Request): Promise<st
     return null
   }
 }
+
+/**
+ * Alias for getUserIdFromRequest — explicitly named for session-based identity.
+ * Ensures clarity that identity comes from the NextAuth session, not client headers.
+ */
+export const getSessionUserId = getUserIdFromRequest
+
+/**
+ * Get the full authenticated user from the NextAuth session.
+ * Returns null if not authenticated.
+ */
+export async function getSessionUser(request: Request) {
+  const session = await getServerSession(authOptions)
+  return session?.user ?? null
+}
+

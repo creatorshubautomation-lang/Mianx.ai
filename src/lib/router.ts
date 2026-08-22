@@ -121,6 +121,7 @@ export function getViewLabel(view: ViewName): string {
   const labels: Record<ViewName, string> = {
     landing: 'Landing',
     login: 'Login',
+    register: 'Register',
     home: 'Home',
     dashboard: 'Dashboard',
     missions: 'Missions',
