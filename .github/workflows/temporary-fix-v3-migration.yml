@@ -1,0 +1,44 @@
+name: Temporary V3 migration repair
+
+on:
+  push:
+    branches:
+      - integration/phase2-hardening-v2
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, 'fix: repair V3 migration primary key collisions') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/phase2-hardening-v2
+          fetch-depth: 1
+      - name: Repair V3 primary-key constraint names
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('prisma/migrations/001_phase3_v3_schema.sql')
+          s = p.read_text()
+          replacements = {
+              'CONSTRAINT "AgentMemory_pkey"': 'CONSTRAINT "V3AgentMemory_pkey"',
+              'CONSTRAINT "Notification_pkey"': 'CONSTRAINT "V3Notification_pkey"',
+          }
+          for old, new in replacements.items():
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected exactly one {old!r}, found {count}')
+              s = s.replace(old, new)
+          p.write_text(s)
+          PY
+      - name: Commit repaired migration and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prisma/migrations/001_phase3_v3_schema.sql
+          git rm .github/workflows/temporary-fix-v3-migration.yml
+          git commit -m "fix: repair V3 migration primary key collisions"
+          git push origin HEAD:integration/phase2-hardening-v2
