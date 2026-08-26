@@ -73,16 +73,13 @@ export async function POST(request: Request) {
       throw new ValidationError('An organization with this slug already exists', { slug })
     }
 
-    // Ensure user profile exists
-    let profile = await db.profile.findUnique({ where: { id: userId } })
+    // Verify user profile exists — do NOT auto-create phantom accounts.
+    // Users must register via /api/auth/register before creating orgs.
+    const profile = await db.profile.findUnique({ where: { id: userId } })
     if (!profile) {
-      profile = await db.profile.create({
-        data: {
-          id: userId,
-          email: `${userId}@demo.local`,
-          displayName: 'Demo User',
-        },
-      })
+      throw new ValidationError(
+        'User profile not found. Please complete registration before creating an organization.',
+      )
     }
 
     const org = await db.organization.create({

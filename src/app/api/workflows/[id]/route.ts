@@ -25,7 +25,14 @@ export async function GET(request: Request, context: RouteContext) {
     await requirePermission(userId, workflow.organizationId, [Permissions.WORKFLOW_VIEW])
 
     return success({
-      ...workflow,
+      id: workflow.id,
+      organizationId: workflow.organizationId,
+      domainId: workflow.domainId,
+      name: workflow.name,
+      slug: workflow.slug,
+      status: workflow.status,
+      triggerType: workflow.triggerType,
+      definition: workflow.definition,
       createdAt: String(workflow.createdAt),
       updatedAt: String(workflow.updatedAt),
     })
@@ -59,7 +66,14 @@ export async function PUT(request: Request, context: RouteContext) {
     })
 
     return success({
-      ...workflow,
+      id: workflow.id,
+      organizationId: workflow.organizationId,
+      domainId: workflow.domainId,
+      name: workflow.name,
+      slug: workflow.slug,
+      status: workflow.status,
+      triggerType: workflow.triggerType,
+      definition: workflow.definition,
       createdAt: String(workflow.createdAt),
       updatedAt: String(workflow.updatedAt),
     })

@@ -726,6 +726,8 @@ model AiCostRecord {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   aiRun        AiRun?       @relation(fields: [aiRunId], references: [id])
+
+  @@index([organizationId])
 }
 
 // ============================================================
@@ -817,6 +819,8 @@ model WorkflowRun {
   steps        WorkflowStepRun[]
   approvals    WorkflowApproval[]
   events       Event[]
+
+  @@index([organizationId])
 }
 
 model WorkflowStepRun {
@@ -852,6 +856,8 @@ model WorkflowApproval {
   workflowRun  WorkflowRun? @relation(fields: [workflowRunId], references: [id])
   mission      Mission?     @relation(fields: [missionId], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
 }
 
 model Job {
@@ -893,6 +899,9 @@ model Event {
   organization Organization? @relation(fields: [organizationId], references: [id])
   mission      Mission?      @relation(fields: [missionId], references: [id])
   workflowRun  WorkflowRun?  @relation(fields: [workflowRunId], references: [id])
+
+  @@index([organizationId])
+  @@index([eventType])
 }
 
 model OutboxEvent {
@@ -905,6 +914,8 @@ model OutboxEvent {
   availableAt    DateTime?
   publishedAt    DateTime?
   createdAt      DateTime     @default(now())
+
+  @@index([status, availableAt])
 }
 
 // ============================================================
@@ -1000,6 +1011,8 @@ model UsageRecord {
   createdAt      DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
 }
 
 model UsageMeter {
@@ -1141,6 +1154,7 @@ model Notification {
   organization Organization @relation(fields: [organizationId], references: [id])
   recipient    Profile      @relation(fields: [recipientUserId], references: [id])
 
+  @@index([recipientUserId])
   @@map("V3Notification")
 }
 
@@ -1155,6 +1169,8 @@ model Setting {
   updatedAt      DateTime     @updatedAt
 
   organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([scopeType, scopeId])
 }
 
 model ApiKey {
