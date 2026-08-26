@@ -10,7 +10,3 @@ CREATE TABLE IF NOT EXISTS "_rate_limits" (
 
 CREATE INDEX IF NOT EXISTS "_rate_limits_reset_at_idx"
     ON "_rate_limits" ("reset_at");
-
--- This helper is infrastructure-only and must never be callable through
--- the public Supabase REST API by anonymous or authenticated clients.
-REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM anon, authenticated;
