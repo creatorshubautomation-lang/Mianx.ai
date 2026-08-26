@@ -48,17 +48,14 @@ export const authOptions: NextAuthOptions = {
 
   // JWT callbacks
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      // Initial sign in — attach user info to token
+    async jwt({ token, user }) {
+      // Initial sign in — attach only server-authenticated identity.
+      // Never merge client-controlled session.update() data into the JWT:
+      // doing so would allow a client to overwrite userId/email/displayName.
       if (user) {
         token.userId = user.id
         token.email = user.email
         token.displayName = (user as unknown as Record<string, unknown>).displayName as string ?? ''
-      }
-
-      // Session update (e.g., after org switch)
-      if (trigger === 'update' && session) {
-        token = { ...token, ...session }
       }
 
       return token
