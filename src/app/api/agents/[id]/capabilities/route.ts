@@ -33,13 +33,13 @@ export async function GET(request: Request, context: RouteContext) {
     const effectiveCapabilities = await getAgentCapabilities(agent.id)
 
     // Build tool details from the relation
+    // NOTE: configuration is EXCLUDED — it may contain API keys and secrets
     const tools = agent.tools.map((t) => ({
       id: t.id,
       toolKey: t.toolKey,
       riskLevel: t.riskLevel,
       enabled: t.enabled,
       timeout: t.timeout,
-      configuration: parseJsonField(t.configuration, {}),
       retryPolicy: parseJsonField(t.retryPolicy, {}),
       createdAt: String(t.createdAt),
       updatedAt: String(t.updatedAt),

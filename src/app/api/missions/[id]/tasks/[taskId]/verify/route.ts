@@ -22,7 +22,7 @@ export async function POST(request: Request, context: RouteContext) {
     if (!mission) throw new NotFoundError('Mission')
 
     await requireOrgMember(userId, mission.organizationId)
-    await requirePermission(userId, mission.organizationId, [Permissions.MISSION_VIEW])
+    await requirePermission(userId, mission.organizationId, [Permissions.MISSION_EXECUTE])
 
     // Verify the task belongs to this mission
     const existingTask = await db.missionTask.findFirst({

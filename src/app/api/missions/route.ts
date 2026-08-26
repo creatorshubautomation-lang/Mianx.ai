@@ -93,6 +93,16 @@ export async function POST(request: Request) {
     if (!body.title?.trim()) throw new ValidationError('Mission title is required')
     if (!body.goal?.trim()) throw new ValidationError('Mission goal is required')
 
+    // Validate agentIds belong to this organization (cross-tenant prevention)
+    if (body.agentIds?.length) {
+      const agentCount = await db.agent.count({
+        where: { id: { in: body.agentIds }, organizationId },
+      })
+      if (agentCount !== body.agentIds.length) {
+        throw new ValidationError('One or more agents do not belong to this organization')
+      }
+    }
+
     const correlationId = `mis_${Date.now()}_${generateRequestId().slice(-8)}`
 
     const mission = await db.mission.create({

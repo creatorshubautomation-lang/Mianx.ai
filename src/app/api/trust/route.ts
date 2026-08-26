@@ -5,7 +5,7 @@ import {
   getOrgIdParam,
   ValidationError,
 } from '@/lib/api-response'
-import { getUserIdFromRequest, requireOrgMember } from '@/lib/authorization'
+import { getUserIdFromRequest, requireOrgMember, requirePermission, Permissions } from '@/lib/authorization'
 
 // GET /api/trust — trust center data: recent executions, agent actions, verifications, approvals
 export async function GET(request: Request) {
@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
 
     await requireOrgMember(userId, organizationId)
+    await requirePermission(userId, organizationId, [Permissions.AUDIT_VIEW])
 
     const [recentExecutions, recentVerifications, recentApprovals, agentActionSummary] =
       await Promise.all([
@@ -90,7 +91,7 @@ export async function GET(request: Request) {
 
     const formatApproval = (a: typeof recentApprovals[number]) => ({
       id: a.id,
-      requestedAction: a.requestedAction,
+      // requestedAction is EXCLUDED — may contain tool inputs and operation details
       riskLevel: a.riskLevel,
       decision: a.decision,
       requestedBy: a.requestedBy,

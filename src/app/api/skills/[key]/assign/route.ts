@@ -6,8 +6,10 @@ import {
   getOrgIdParam,
   requireBody,
   ValidationError,
+  NotFoundError,
 } from '@/lib/api-response'
 import { getUserIdFromRequest, requireOrgMember, requirePermission, Permissions } from '@/lib/authorization'
+import { db } from '@/lib/db'
 import { assignSkillToAgent } from '@/lib/skill-service'
 
 type RouteContext = { params: Promise<{ key: string }> }
@@ -31,6 +33,13 @@ export async function POST(request: Request, context: RouteContext) {
     const body = await requireBody<AssignSkillBody>(request)
 
     if (!body.agentId) throw new ValidationError('agentId is required')
+
+    // Verify agent belongs to this organization (cross-tenant prevention)
+    const agent = await db.agent.findFirst({
+      where: { id: body.agentId, organizationId },
+      select: { id: true },
+    })
+    if (!agent) throw new NotFoundError('Agent')
 
     if (body.level !== undefined) {
       const level = Number(body.level)

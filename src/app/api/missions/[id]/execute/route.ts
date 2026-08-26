@@ -47,11 +47,23 @@ export async function POST(request: Request, context: RouteContext) {
       try {
         plan = JSON.parse(mission.plan) as Record<string, unknown>
       } catch {
-        // ignore parse errors, use empty plan
+        // Malformed plan — fail fast rather than silently creating zero tasks
+        throw new ValidationError('Mission plan contains invalid JSON and cannot be executed')
       }
 
       const steps = (plan.steps as Array<{ title: string; description?: string; agentId?: string }>) ?? []
       if (steps.length > 0) {
+        // Collect all agentIds from plan steps and validate they belong to this org
+        const planAgentIds = steps.map((s) => s.agentId).filter(Boolean) as string[]
+        if (planAgentIds.length > 0) {
+          const agentCount = await db.agent.count({
+            where: { id: { in: planAgentIds }, organizationId: mission.organizationId },
+          })
+          if (agentCount !== planAgentIds.length) {
+            throw new ValidationError('One or more agents in the mission plan do not belong to this organization')
+          }
+        }
+
         const createData = steps.map((step, index) => ({
           missionId: id,
           title: step.title || `Step ${index + 1}`,

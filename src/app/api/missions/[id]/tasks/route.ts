@@ -78,6 +78,28 @@ export async function POST(request: Request, context: RouteContext) {
 
     if (!body.title?.trim()) throw new ValidationError('Task title is required')
 
+    // Validate agentId belongs to this organization (cross-tenant prevention)
+    if (body.agentId) {
+      const agentExists = await db.agent.findFirst({
+        where: { id: body.agentId, organizationId: mission.organizationId },
+        select: { id: true },
+      })
+      if (!agentExists) {
+        throw new ValidationError('Agent does not belong to this organization')
+      }
+    }
+
+    // Validate parentTaskId belongs to this mission
+    if (body.parentTaskId) {
+      const parentExists = await db.missionTask.findFirst({
+        where: { id: body.parentTaskId, missionId },
+        select: { id: true },
+      })
+      if (!parentExists) {
+        throw new ValidationError('Parent task does not belong to this mission')
+      }
+    }
+
     const task = await db.missionTask.create({
       data: {
         missionId,

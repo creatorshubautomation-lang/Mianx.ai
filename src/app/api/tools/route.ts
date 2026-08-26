@@ -6,7 +6,7 @@ import {
   getOrgIdParam,
   ValidationError,
 } from '@/lib/api-response'
-import { getUserIdFromRequest, requireOrgMember } from '@/lib/authorization'
+import { getUserIdFromRequest, requireOrgMember, requirePermission, Permissions } from '@/lib/authorization'
 import { getToolRegistry } from '@/lib/tool-registry'
 
 export async function GET(request: Request) {
@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
 
     await requireOrgMember(userId, organizationId)
+    await requirePermission(userId, organizationId, [Permissions.AGENT_VIEW])
 
     const tools = getToolRegistry()
 

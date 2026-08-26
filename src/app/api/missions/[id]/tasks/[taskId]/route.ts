@@ -64,6 +64,17 @@ export async function PUT(request: Request, context: RouteContext) {
 
     const body = await requireBody<UpdateMissionTaskDto>(request)
 
+    // Validate agentId belongs to this organization (cross-tenant prevention)
+    if (body.agentId !== undefined) {
+      const agentExists = await db.agent.findFirst({
+        where: { id: body.agentId, organizationId: mission.organizationId },
+        select: { id: true },
+      })
+      if (!agentExists) {
+        throw new ValidationError('Agent does not belong to this organization')
+      }
+    }
+
     const task = await db.missionTask.update({
       where: { id: taskId },
       data: {
