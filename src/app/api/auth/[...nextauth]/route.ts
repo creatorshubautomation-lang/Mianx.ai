@@ -18,7 +18,7 @@ const handler = async (req: Request, context: { params: Promise<{ nextauth: stri
 
   if (action === 'callback' && req.method === 'POST') {
     const clientIp = getClientIp(req)
-    const rateResult = rateLimit(`login:${clientIp}`, LOGIN_RATE_LIMIT, LOGIN_WINDOW_MS)
+    const rateResult = await rateLimit(`login:${clientIp}`, LOGIN_RATE_LIMIT, LOGIN_WINDOW_MS)
     if (!rateResult.success) {
       return new Response(
         JSON.stringify({ error: AuthErrors.RATE_LIMITED }),

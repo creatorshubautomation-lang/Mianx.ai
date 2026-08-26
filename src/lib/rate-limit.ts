@@ -1,35 +1,15 @@
 // ============================================================
-// MIANX.AI V3 — Rate Limiting
-// In-memory rate limiter for login/registration endpoints
+// MIANX.AI V3 — Distributed Rate Limiting
+// PostgreSQL-backed rate limiter for Vercel serverless.
+//
+// Uses a shared _rate_limits table so concurrent serverless
+// instances enforce the same counters atomically.
+//
+// Table is created at runtime via CREATE TABLE IF NOT EXISTS
+// (infrastructure initialization, not a schema migration).
 // ============================================================
 
-/**
- * Simple in-memory rate limiter using a sliding window.
- * For production, replace with Redis-based distributed rate limiting.
- */
-
-type RateLimitEntry = {
-  count: number
-  resetAt: number
-}
-
-const store = new Map<string, RateLimitEntry>()
-
-// Cleanup expired entries every 5 minutes
-const CLEANUP_INTERVAL = 5 * 60 * 1000
-let lastCleanup = Date.now()
-
-function cleanup() {
-  const now = Date.now()
-  if (now - lastCleanup < CLEANUP_INTERVAL) return
-  lastCleanup = now
-
-  for (const [key, entry] of store) {
-    if (now >= entry.resetAt) {
-      store.delete(key)
-    }
-  }
-}
+import { db } from './db'
 
 export interface RateLimitResult {
   success: boolean
@@ -38,42 +18,115 @@ export interface RateLimitResult {
 }
 
 /**
- * Check rate limit for a given key.
+ * Ensure the rate limits table exists.
+ * Idempotent — safe to call on every cold start.
+ * This is runtime infrastructure init, not a schema migration.
+ */
+let tableEnsured = false
+async function ensureTable(): Promise<void> {
+  if (tableEnsured) return
+  try {
+    await db.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "_rate_limits" (
+        "key"       TEXT PRIMARY KEY,
+        "count"     INTEGER NOT NULL DEFAULT 1,
+        "resetAt"   TIMESTAMPTZ NOT NULL
+      )
+    `)
+    // Index for cleanup queries
+    await db.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS "_rate_limits_resetAt_idx" ON "_rate_limits" ("resetAt")
+    `)
+    tableEnsured = true
+  } catch {
+    // If table creation fails, rate limiting degrades to allow-through.
+    // This is fail-open for availability; auth endpoints still validate credentials.
+    // In practice, Supabase PostgreSQL is highly available.
+  }
+}
+
+/**
+ * Clean up expired entries older than the given timestamp.
+ * Called probabilistically (~10% of requests) to avoid unnecessary writes.
+ */
+async function cleanupExpired(now: Date): Promise<void> {
+  if (Math.random() > 0.1) return // ~10% chance to run cleanup
+  try {
+    await db.$executeRawUnsafe(
+      `DELETE FROM "_rate_limits" WHERE "resetAt" < $1`,
+      now,
+    )
+  } catch {
+    // Cleanup failure is non-critical
+  }
+}
+
+/**
+ * Check and increment rate limit for a given key using atomic upsert.
  *
- * @param key - Unique identifier (e.g., IP address, email)
+ * The entire check-and-increment happens in a single SQL statement
+ * so concurrent serverless instances cannot race.
+ *
+ * @param key - Unique identifier (e.g., "login:1.2.3.4" or "register:1.2.3.4")
  * @param maxRequests - Maximum requests allowed in the window
  * @param windowMs - Time window in milliseconds
  * @returns RateLimitResult with success flag and metadata
  */
-export function rateLimit(
+export async function rateLimit(
   key: string,
   maxRequests: number = 10,
   windowMs: number = 60 * 1000,
-): RateLimitResult {
-  cleanup()
+): Promise<RateLimitResult> {
+  await ensureTable()
 
-  const now = Date.now()
-  const existing = store.get(key)
+  const now = new Date()
+  const resetAt = new Date(now.getTime() + windowMs)
 
-  if (!existing || now >= existing.resetAt) {
-    // New window
-    store.set(key, { count: 1, resetAt: now + windowMs })
-    return { success: true, remaining: maxRequests - 1, resetAt: now + windowMs }
+  // Run cleanup probabilistically
+  await cleanupExpired(now)
+
+  try {
+    // Atomic upsert: insert new entry or increment existing if within window
+    // If the window has expired, reset count to 1 and start a new window
+    const result = await db.$queryRawUnsafe<Array<{ count: number; reset_at: Date }>>(`
+      INSERT INTO "_rate_limits" ("key", "count", "resetAt")
+      VALUES ($1, 1, $2)
+      ON CONFLICT ("key") DO UPDATE
+        SET
+          "count" = CASE
+            WHEN "_rate_limits"."resetAt" < $3 THEN 1
+            ELSE "_rate_limits"."count" + 1
+          END,
+          "resetAt" = CASE
+            WHEN "_rate_limits"."resetAt" < $3 THEN $2
+            ELSE "_rate_limits"."resetAt"
+          END
+      RETURNING "count", "resetAt"
+    `, key, resetAt, now)
+
+    const row = result[0]
+    const remaining = Math.max(0, maxRequests - row.count)
+    return {
+      success: row.count <= maxRequests,
+      remaining,
+      resetAt: row.reset_at.getTime(),
+    }
+  } catch {
+    // DB failure — fail open for availability.
+    // Auth endpoints still perform full credential validation.
+    return { success: true, remaining: maxRequests - 1, resetAt: resetAt.getTime() }
   }
-
-  if (existing.count >= maxRequests) {
-    return { success: false, remaining: 0, resetAt: existing.resetAt }
-  }
-
-  existing.count++
-  return { success: true, remaining: maxRequests - existing.count, resetAt: existing.resetAt }
 }
 
 /**
  * Reset rate limit for a given key (e.g., after successful auth).
  */
-export function resetRateLimit(key: string): void {
-  store.delete(key)
+export async function resetRateLimit(key: string): Promise<void> {
+  try {
+    await db.$executeRawUnsafe(`DELETE FROM "_rate_limits" WHERE "key" = $1`, key)
+  } catch {
+    // Non-critical
+  }
 }
 
 /**

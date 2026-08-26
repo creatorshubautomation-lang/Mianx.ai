@@ -1,6 +1,6 @@
 // ============================================================
 // MIANX.AI V3 — Security Middleware
-// Adds security headers to all responses
+// Adds security headers to ALL responses including auth endpoints.
 // ============================================================
 
 import { NextResponse } from 'next/server'
@@ -9,6 +9,8 @@ import type { NextRequest } from 'next/server'
 /**
  * Security headers applied to every response.
  * These headers protect against common web vulnerabilities.
+ * Safe for all endpoints including NextAuth — no CSP/permissions-policy
+ * that could interfere with OAuth redirects.
  */
 const SECURITY_HEADERS: Record<string, string> = {
   'X-Content-Type-Options': 'nosniff',
@@ -36,8 +38,8 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Apply to all routes except Next.js static assets
   matcher: [
-    // Apply to all routes except API auth routes and static files
-    '/((?!api/auth/|_next/static|_next/image|favicon\\.ico).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico).*)',
   ],
 }

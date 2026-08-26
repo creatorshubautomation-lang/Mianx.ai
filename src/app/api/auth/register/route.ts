@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   return withErrorHandler(async () => {
     // Rate limit by client IP
     const clientIp = getClientIp(request)
-    const rateResult = rateLimit(`register:${clientIp}`, REGISTRATION_RATE_LIMIT, REGISTRATION_WINDOW_MS)
+    const rateResult = await rateLimit(`register:${clientIp}`, REGISTRATION_RATE_LIMIT, REGISTRATION_WINDOW_MS)
     if (!rateResult.success) {
       return error('TOO_MANY_REQUESTS', AuthErrors.RATE_LIMITED, 429)
     }
