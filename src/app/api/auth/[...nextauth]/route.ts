@@ -1,6 +1,10 @@
 // ============================================================
 // MIANX.AI V3 — NextAuth API Route Handler
 // With rate limiting on sign-in attempts
+//
+// Rate limiting is FAIL-CLOSED: if the rate-limit DB operation
+// fails, the request is rejected with 429. This prevents brute-
+// force attacks from exploiting DB unavailability.
 // ============================================================
 
 import NextAuth from 'next-auth'
@@ -18,7 +22,8 @@ const handler = async (req: Request, context: { params: Promise<{ nextauth: stri
 
   if (action === 'callback' && req.method === 'POST') {
     const clientIp = getClientIp(req)
-    const rateResult = await rateLimit(`login:${clientIp}`, LOGIN_RATE_LIMIT, LOGIN_WINDOW_MS)
+    // failClosed: true — auth endpoint, reject on DB failure
+    const rateResult = await rateLimit(`login:${clientIp}`, LOGIN_RATE_LIMIT, LOGIN_WINDOW_MS, true)
     if (!rateResult.success) {
       return new Response(
         JSON.stringify({ error: AuthErrors.RATE_LIMITED }),

@@ -51,16 +51,16 @@ describe('AuthErrors', () => {
 import { getClientIp } from './rate-limit'
 
 describe('getClientIp', () => {
-  it('should extract IP from x-forwarded-for', () => {
+  it('should prefer x-real-ip (Vercel-trusted) over x-forwarded-for', () => {
     const req = new Request('http://localhost', {
-      headers: { 'x-forwarded-for': '1.2.3.4, 5.6.7.8' },
+      headers: { 'x-real-ip': '10.0.0.1', 'x-forwarded-for': '1.2.3.4, 5.6.7.8' },
     })
-    expect(getClientIp(req)).toBe('1.2.3.4')
+    expect(getClientIp(req)).toBe('10.0.0.1')
   })
 
-  it('should fallback to x-real-ip', () => {
+  it('should take last x-forwarded-for entry (Vercel-appended) when no x-real-ip', () => {
     const req = new Request('http://localhost', {
-      headers: { 'x-real-ip': '10.0.0.1' },
+      headers: { 'x-forwarded-for': '1.2.3.4, 10.0.0.1' },
     })
     expect(getClientIp(req)).toBe('10.0.0.1')
   })
@@ -80,19 +80,21 @@ describe('rateLimit (interface)', () => {
     expect(typeof mod.rateLimit).toBe('function')
     const result = mod.rateLimit('test', 5, 1000)
     expect(result).toBeInstanceOf(Promise)
-    // DB will fail-open in test env
     const res = await result
     expect(typeof res.success).toBe('boolean')
     expect(typeof res.remaining).toBe('number')
     expect(typeof res.resetAt).toBe('number')
   })
 
-  it('should export resetRateLimit as async function', async () => {
+  it('should NOT export resetRateLimit (removed: dead code / brute-force risk)', async () => {
     const mod = await import('./rate-limit')
-    expect(typeof mod.resetRateLimit).toBe('function')
-    const result = mod.resetRateLimit('test')
+    expect(typeof (mod as Record<string, unknown>).resetRateLimit).not.toBe('function')
+  })
+
+  it('should accept failClosed parameter for auth endpoints', async () => {
+    const mod = await import('./rate-limit')
+    const result = mod.rateLimit('test', 5, 1000, true)
     expect(result).toBeInstanceOf(Promise)
-    await result
   })
 })
 

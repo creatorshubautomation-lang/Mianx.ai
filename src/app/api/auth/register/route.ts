@@ -1,6 +1,9 @@
 // ============================================================
 // MIANX.AI V3 — User Registration Endpoint
 // POST /api/auth/register
+//
+// Rate limiting is FAIL-CLOSED: if the rate-limit DB operation
+// fails, the request is rejected with 429.
 // ============================================================
 
 import { hash } from 'bcryptjs'
@@ -24,8 +27,9 @@ const REGISTRATION_WINDOW_MS = 15 * 60 * 1000 // 15 minutes
 export async function POST(request: Request) {
   return withErrorHandler(async () => {
     // Rate limit by client IP
+    // failClosed: true — auth endpoint, reject on DB failure
     const clientIp = getClientIp(request)
-    const rateResult = await rateLimit(`register:${clientIp}`, REGISTRATION_RATE_LIMIT, REGISTRATION_WINDOW_MS)
+    const rateResult = await rateLimit(`register:${clientIp}`, REGISTRATION_RATE_LIMIT, REGISTRATION_WINDOW_MS, true)
     if (!rateResult.success) {
       return error('TOO_MANY_REQUESTS', AuthErrors.RATE_LIMITED, 429)
     }
