@@ -216,7 +216,7 @@ enum FailureClassification {
 model Profile {
   id           String   @id @default(cuid())
   email        String   @unique
-  passwordHash String? // null = OAuth-only account, non-null = password account
+  passwordHash String // production User.passwordHash is NOT NULL
   displayName  String   @default("") @map("name")
   avatarUrl    String?
   locale       String   @default("en") @map("preferredLang")
