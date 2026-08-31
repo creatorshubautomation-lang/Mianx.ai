@@ -39,8 +39,17 @@ export async function GET(request: Request) {
 
     const nextCursor = items.length === limit ? items[items.length - 1].id : null
 
+    // Explicit response allowlist: never expose requestedAction or other
+    // internal approval payload fields to the client.
     const data = items.map((a) => ({
-      ...a,
+      id: a.id,
+      workflowRunId: a.workflowRunId,
+      missionId: a.missionId,
+      riskLevel: a.riskLevel,
+      requestedBy: a.requestedBy,
+      approvedBy: a.approvedBy,
+      decision: a.decision,
+      reason: a.reason,
       expiresAt: a.expiresAt ? String(a.expiresAt) : null,
       createdAt: String(a.createdAt),
       decidedAt: a.decidedAt ? String(a.decidedAt) : null,
