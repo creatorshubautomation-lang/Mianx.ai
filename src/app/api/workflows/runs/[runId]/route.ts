@@ -45,7 +45,12 @@ export async function GET(request: Request, context: RouteContext) {
         completedAt: s.completedAt ? String(s.completedAt) : null,
       })),
       approvals: approvals.map((a) => ({
-        ...a,
+        id: a.id,
+        workflowRunId: a.workflowRunId,
+        organizationId: a.organizationId,
+        missionId: a.missionId,
+        status: a.status,
+        riskLevel: a.riskLevel,
         expiresAt: a.expiresAt ? String(a.expiresAt) : null,
         createdAt: String(a.createdAt),
         decidedAt: a.decidedAt ? String(a.decidedAt) : null,
