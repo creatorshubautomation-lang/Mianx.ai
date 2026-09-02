@@ -17,7 +17,7 @@ import type { CreateAgentDto } from '@/lib/types'
 // GET /api/agents
 export async function GET(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
@@ -41,6 +41,14 @@ export async function GET(request: Request) {
       db.agent.count({ where }),
       db.agent.findMany({
         where,
+        select: {
+          id: true, organizationId: true, domainId: true,
+          name: true, slug: true, description: true,
+          status: true, type: true, capabilities: true,
+          version: true, successMetrics: true,
+          createdAt: true, updatedAt: true,
+          // Explicitly exclude 'configuration' — may contain secrets/prompts
+        },
         take: limit,
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         orderBy: { createdAt: 'desc' },
@@ -62,7 +70,7 @@ export async function GET(request: Request) {
 // POST /api/agents
 export async function POST(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
@@ -93,8 +101,19 @@ export async function POST(request: Request) {
       },
     })
 
+    // Return safe fields — exclude 'configuration' which may contain secrets
     return created({
-      ...agent,
+      id: agent.id,
+      organizationId: agent.organizationId,
+      domainId: agent.domainId,
+      name: agent.name,
+      slug: agent.slug,
+      description: agent.description,
+      status: agent.status,
+      type: agent.type,
+      capabilities: agent.capabilities,
+      version: agent.version,
+      successMetrics: agent.successMetrics,
       createdAt: String(agent.createdAt),
       updatedAt: String(agent.updatedAt),
     })

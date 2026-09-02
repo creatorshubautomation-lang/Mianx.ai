@@ -15,7 +15,7 @@ import { toJsonField } from '@/lib/types'
 // GET /api/integrations
 export async function GET(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
@@ -35,6 +35,12 @@ export async function GET(request: Request) {
       db.integration.count({ where }),
       db.integration.findMany({
         where,
+        select: {
+          id: true, organizationId: true, provider: true,
+          name: true, status: true,
+          createdAt: true, updatedAt: true,
+          // Explicitly exclude 'configuration' — may contain API keys/secrets
+        },
         take: limit,
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         orderBy: { createdAt: 'desc' },
@@ -56,7 +62,7 @@ export async function GET(request: Request) {
 // POST /api/integrations
 export async function POST(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
@@ -84,8 +90,13 @@ export async function POST(request: Request) {
       },
     })
 
+    // Exclude 'configuration' from response — may contain API keys/secrets
     return created({
-      ...integration,
+      id: integration.id,
+      organizationId: integration.organizationId,
+      provider: integration.provider,
+      name: integration.name,
+      status: integration.status,
       createdAt: String(integration.createdAt),
       updatedAt: String(integration.updatedAt),
     })

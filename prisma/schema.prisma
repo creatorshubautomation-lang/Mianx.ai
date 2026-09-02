@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -216,10 +216,10 @@ enum FailureClassification {
 model Profile {
   id           String   @id @default(cuid())
   email        String   @unique
-  passwordHash String?  // null = OAuth-only account, non-null = password account
-  displayName  String   @default("")
+  passwordHash String // production User.passwordHash is NOT NULL
+  displayName  String   @default("") @map("name")
   avatarUrl    String?
-  locale       String   @default("en")
+  locale       String   @default("en") @map("preferredLang")
   timezone     String   @default("UTC")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -230,6 +230,8 @@ model Profile {
   uploadedFiles File[]
   notifications Notification[]
   auditLogs     AuditLog[]               @relation("ActorLogs")
+
+  @@map("User")
 }
 
 model Organization {
@@ -605,6 +607,8 @@ model Agent {
   missionAgents MissionAgent[]
   delegations   AgentDelegation[] @relation("DelegateParent")
   delegatedTo   AgentDelegation[] @relation("DelegateChild")
+
+  @@map("V3Agent")
 }
 
 model AgentTool {
@@ -722,6 +726,8 @@ model AiCostRecord {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   aiRun        AiRun?       @relation(fields: [aiRunId], references: [id])
+
+  @@index([organizationId])
 }
 
 // ============================================================
@@ -741,6 +747,8 @@ model AgentMemory {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   agent        Agent?       @relation(fields: [agentId], references: [id])
+
+  @@map("V3AgentMemory")
 }
 
 model KnowledgeSource {
@@ -811,6 +819,8 @@ model WorkflowRun {
   steps        WorkflowStepRun[]
   approvals    WorkflowApproval[]
   events       Event[]
+
+  @@index([organizationId])
 }
 
 model WorkflowStepRun {
@@ -846,6 +856,8 @@ model WorkflowApproval {
   workflowRun  WorkflowRun? @relation(fields: [workflowRunId], references: [id])
   mission      Mission?     @relation(fields: [missionId], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
 }
 
 model Job {
@@ -887,6 +899,9 @@ model Event {
   organization Organization? @relation(fields: [organizationId], references: [id])
   mission      Mission?      @relation(fields: [missionId], references: [id])
   workflowRun  WorkflowRun?  @relation(fields: [workflowRunId], references: [id])
+
+  @@index([organizationId])
+  @@index([eventType])
 }
 
 model OutboxEvent {
@@ -899,6 +914,8 @@ model OutboxEvent {
   availableAt    DateTime?
   publishedAt    DateTime?
   createdAt      DateTime     @default(now())
+
+  @@index([status, availableAt])
 }
 
 // ============================================================
@@ -949,6 +966,8 @@ model Subscription {
   invoices     Invoice[]
   credits      Credit[]
   trials       Trial[]
+
+  @@map("V3Subscription")
 }
 
 model SubscriptionItem {
@@ -992,6 +1011,8 @@ model UsageRecord {
   createdAt      DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
 }
 
 model UsageMeter {
@@ -1132,6 +1153,9 @@ model Notification {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   recipient    Profile      @relation(fields: [recipientUserId], references: [id])
+
+  @@index([recipientUserId])
+  @@map("V3Notification")
 }
 
 model Setting {
@@ -1145,6 +1169,8 @@ model Setting {
   updatedAt      DateTime     @updatedAt
 
   organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([scopeType, scopeId])
 }
 
 model ApiKey {

@@ -14,7 +14,7 @@ type RouteContext = { params: Promise<{ id: string }> }
 export async function GET(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const approval = await db.workflowApproval.findUnique({ where: { id } })
     if (!approval) throw new NotFoundError('Approval')
@@ -23,7 +23,15 @@ export async function GET(request: Request, context: RouteContext) {
     await requirePermission(userId, approval.organizationId, [Permissions.APPROVAL_VIEW])
 
     return success({
-      ...approval,
+      id: approval.id,
+      workflowRunId: approval.workflowRunId,
+      missionId: approval.missionId,
+      organizationId: approval.organizationId,
+      riskLevel: approval.riskLevel,
+      requestedBy: approval.requestedBy,
+      approvedBy: approval.approvedBy,
+      decision: approval.decision,
+      reason: approval.reason,
       expiresAt: approval.expiresAt ? String(approval.expiresAt) : null,
       createdAt: String(approval.createdAt),
       decidedAt: approval.decidedAt ? String(approval.decidedAt) : null,
@@ -35,7 +43,7 @@ export async function GET(request: Request, context: RouteContext) {
 export async function POST(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const approval = await db.workflowApproval.findUnique({ where: { id } })
     if (!approval) throw new NotFoundError('Approval')
@@ -64,7 +72,15 @@ export async function POST(request: Request, context: RouteContext) {
     })
 
     return success({
-      ...updated,
+      id: updated.id,
+      workflowRunId: updated.workflowRunId,
+      missionId: updated.missionId,
+      organizationId: updated.organizationId,
+      riskLevel: updated.riskLevel,
+      requestedBy: updated.requestedBy,
+      approvedBy: updated.approvedBy,
+      decision: updated.decision,
+      reason: updated.reason,
       expiresAt: updated.expiresAt ? String(updated.expiresAt) : null,
       createdAt: String(updated.createdAt),
       decidedAt: updated.decidedAt ? String(updated.decidedAt) : null,

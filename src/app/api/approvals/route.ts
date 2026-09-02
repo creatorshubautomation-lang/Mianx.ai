@@ -12,7 +12,7 @@ import { getUserIdFromRequest, requireOrgMember, requirePermission, Permissions 
 // GET /api/approvals — list pending approvals for org
 export async function GET(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
@@ -39,8 +39,17 @@ export async function GET(request: Request) {
 
     const nextCursor = items.length === limit ? items[items.length - 1].id : null
 
+    // Explicit response allowlist: never expose requestedAction or other
+    // internal approval payload fields to the client.
     const data = items.map((a) => ({
-      ...a,
+      id: a.id,
+      workflowRunId: a.workflowRunId,
+      missionId: a.missionId,
+      riskLevel: a.riskLevel,
+      requestedBy: a.requestedBy,
+      approvedBy: a.approvedBy,
+      decision: a.decision,
+      reason: a.reason,
       expiresAt: a.expiresAt ? String(a.expiresAt) : null,
       createdAt: String(a.createdAt),
       decidedAt: a.decidedAt ? String(a.decidedAt) : null,

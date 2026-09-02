@@ -5,17 +5,18 @@ import {
   getOrgIdParam,
   ValidationError,
 } from '@/lib/api-response'
-import { getUserIdFromRequest, requireOrgMember } from '@/lib/authorization'
+import { getUserIdFromRequest, requireOrgMember, requirePermission, Permissions } from '@/lib/authorization'
 
 // GET /api/stats — org dashboard stats
 export async function GET(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
 
     await requireOrgMember(userId, organizationId)
+    await requirePermission(userId, organizationId, [Permissions.AUDIT_VIEW])
 
     const [
       agentCount,

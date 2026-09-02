@@ -16,7 +16,7 @@ type RouteContext = { params: Promise<{ id: string; memberId: string }> }
 export async function PUT(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id, memberId } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     await requireOrgMember(userId, id)
     await requirePermission(userId, id, [Permissions.ORG_MEMBERS_MANAGE])
 
@@ -96,7 +96,7 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id, memberId } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     await requireOrgMember(userId, id)
     await requirePermission(userId, id, [Permissions.ORG_MEMBERS_MANAGE])
 

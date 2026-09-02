@@ -17,7 +17,7 @@ type RouteContext = { params: Promise<{ id: string; taskId: string }> }
 export async function GET(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id: missionId, taskId } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const mission = await db.mission.findUnique({ where: { id: missionId } })
     if (!mission) throw new NotFoundError('Mission')
@@ -49,7 +49,7 @@ export async function GET(request: Request, context: RouteContext) {
 export async function PUT(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id: missionId, taskId } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const mission = await db.mission.findUnique({ where: { id: missionId } })
     if (!mission) throw new NotFoundError('Mission')
@@ -63,6 +63,17 @@ export async function PUT(request: Request, context: RouteContext) {
     if (!existing) throw new NotFoundError('Task')
 
     const body = await requireBody<UpdateMissionTaskDto>(request)
+
+    // Validate agentId belongs to this organization (cross-tenant prevention)
+    if (body.agentId !== undefined) {
+      const agentExists = await db.agent.findFirst({
+        where: { id: body.agentId, organizationId: mission.organizationId },
+        select: { id: true },
+      })
+      if (!agentExists) {
+        throw new ValidationError('Agent does not belong to this organization')
+      }
+    }
 
     const task = await db.missionTask.update({
       where: { id: taskId },
@@ -100,7 +111,7 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id: missionId, taskId } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const mission = await db.mission.findUnique({ where: { id: missionId } })
     if (!mission) throw new NotFoundError('Mission')

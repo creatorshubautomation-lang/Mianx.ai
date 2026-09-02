@@ -18,7 +18,7 @@ type RouteContext = { params: Promise<{ id: string }> }
 export async function GET(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     await requireOrgMember(userId, id)
 
     const org = await db.organization.findUnique({ where: { id } })
@@ -36,7 +36,7 @@ export async function GET(request: Request, context: RouteContext) {
 export async function PUT(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     await requireOrgMember(userId, id)
     await requirePermission(userId, id, [Permissions.ORG_MANAGE])
 
@@ -76,7 +76,7 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     await requireOrgMember(userId, id)
     await requirePermission(userId, id, [Permissions.ORG_DELETE])
 

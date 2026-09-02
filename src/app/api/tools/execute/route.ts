@@ -22,7 +22,7 @@ type ExecuteToolBody = {
 
 export async function POST(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
@@ -33,6 +33,18 @@ export async function POST(request: Request) {
 
     if (!body.toolKey) throw new ValidationError('toolKey is required')
     if (!body.input || typeof body.input !== 'object') throw new ValidationError('input must be an object')
+
+    // If an agent is supplied, bind it explicitly to the authenticated tenant.
+    // Never allow an agent ID from another organization to enter execution/logging.
+    if (body.agentId) {
+      const agent = await db.agent.findFirst({
+        where: { id: body.agentId, organizationId },
+        select: { id: true },
+      })
+      if (!agent) {
+        throw new ValidationError('Agent not found in this organization')
+      }
+    }
 
     // Resolve tool definition for permission check
     const tool = getTool(body.toolKey)
@@ -87,7 +99,6 @@ export async function POST(request: Request) {
         approval: {
           id: approval.id,
           riskLevel: approval.riskLevel,
-          requestedAction: approval.requestedAction,
           expiresAt: approval.expiresAt ? String(approval.expiresAt) : null,
           createdAt: String(approval.createdAt),
         },

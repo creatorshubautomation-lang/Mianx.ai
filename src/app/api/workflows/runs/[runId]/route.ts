@@ -12,7 +12,7 @@ type RouteContext = { params: Promise<{ runId: string }> }
 export async function GET(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { runId } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const run = await db.workflowRun.findUnique({
       where: { id: runId },

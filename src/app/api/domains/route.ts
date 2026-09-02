@@ -5,17 +5,17 @@ import {
   created,
   getPaginationParams,
   buildPaginationMeta,
+  getOrgIdParam,
   requireBody,
   ValidationError,
-  ForbiddenError,
 } from '@/lib/api-response'
-import { getUserIdFromRequest, requirePermission, Permissions } from '@/lib/authorization'
+import { getUserIdFromRequest, requireOrgMember, requirePermission, Permissions } from '@/lib/authorization'
 import { toJsonField, slugify } from '@/lib/types'
 
 // GET /api/domains — available domains (platform-level)
 export async function GET(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const { cursor, limit } = getPaginationParams(searchParams)
     const status = searchParams.get('status') ?? undefined
@@ -45,18 +45,21 @@ export async function GET(request: Request) {
   })
 }
 
-// POST /api/domains — admin: create domain (platform-level, requires any org membership as guard)
+// POST /api/domains — platform admin only
+// Domains are platform-level resources. Only organization OWNERS
+// can create new domains to prevent unauthorized users from
+// polluting the global domain registry.
 export async function POST(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
-    // SECURITY: Require at least one active org membership to create domains
-    // In production this should be restricted to platform admins only
-    const memberCount = await db.organizationMembership.count({
-      where: { userId, status: 'active' },
-    })
-    if (memberCount === 0) {
-      throw new ForbiddenError('Only authenticated members can create domains')
-    }
+    const userId = await getUserIdFromRequest(request)
+    const { searchParams } = new URL(request.url)
+    const organizationId = searchParams.get('organizationId')
+    if (!organizationId) throw new ValidationError('organizationId query parameter is required')
+
+    // SECURITY: Only org owners can create platform-level domains.
+    // This prevents any authenticated user from polluting the global registry.
+    await requireOrgMember(userId, organizationId)
+    await requirePermission(userId, organizationId, [Permissions.ORG_DELETE])
 
     const body = await requireBody<{
       name: string

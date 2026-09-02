@@ -16,7 +16,7 @@ type RouteContext = { params: Promise<{ id: string }> }
 export async function GET(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const workflow = await db.workflow.findUnique({ where: { id } })
     if (!workflow) throw new NotFoundError('Workflow')
@@ -25,7 +25,14 @@ export async function GET(request: Request, context: RouteContext) {
     await requirePermission(userId, workflow.organizationId, [Permissions.WORKFLOW_VIEW])
 
     return success({
-      ...workflow,
+      id: workflow.id,
+      organizationId: workflow.organizationId,
+      domainId: workflow.domainId,
+      name: workflow.name,
+      slug: workflow.slug,
+      status: workflow.status,
+      triggerType: workflow.triggerType,
+      definition: workflow.definition,
       createdAt: String(workflow.createdAt),
       updatedAt: String(workflow.updatedAt),
     })
@@ -36,7 +43,7 @@ export async function GET(request: Request, context: RouteContext) {
 export async function PUT(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const existing = await db.workflow.findUnique({ where: { id } })
     if (!existing) throw new NotFoundError('Workflow')
@@ -59,7 +66,14 @@ export async function PUT(request: Request, context: RouteContext) {
     })
 
     return success({
-      ...workflow,
+      id: workflow.id,
+      organizationId: workflow.organizationId,
+      domainId: workflow.domainId,
+      name: workflow.name,
+      slug: workflow.slug,
+      status: workflow.status,
+      triggerType: workflow.triggerType,
+      definition: workflow.definition,
       createdAt: String(workflow.createdAt),
       updatedAt: String(workflow.updatedAt),
     })
@@ -70,7 +84,7 @@ export async function PUT(request: Request, context: RouteContext) {
 export async function DELETE(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { id } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
 
     const workflow = await db.workflow.findUnique({ where: { id } })
     if (!workflow) throw new NotFoundError('Workflow')

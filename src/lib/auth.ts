@@ -9,6 +9,17 @@ import { compare } from 'bcryptjs'
 import { db } from './db'
 
 /**
+ * Fail-closed check: NEXTAUTH_SECRET MUST be set in production.
+ * If missing, authentication is completely disabled — no silent fallback.
+ */
+if (process.env.NODE_ENV === 'production' && !process.env.NEXTAUTH_SECRET) {
+  throw new Error(
+    '[SECURITY] NEXTAUTH_SECRET is not set. Authentication is disabled. ' +
+    'Set NEXTAUTH_SECRET in your environment to enable authentication.'
+  )
+}
+
+/**
  * NextAuth configuration for Mianx.ai V3.
  *
  * Strategy: JWT (stateless, no DB sessions)
@@ -22,7 +33,7 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
-  // Cookie settings
+  // Cookie settings — secure by default
   cookies: {
     sessionToken: {
       name: `${process.env.NEXTAUTH_URL?.startsWith('https') ? '__Secure-' : ''}next-auth.session-token`,
@@ -37,17 +48,14 @@ export const authOptions: NextAuthOptions = {
 
   // JWT callbacks
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      // Initial sign in — attach user info to token
+    async jwt({ token, user }) {
+      // Initial sign in — attach only server-authenticated identity.
+      // Never merge client-controlled session.update() data into the JWT:
+      // doing so would allow a client to overwrite userId/email/displayName.
       if (user) {
         token.userId = user.id
         token.email = user.email
         token.displayName = (user as unknown as Record<string, unknown>).displayName as string ?? ''
-      }
-
-      // Session update (e.g., after org switch)
-      if (trigger === 'update' && session) {
-        token = { ...token, ...session }
       }
 
       return token

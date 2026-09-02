@@ -7,17 +7,18 @@ import {
   getOrgIdParam,
   ValidationError,
 } from '@/lib/api-response'
-import { getUserIdFromRequest, requireOrgMember } from '@/lib/authorization'
+import { getUserIdFromRequest, requireOrgMember, requirePermission, Permissions } from '@/lib/authorization'
 
 // GET /api/events — org events, filterable by missionId, type
 export async function GET(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
 
     await requireOrgMember(userId, organizationId)
+    await requirePermission(userId, organizationId, [Permissions.AUDIT_VIEW])
 
     const { cursor, limit } = getPaginationParams(searchParams)
     const missionId = searchParams.get('missionId') ?? undefined
@@ -36,6 +37,17 @@ export async function GET(request: Request) {
         take: limit,
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         orderBy: { occurredAt: 'desc' },
+        select: {
+          id: true,
+          eventType: true,
+          actorType: true,
+          actorId: true,
+          missionId: true,
+          description: true,
+          // payload is EXCLUDED — may contain sensitive operation details
+          occurredAt: true,
+          createdAt: true,
+        },
       }),
     ])
 

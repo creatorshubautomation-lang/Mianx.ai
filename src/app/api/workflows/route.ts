@@ -16,7 +16,7 @@ import type { CreateWorkflowDto } from '@/lib/types'
 // GET /api/workflows
 export async function GET(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
@@ -50,7 +50,14 @@ export async function GET(request: Request) {
     const nextCursor = items.length === limit ? items[items.length - 1].id : null
 
     const data = items.map((w) => ({
-      ...w,
+      id: w.id,
+      organizationId: w.organizationId,
+      domainId: w.domainId,
+      name: w.name,
+      slug: w.slug,
+      status: w.status,
+      triggerType: w.triggerType,
+      // 'definition' excluded — may contain internal business logic
       createdAt: String(w.createdAt),
       updatedAt: String(w.updatedAt),
     }))
@@ -62,7 +69,7 @@ export async function GET(request: Request) {
 // POST /api/workflows
 export async function POST(request: Request) {
   return withErrorHandler(async () => {
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
@@ -91,7 +98,14 @@ export async function POST(request: Request) {
     })
 
     return created({
-      ...workflow,
+      id: workflow.id,
+      organizationId: workflow.organizationId,
+      domainId: workflow.domainId,
+      name: workflow.name,
+      slug: workflow.slug,
+      status: workflow.status,
+      triggerType: workflow.triggerType,
+      // 'definition' excluded from response
       createdAt: String(workflow.createdAt),
       updatedAt: String(workflow.updatedAt),
     })

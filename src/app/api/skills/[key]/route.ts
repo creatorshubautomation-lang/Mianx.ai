@@ -19,7 +19,7 @@ type RouteContext = { params: Promise<{ key: string }> }
 export async function GET(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { key } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
@@ -59,16 +59,22 @@ export async function GET(request: Request, context: RouteContext) {
 }
 
 // DELETE /api/skills/[key]
+// SECURITY: Skills are platform-level resources (no organizationId).
+// Only organization OWNERS may delete skills, and the deletion is
+// restricted to owners of ANY organization to prevent accidental
+// destruction of shared platform resources by low-privilege members.
 export async function DELETE(request: Request, context: RouteContext) {
   return withErrorHandler(async () => {
     const { key } = await context.params
-    const userId = getUserIdFromRequest(request)
+    const userId = await getUserIdFromRequest(request)
     const { searchParams } = new URL(request.url)
     const organizationId = getOrgIdParam(searchParams)
     if (!organizationId) throw new ValidationError('organizationId query parameter is required')
 
+    // Require org OWNER — skills are global, deletion is destructive.
+    // Only owners (not admins/members/viewers) can delete shared skills.
     await requireOrgMember(userId, organizationId)
-    await requirePermission(userId, organizationId, [Permissions.AGENT_DELETE])
+    await requirePermission(userId, organizationId, [Permissions.ORG_DELETE])
 
     const skill = await db.skill.findUnique({ where: { key } })
     if (!skill) throw new NotFoundError('Skill')
