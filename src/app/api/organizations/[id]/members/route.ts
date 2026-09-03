@@ -93,15 +93,10 @@ export async function POST(request: Request, context: RouteContext) {
 
     const roleSlug = body.roleSlug ?? 'member'
 
-    // Find or create the target profile
-    let targetUser = await db.profile.findUnique({ where: { email: body.email.trim() } })
+    // Only invite an existing account. Do not create an incomplete Profile without credentials.
+    const targetUser = await db.profile.findUnique({ where: { email: body.email.trim() } })
     if (!targetUser) {
-      targetUser = await db.profile.create({
-        data: {
-          email: body.email.trim(),
-          displayName: body.email.trim().split('@')[0],
-        },
-      })
+      throw new ValidationError('User must register before being invited')
     }
 
     // Check existing membership
